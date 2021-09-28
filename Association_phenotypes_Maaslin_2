@@ -1,0 +1,127 @@
+######################### Associating mother and baby phenotypes with microbiome ##############################
+# Last update: 28th september 2021, T.Sinha 
+
+# Necessary packages 
+library(tidyverse)
+library(Maaslin2)
+library(ggpubr)
+library(vegan)
+
+#Separating mothers and babies for further analysis 
+setwd("~/Resilio Sync/NEXT Pilot/01. Data/02.MICROBIOME/METAPHLAN3/")
+metaphlan_3 <- read.table("Metaphlan_3_Species_filtered_basic_aug_2021", sep='\t', header=T, row.names = 1)
+samples_metadata <- read.table("~/Resilio Sync/NEXT Pilot/03. Phenotypes/Microbiome_metadata_phenos.txt", sep='\t', header=T, row.names = 1)
+species_filt_RA=metaphlan_3 # With basic filtration (RA 0.01% and Prevalence 1%)
+babymeta=samples_metadata[samples_metadata$Type=="Baby",]
+mothermeta=samples_metadata[samples_metadata$Type=="Mother",]
+overlapbaby  = intersect(rownames(babymeta), rownames(species_filt_RA))
+speciesbaby = species_filt_RA[overlapbaby,]
+
+#Testing the effect of sample type  on alpha diversity 
+alpha<-diversity(species_filt_RA, index = "shannon")
+samples_metadata$Shannon_Diversity_Index=alpha
+modshannontype = lm(data = samples_metadata, Shannon_Diversity_Index ~ Type)
+summary (modshannontype) 
+anova (modshannontype) # Highly significant p<2.2 x10-16
+s <- ggplot(samples_metadata, aes(x=Type, y=Shannon_Diversity_Index,fill=Type)) + labs (y="Shannon diversity Index",x="") + geom_violin(trim=FALSE) + geom_boxplot(width = 0.1) + theme_classic() + theme(legend.position="none")
+s +ggtitle("") +theme(
+  plot.title = element_text(color="black", size=24, face="bold"),
+  axis.title.x = element_text(color="black", size=24, face="bold"),
+  axis.title.y = element_text(color="black", size=24, face="bold"),
+  axis.text=element_text(size=24))
+
+#Testing the effect of time points on alpha diversity, in babies 
+mod1  = lmer(data = samples_metadata, Shannon_index_sp ~ Type + Timepoint_continuous + (1|PSEUDOID_number), REML = F) 
+modshannontimepointbaby1 = lm(data = babymeta, Shannon_Diversity_Index ~ Timepoint_continuous) 
+anova(mod1) 
+
+# Violin plots 
+s <- ggplot(babymeta, aes(x=Timepoint, y=Shannon_Diversity_Index,fill=Timepoint)) + labs (y="Shannon diversity Index",x="") + geom_violin(trim=FALSE) + geom_boxplot(width = 0.1) + theme_classic() + theme(legend.position="none")
+s +ggtitle("") +theme(
+  plot.title = element_text(color="black", size=24, face="bold"),
+  axis.title.x = element_text(color="black", size=24, face="bold"),
+  axis.title.y = element_text(color="black", size=24, face="bold"),
+  axis.text=element_text(size=24))
+
+#Testing the effect of time points on alpha diversity, in mothers 
+modshannontimepointmother1 = lm(data = mothermeta, Shannon_Diversity_Index ~ Timepoint_continuous) 
+anova(modshannontimepointmother1) 
+mothermeta$Timepoint=as.factor(mothermeta$Timepoint)
+mothermeta$Timepoint <- factor(mothermeta$Timepoint,levels = c("P3", "P7", "B", "M3"))
+
+# Violin plots 
+s <- ggplot(mothermeta, aes(x=Timepoint, y=Shannon_Diversity_Index,fill=Timepoint)) + labs (y="Shannon diversity Index",x="") + geom_violin(trim=FALSE) + geom_boxplot(width = 0.1) + theme_classic() + theme(legend.position="none")
+s +ggtitle("") +theme(
+  plot.title = element_text(color="black", size=24, face="bold"),
+  axis.title.x = element_text(color="black", size=24, face="bold"),
+  axis.title.y = element_text(color="black", size=16, face="bold"),
+  axis.text=element_text(size=24))
+
+#Special filtering for association analysis 
+speciesbabyfil= speciesbaby[,(apply(speciesbaby, 2, function(x) sum(x > 0.0001) > 0.05 * nrow(speciesbaby))) ]#abundance and prevalence specific to babies: filtering out at 0.01% abundance and has to occur in at least 5% of the samples: extra for association analysis 
+overlapmother =intersect (rownames(mothermeta), rownames(species_filt_RA))
+speciesmother = species_filt_RA[overlapmother,]
+speciesmotherfil= speciesmother[,(apply(speciesmother, 2, function(x) sum(x > 0.0001) > 0.05 * nrow(speciesbaby))) ]#abundance and prevalence specific to mothers: filtering out at 0.01% abundance and has to occur in at least 5% of the samples extra for association analysis 
+
+### Association with phenotypes in babies and mothers 
+
+# This code is meant to be run on infants and mothers separately as different phenotypes are being tested and the abundace and prevalence filters will result in a very different unch of species 
+# CLR Normalization function 
+do_clr_externalWeighting = function(interest_matrix, core_matrix) {
+  if(any(interest_matrix==0)) interest_matrix = interest_matrix + min(interest_matrix[interest_matrix>0])/2
+  if(any(core_matrix==0)) core_matrix = core_matrix + min(core_matrix[core_matrix>0])/2
+  #estimate weighting parameter
+  gm_mean = function(x, na.rm=TRUE){
+    exp(sum(log(x), na.rm=na.rm) / length(x))
+  }
+  Gmean_core = apply(core_matrix, 1, gm_mean)
+  
+  #do transformation
+  data_prepared = cbind(Gmean_core,interest_matrix)
+  data_transformed = t(apply(data_prepared,1,function(x){
+    log(x / x[1])[-1]
+  }))
+  colnames(data_transformed) = colnames(data_transformed)
+  rownames(data_transformed) = rownames(data_transformed)
+  data_transformed
+}
+
+## Normalization 
+speciesbabyfil_transformed = do_clr_externalWeighting(speciesbabyfil, speciesbabyfil) #Performing normalization (CLR)
+speciesbabyfil_transformed_DF=as.data.frame(speciesbabyfil_transformed)
+
+# Maaslin2
+
+library(Maaslin2)
+setwd("~/Resilio Sync/NEXT Pilot/03. Phenotypes/Association_analysis")
+input_data=speciesbabyfil_transformed_DF
+names (babymeta)
+input_metadata=babymeta[,c("NEXT_ID" ,"Sex" ,"Delivery_mode" ,"Feeding_type_baby","Timepoint_continuous", "Birthweight_g", "Place", "Age_mother","Maternal_BMI_pre_pregnancy_LL_baseline","Gestational_age" )]
+input_metadata$NEXT_ID=as.factor(input_metadata$NEXT_ID)
+#input_metadata=input_metadata[complete.cases(input_metadata), ]
+input_metadata$Feeding_type_baby=gsub("Combination","all",input_metadata$Feeding_type_baby)
+input_metadata$Feeding_type_baby=gsub("Bottlefeeding","all",input_metadata$Feeding_type_baby)
+input_metadata$Feeding_type_baby=gsub("Breastfeeding","Exclusive_BF",input_metadata$Feeding_type_baby)
+names(input_metadata)
+
+Maaslin2(
+  input_data,
+  input_metadata,
+  "Maaslin_baby_results_DM_FT_Place_TP_GA_Sex_fixed",
+  min_abundance = 0.00,
+  min_prevalence = 0.00,
+  min_variance = 0.0,
+  normalization = "NONE",
+  transform = "NONE",
+  analysis_method = "LM",
+  max_significance = 0.1,
+  random_effects = 'NEXT_ID',
+  fixed_effects = c("NEXT_ID" ,"Sex" ,"Delivery_mode" ,"Feeding_type_baby","Timepoint_continuous", "Birthweight_g", "Place", "Age_mother","Maternal_BMI_pre_pregnancy_LL_baseline","Gestational_age"),
+  correction = "BH",
+  standardize = TRUE,
+  cores = 1,
+  plot_heatmap = TRUE,
+  plot_scatter = TRUE,
+  heatmap_first_n = 50,
+  reference = NULL
+)
