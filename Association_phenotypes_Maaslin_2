@@ -65,8 +65,13 @@ speciesmotherfil= speciesmother[,(apply(speciesmother, 2, function(x) sum(x > 0.
 
 ### Association with phenotypes in babies and mothers 
 
-# This code is meant to be run on infants and mothers separately as different phenotypes are being tested and the abundace and prevalence filters will result in a very different unch of species 
+# This code is meant to be run on infants and mothers separately as different phenotypes are being tested and the abundace and prevalence filters will result in a very different nch of species 
+
+
 # CLR Normalization function 
+# This code assumes rows as sample ID's 
+# In case of prior filteration to taxonomix level the interest matrix and core matrix are the same 
+
 do_clr_externalWeighting = function(interest_matrix, core_matrix) {
   if(any(interest_matrix==0)) interest_matrix = interest_matrix + min(interest_matrix[interest_matrix>0])/2
   if(any(core_matrix==0)) core_matrix = core_matrix + min(core_matrix[core_matrix>0])/2
