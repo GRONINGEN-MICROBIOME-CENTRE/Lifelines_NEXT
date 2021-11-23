@@ -124,7 +124,9 @@ en$factors #Type 0.69  0.001 ***;
 
 pdf("FigureS4A.pdf", width=21/2.54, height=10/2.54, family = "Arial")
 
+
 dev.off()
+
 
 ##### OUTPUT #####
 write.table(sharedness, '../INTERMEDIATE_OUTPUT/Figure_5DE_data.txt', sep='\t', quote=F)
