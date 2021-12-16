@@ -43,9 +43,12 @@ bash./makeDistMat.sh ./species_directory/species.aln
 echo 'maker of distance matrix from multiple alignment'
 echo ' feed it with .aln file (multiple alignment)'
 echo 'NOTE: make sure conda is loaded'
+
+#Create a distance matrix from a multiple sequence alignment using the EMBOSS package (https://www.bioinformatics.nl/cgi-bin/emboss/help/distmat) 
+# distmat calculates the evolutionary distance between every pair of sequences in a multiple sequence alignment.
+# Uses Kimura Two-Parameter distance (distances expressed in terms of the number of substitutions per 100 b.p or amino acids) 
 distmat -sequence ${1} -nucmethod 2 -outfile ${1/.aln/.dmat}
 
-# Uses Kimura Two-Parameter distance (disrances expressed in terms of the number of substitutions per 100 b.p of amino acids) 
 
 # Step 3: Cleaning the distance matrix from MSA file 
 ml RPlus 
