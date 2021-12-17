@@ -1,0 +1,3 @@
+[submodule "pilot_analysis"]
+	path = pilot_analysis
+	url = https://github.com/Sapsanas/pilot_analysis
