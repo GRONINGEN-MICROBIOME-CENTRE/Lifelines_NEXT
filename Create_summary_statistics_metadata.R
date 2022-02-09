@@ -105,5 +105,5 @@ summary_statistics_metadata <- function (metadata_input, category_table) {
 }
 
 # USAGE 
-summary_statistics_metadata (df)
+summary_statistics_metadata (metadata_input)
 
