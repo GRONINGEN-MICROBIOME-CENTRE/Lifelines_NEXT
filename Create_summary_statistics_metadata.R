@@ -1,7 +1,7 @@
 ### Calculate summary statistics of metadata file ###
 
 # Creator: Paula Sureda | Arnau Vich
-# Modified: Trishla Sinha
+# Modified: Trishla Sinha, to suit needs for the Lifelnes NEXT cohort 
 # Last update: 9th February 2022
 
 ## STEPS##
