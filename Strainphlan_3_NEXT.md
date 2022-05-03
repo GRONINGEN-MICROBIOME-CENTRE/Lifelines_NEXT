@@ -49,7 +49,7 @@ sbatch ./profileClades.sh
 
 ```
 This will generate a .txt file with the list of clades that have been detected in the samples. 
-E.g _s__Bifidobacterium_scradovi: in 12 samples._ 
+E.g _s__Bifidobacterium_scardovi: in 12 samples._ 
 
 We process the output file to select only the clade names
 
@@ -57,7 +57,11 @@ We process the output file to select only the clade names
 cat LLNEXT_pilot_april_clades.txt | grep s__ | cut -f 2 | cut -f 1 -d ':' > LLNEXT_pilot_april_clade_names.txt
 
 ```
-## Step 3: Perform MSA (doMarkerComparisonLLNext.sh)
+
+This will give us the names of each species found 
+_s__Bifidobacterium_scradovi_
+
+## Step 3: Build the multiple sequence alignment (doMarkerComparisonLLNext.sh)
 
 
 ```
@@ -76,7 +80,7 @@ ml Anaconda3/5.3.0
 source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
 
 mkdir ${1}
-strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --output_dir ./${1} --clade ${1} --marker_in_n_samples 50 --sample_with_n_markers 20 --nprocs 8
+strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --output_dir ./${1} --clade ${1} --marker_in_n_samples 15 --sample_with_n_markers 20 --nprocs 8
 doMarkerComparisonLLNext.sh (END)
 
 ```
@@ -88,7 +92,7 @@ for i in $(cat LLNEXT_pilot_april_clade_names.txt); do sbatch doMarkerComparison
 ```
 
 This will perform MSA and create .tre files and .aln files for each of the species you feed it in
-MSA was performed on consensus marker presence in at least in 50 samples 
+MSA was performed on consensus marker presence in at least in 15 samples 
 
 
 ## Step 4: Make distance matrix from MSA file
