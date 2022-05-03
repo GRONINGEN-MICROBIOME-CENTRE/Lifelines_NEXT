@@ -1,9 +1,9 @@
 # Strainphlan 3.0 analysis for Lifelines NEXT pilot
 
-Adapted from Biobakery (StrainPhlAn 3.0) 
-Authors: Ranko Gascesa, Trishla Sinha, Asier Fernandez
-Description: The script shows how strain profiling was performed using Strainphlan 3 for all samples, for all species 
-Languages: Bash and R
+Adapted from Biobakery (StrainPhlAn 3.0).  
+Authors: Ranko Gascesa, Trishla Sinha, Asier Fernandez. 
+Description: The script shows how strain profiling was performed using Strainphlan 3 for all samples, for all species. 
+Languages: Bash and R. 
 
 ## Step 1: Reconstruct all species strains
 
