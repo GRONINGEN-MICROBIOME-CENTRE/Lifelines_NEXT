@@ -3,6 +3,7 @@
 Adapted from Biobakery (StrainPhlAn 3.0) 
 Authors: Ranko Gascesa, Trishla Sinha, Asier Fernandez
 Description: The script shows how strain profiling was performed using Strainphlan 3 for all samples, for all species 
+Languages: Bash and R
 
 ## Step 1: Reconstruct all species strains
 
@@ -41,32 +42,23 @@ source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_con
 strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --print_clades_only --output_dir . > LLNEXT_pilot_april_clades.txt
 
 ```
-#### Execution ######
+### Execution 
 
 ```
 sbatch ./profileClades.sh 
 
 ```
-# This will generate a .txt file with the list of clades that have been detected in the samples
-# We process the output file to select only the clade names
+This will generate a .txt file with the list of clades that have been detected in the samples. 
+E.g _s__Bifidobacterium_scradovi: in 12 samples._ 
+
+We process the output file to select only the clade names
 
 ```
-cat LLnext_clades.txt | grep s__ | cut -f 2 | cut -f 1 -d ':' > LLnext_clades_names.txt
+cat LLNEXT_pilot_april_clades.txt | grep s__ | cut -f 2 | cut -f 1 -d ':' > LLNEXT_pilot_april_clade_names.txt
 
 ```
-# Step 2: Perform MSA
+## Step 3: Perform MSA (doMarkerComparisonLLNext.sh)
 
-Example: sbatch ./doMarkerComparisonLLNext.sh s__Bifidobacterium_bifidum
-
-# Here, we use a loop to iterate over all detected clades
-```
-for i in $(cat LL_next_clades_names.txt); do sbatch doMarkerComparisonLLNext.sh $i; done 
-```
-
-#This will perform MSA and create .tre files and .aln files for each of the species you feed it in. 
-# MSA was performed on consensus marker presence in at least in 50 samples 
-
-#doMarkerComparisonLLNext.sh consists of: 
 
 ```
 #!/bin/bash
@@ -84,14 +76,25 @@ ml Anaconda3/5.3.0
 source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
 
 mkdir ${1}
-strainphlan -s /groups/umcg-dag3/tmp01/NEXT_pilot_results/strainphlan3/*.pkl --output_dir ./${1} --clade ${1} --marker_in_n_samples 50 --sample_with_n_markers 20 --nprocs 8
+strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --output_dir ./${1} --clade ${1} --marker_in_n_samples 50 --sample_with_n_markers 20 --nprocs 8
 doMarkerComparisonLLNext.sh (END)
 
 ```
-# Step 3: Make distance matrix from MSA file
 
-#Example: 
-#bash ./makeDistMat.sh ./s__Alistipes_shahii/s__Alistipes_shahii.StrainPhlAn3_concatenated.aln
+### Execution
+
+```
+for i in $(cat LLNEXT_pilot_april_clade_names.txt); do sbatch doMarkerComparisonLLNext.sh $i; done 
+```
+
+This will perform MSA and create .tre files and .aln files for each of the species you feed it in
+MSA was performed on consensus marker presence in at least in 50 samples 
+
+
+## Step 4: Make distance matrix from MSA file
+
+Example: 
+bash ./makeDistMat.sh ./s__Alistipes_shahii/s__Alistipes_shahii.StrainPhlAn3_concatenated.aln
 
 ```
 for i in $(find . -type f -name *.aln); do bash makeDistMat.sh $i; done 
@@ -108,10 +111,12 @@ echo 'NOTE: make sure conda is loaded'
 distmat -sequence ${1} -nucmethod 2 -outfile ${1/.aln/.dmat}
 
 ```
-# Step 4: Cleaning the distance matrix from MSA file 
+## Step 5: Cleaning the distance matrix from MSA file 
 
-# First, load RPlus
+First, load RPlus
+```
 ml RPlus 
+```
 
 #Example: Rscript parseDMat_LLNext.R s__Bifidobacterium_bifidum.dmat
 ```
