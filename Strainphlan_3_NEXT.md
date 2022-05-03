@@ -6,11 +6,11 @@ Authors: Ranko Gascesa, Trishla Sinha, Asier Fernandez
 ### Description
 The script shows how strain profiling was performed using Strainphlan 3 for all samples, for all species 
 
-# Step1: Reconstruct all species stains
+## Step1: Reconstruct all species stains
 
 (see main microbiome profiling pipeline) 
 
-# Step 2: Profile the clades present in the samples (profileClades.sh)
+## Step 2: Profile the clades present in the samples (profileClades.sh)
 
 ```
 #!/bin/bash
