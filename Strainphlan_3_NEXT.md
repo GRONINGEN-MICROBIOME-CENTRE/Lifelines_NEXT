@@ -4,7 +4,7 @@ Adapted from Biobakery (StrainPhlAn 3.0)
 Authors: Ranko Gascesa, Trishla Sinha, Asier Fernandez
 Description: The script shows how strain profiling was performed using Strainphlan 3 for all samples, for all species 
 
-## Step 1: Reconstruct all species stains
+## Step 1: Reconstruct all species strains
 
 (see main microbiome profiling pipeline) 
 
