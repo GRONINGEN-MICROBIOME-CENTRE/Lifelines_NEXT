@@ -1,10 +1,12 @@
-### Strainphlan 3.0 analysis for Lifelines NEXT pilot
+# Strainphlan 3.0 analysis for Lifelines NEXT pilot
 
-# Adapted from Biobakery (StrainPhlAn 3.0) by Ranko Gascesa, Trishla Sinha (2021)
+Adapted from Biobakery (StrainPhlAn 3.0) 
+Authors: Ranko Gascesa, Trishla Sinha, Asier Fernandez
 
-# The script shows how strain profiling was performed using Strainphlan 3 for all samples, for all species 
+### Description
+The script shows how strain profiling was performed using Strainphlan 3 for all samples, for all species 
 
-### Step1: Reconstruct all species stains
+# Step1: Reconstruct all species stains
 
 (see main microbiome profiling pipeline) 
 
