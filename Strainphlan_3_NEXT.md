@@ -1,10 +1,18 @@
-# Strainphlan 3.0 analysis for Lifelines NEXT pilot on Gearshift 
+############################### Strainphlan 3.0 analysis for Lifelines NEXT pilot ###################################
 
-Adapted from Biobakery (StrainPhlAn 3.0) by Ranko Gascesa, Trishla Sinha (2021)
+# Adapted from Biobakery (StrainPhlAn 3.0) by Ranko Gascesa, Trishla Sinha (2021)
 
-After creating consensus-marker files which are the input for StrainPhlAn (.pkl) run the following code:
+# The script shows how strain profiling was performed using Strainphlan 3 for all samples, for all species 
 
-# Step 1: Profile the clades present in the samples
+##################################################################################################################
+# Step1: Reconstruct all species stains
+##################################################################################################################
+
+(see main microbiome profiling pipeline) 
+
+##################################################################################################################
+# Step 2: Profile the clades present in the samples (profileClades.sh)
+##################################################################################################################
 
 #!/bin/bash
 
@@ -35,7 +43,7 @@ source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_con
 # run clade profiling
 strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --print_clades_only --output_dir . > LLNEXT_pilot_april_clades.txt
 
-#Execution 
+#### Execution ######
 
 sbatch ./profileClades.sh 
 
