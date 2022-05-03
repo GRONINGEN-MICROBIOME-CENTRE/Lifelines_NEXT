@@ -6,6 +6,37 @@ After creating consensus-marker files which are the input for StrainPhlAn (.pkl)
 
 # Step 1: Profile the clades present in the samples
 
+#!/bin/bash
+
+#SBATCH --mem=16gb
+#SBATCH --time=0-00:30:00
+#SBATCH --cpus-per-task=4
+#SBATCH --open-mode=truncate
+
+# NOTES:
+# > $1 is clade name
+# > variables should be set to:
+#   MARKERS_INPUTDATA: where markers for DATASET TO PROCESS are (must be bundled in one folder)
+#   OUTFOLDER: where results go
+#   MPA_MARKERS_EXTRACTED: folder with extracted metaphlan markers (extracted from metaphlan pkled markers database = MPA_PKL)
+#   MPA_PKL: metaphlan pkled database
+#   THREADS: NR of threads for main app
+#   THREADS_RAXML: NR of threads for RAXML
+
+# purge modules
+module purge
+
+# load conda
+ml Anaconda3/5.3.0
+
+# load conda env
+source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
+
+# run clade profiling
+strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --print_clades_only --output_dir . > LLNEXT_pilot_april_clades.txt
+
+#Execution 
+
 sbatch ./profileClades.sh 
 
 # This will generate a .txt file with the list of clades that have been detected in the samples
