@@ -41,7 +41,7 @@ ml Anaconda3/5.3.0
 source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
 
 # run clade profiling
-strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --print_clades_only --output_dir . > LLNEXT_pilot_april_clades.txt
+strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --print_clades_only --marker_in_n_samples 15 --sample_with_n_markers 20 --output_dir . > LLNEXT_pilot_april_clades.txt
 
 ```
 ### Execution 
@@ -82,7 +82,7 @@ ml Anaconda3/5.3.0
 source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
 
 mkdir ${1}
-strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --output_dir ./${1} --clade ${1} --marker_in_n_samples 15 --sample_with_n_markers 20 --nprocs 8
+strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --output_dir ./${1} --clade ${1} --nprocs 8
 doMarkerComparisonLLNext.sh (END)
 
 ```
