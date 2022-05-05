@@ -41,7 +41,7 @@ ml Anaconda3/5.3.0
 source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
 
 # run clade profiling
-strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --print_clades_only --marker_in_n_samples 60 --sample_with_n_makers 40 --output_dir . > LLNEXT_pilot_april_clades.txt
+strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --print_clades_only --marker_in_n_samples 60 --sample_with_n_makers 20 --output_dir . > LLNEXT_pilot_april_clades.txt
 
 ```
 ### Execution 
@@ -50,7 +50,7 @@ strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strai
 sbatch ./profileClades.sh 
 
 ```
-This will generate a .txt file with the list of clades that have been detected in the samples. The cut-offs used were: 60% in the --marker_in_n_samples, which means in how many (in percentage) samples a marker has to be present to be keep in the MSA. This 60% is applied only on the samples that pass the --sample_with_n_makers (that in this case is 40 markers). We used a lower cut-off for detection due to the mother-infant nature of the cohort, but set a higher cut-off for detection of markers
+This will generate a .txt file with the list of clades that have been detected in the samples. The cut-offs used were: 60% in the --marker_in_n_samples, which means in how many (in percentage) samples a marker has to be present to be keep in the MSA. This 60% is applied only on the samples that pass the --sample_with_n_makers (that in this case is 20 markers). We used a lower cut-off for detection due to the mother-infant nature of the cohort, but set a higher cut-off for detection of markers
 
 E.g _s__Bifidobacterium_scardovi: in 12 samples._ 
 
