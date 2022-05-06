@@ -94,8 +94,7 @@ doMarkerComparisonLLNext.sh (END)
 for i in $(cat LLNEXT_pilot_april_clade_names.txt); do sbatch doMarkerComparisonLLNext.sh $i; done 
 ```
 
-This will perform MSA and create .tre files and .aln files for each of the species you feed it in
-MSA was performed on consensus marker presence in at least in 15 samples 
+This will perform MSA and create .tre files and .aln files for each of the species you feed it in 
 
 
 ## Step 4: Make distance matrix from MSA file
@@ -110,9 +109,14 @@ for i in $(find . -type f -name *.aln); do bash makeDistMat.sh $i; done
 #!/bin/bash
 echo 'maker of distance matrix from multiple alignment'
 echo ' feed it with .aln file (multiple alignment)'
-echo 'NOTE: make sure conda is loaded'
 
-#Create a distance matrix from a multiple sequence alignment using the EMBOSS package (https://www.bioinformatics.nl/cgi-bin/emboss/help/distmat) 
+module purge
+ml Anaconda3/5.3.0
+# load conda env
+source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
+
+
+# Creates a distance matrix from a multiple sequence alignment using the EMBOSS package (https://www.bioinformatics.nl/cgi-bin/emboss/help/distmat) 
 # distmat calculates the evolutionary distance between every pair of sequences in a multiple sequence alignment.
 # Uses Kimura Two-Parameter distance (distances expressed in terms of the number of substitutions per 100 b.p or amino acids) 
 distmat -sequence ${1} -nucmethod 2 -outfile ${1/.aln/.dmat}
