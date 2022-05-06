@@ -93,8 +93,11 @@ doMarkerComparisonLLNext.sh (END)
 ```
 for i in $(cat LLNEXT_pilot_april_clade_names.txt); do sbatch doMarkerComparisonLLNext.sh $i; done 
 ```
-
 This will perform MSA and create .tre files and .aln files for each of the species you feed it in 
+
+*** Important *** Metaphlan and Strainphlan are not designed to work with phages and other viruses so even if these fit the cut-off do not work with them! 
+
+
 
 
 ## Step 4: Make distance matrix from MSA file
