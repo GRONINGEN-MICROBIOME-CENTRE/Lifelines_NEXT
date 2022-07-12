@@ -30,12 +30,9 @@
 
 
 summary_statistics_metadata <- function (metadata_input, category_table) {
-  
-  # Packages needed       
+  # Packages needed
   library (psych)  #describe r function
-  
   # Create other functions to calculate the different parameters
-  
   ## Categorical values - create function to calculate the counts and the percentage for categorical variables
   tblFun <- function(x) {
     # Create a table
@@ -46,22 +43,16 @@ summary_statistics_metadata <- function (metadata_input, category_table) {
     colnames(res) <- c('Count','Percentage')
     res
   }
-  
   ## NA sum function - counts the number of NA
   nzsum <- function(x) {
     sum (is.na(x))
   }
-  
   if (missing(category_table)) {
-    
     ## Calculate table1 with the whole data:
-    
-    my_results = matrix(ncol = 6, nrow = ncol(metadata_input))
-    
+    my_results = matrix(ncol = 9, nrow = ncol(metadata_input))
     for (k in 1:ncol(metadata_input)){
-      
       if (is.numeric(metadata_input[,k])) {
-        # Keep in "x" the result from describe function (done in the columns) - for each factor  
+        # Keep in "x" the result from describe function (done in the columns) - for each factor
         x = describe(metadata_input[,k])
         z = nzsum(metadata_input[,k])
         # In the new table ("x"): keep different values in the different columns
@@ -71,38 +62,41 @@ summary_statistics_metadata <- function (metadata_input, category_table) {
         my_results[k,4] = x$sd
         my_results[k,5] = x$n
         my_results[k,6] = z
+        my_results[k,7] = x$min
+        my_results[k,8] = x$max
+        my_results[k,9] = x$range
       }
-      
-      # Condition: if the column values are categorical  
+      # Condition: if the column values are categorical
       else {
         # Keep in "x" the result from tblFun function (done in the columns) - for each factor
         x = tblFun(metadata_input[,k])
         z = nzsum(metadata_input[,k])
-        # In the new table ("x"): keep different values in the different columns 
+        # In the new table ("x"): keep different values in the different columns
         my_results[k,1]="categorical"
         # toString to keep the possible different values/categories in the same vector/column
         my_results[k,2]=toString(rownames(x))
         # First column table x = 'Count'
-        my_results[k,3]=toString(x[,1]) 
+        my_results[k,3]=toString(x[,1])
         # Second column table x = 'Percentage'
         my_results[k,4]=toString(x[,2])
         # Sum of the values on column1 ("x")
         my_results[k,5]=sum(x[,1])
         my_results[k,6]= z
+        my_results[k,7] = NA
+        my_results[k,8] = NA
+        my_results[k,9] = NA
       }
     }
-    
-    
-    # The column names from the original table = row names from the new table 
+    # The column names from the original table = row names from the new table
     rownames(my_results) = colnames(metadata_input)
-    # Give names to the columns of the new table 
-    colnames(my_results) = c("Type", "Categories/Median", "Counts/Mean", "%/SD", "Number_non_zeros", "Number_NA") 
-    
+    # Give names to the columns of the new table
+    colnames(my_results) = c("Type", "Categories/Median", "Counts/Mean", "%/SD", "Number_non_zeros", "Number_NA",
+                             "Min", "Max", "Range")
     # Export the new table
-    write.table (my_results, file = "./meta_data_summary_stats.txt" , quote = F, sep = "\t")  
+    write.table (my_results, file = "./meta_data_summary_stats.txt" , quote = F, sep = "\t")
   }
-  
 }
+
 
 # USAGE 
 summary_statistics_metadata (metadata_input)
