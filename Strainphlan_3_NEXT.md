@@ -4,7 +4,7 @@ Adapted from Biobakery (StrainPhlAn 3.0).
 https://github.com/biobakery/MetaPhlAn/wiki/StrainPhlAn-3.0
 
 Authors: Ranko Gacesa, Trishla Sinha, Asier Fernández.   
-Description: The script shows how strain profiling was performed using Strainphlan 3 for all samples, for all species.   
+Description: The script shows how strain profiling was performed using Strainphlan 3 for all samples (that passed QC), for all species.   
 Languages: Bash and R.   
 
 ## Step 1: Reconstruct all species strains
