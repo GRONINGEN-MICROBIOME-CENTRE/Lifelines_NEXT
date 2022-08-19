@@ -16,7 +16,7 @@ Languages: Bash and R.
 ```
 #!/bin/bash
 
-#SBATCH --mem=16gb
+#SBATCH --mem=30gb
 #SBATCH --time=0-00:30:00
 #SBATCH --cpus-per-task=4
 #SBATCH --open-mode=truncate
