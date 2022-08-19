@@ -91,7 +91,7 @@ doMarkerComparisonLLNext.sh (END)
 ### Execution
 
 ```
-for i in $(cat LLNEXT_pilot_april_clade_names.txt); do sbatch doMarkerComparisonLLNext.sh $i; done 
+for i in $(cat LLNEXT_sp_clades_names.txt); do sbatch doMarkerComparisonLLNext.sh $i; done 
 ```
 This will perform MSA and create .tre files and .aln files for each of the species you feed it in 
 
