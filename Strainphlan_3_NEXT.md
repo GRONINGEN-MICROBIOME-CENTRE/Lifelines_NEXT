@@ -41,7 +41,7 @@ ml Anaconda3/5.3.0
 source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
 
 # run clade profiling
-strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl --print_clades_only --marker_in_n_samples 60 --sample_with_n_makers 20 --output_dir . > LLNEXT_pilot_april_clades.txt
+strainphlan -s /groups/umcg-llnext/tmp01/umcg-tsinha/strainphlan_19_08_2022/*.pkl --print_clades_only --marker_in_n_samples 60 --sample_with_n_makers 20 --output_dir . > LLNEXT_pilot_april_clades.txt
 
 ```
 ### Execution 
