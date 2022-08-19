@@ -41,7 +41,7 @@ ml Anaconda3/5.3.0
 source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
 
 # run clade profiling
-strainphlan -s /groups/umcg-llnext/tmp01/umcg-tsinha/strainphlan_19_08_2022/*.pkl --print_clades_only --marker_in_n_samples 60 --sample_with_n_markers 20 --output_dir . > LLNEXT_strainphlan_clades.txt
+strainphlan -s /groups/umcg-llnext/tmp01/umcg-tsinha/strainphlan_19_08_2022/*.pkl --print_clades_only --marker_in_n_samples 60 --sample_with_n_markers 20 --output_dir . > LLNEXT_sp_clades.txt
 
 ```
 ### Execution 
@@ -57,7 +57,7 @@ E.g _s__Bifidobacterium_scardovi: in 12 samples._
 We process the output file to select only the clade names
 
 ```
-cat LLNEXT_pilot_april_clades.txt | grep s__ | cut -f 2 | cut -f 1 -d ':' > LLNEXT_pilot_april_clade_names.txt
+cat LLNEXT_sp_clades.txt | grep s__ | cut -f 2 | cut -f 1 -d ':' > LLNEXT_sp_clades_names.txt
 
 ```
 
