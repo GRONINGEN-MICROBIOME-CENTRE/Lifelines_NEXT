@@ -70,7 +70,7 @@ _s__Bifidobacterium_scradovi_
 ```
 #!/bin/bash
 
-#SBATCH --mem=32gb
+#SBATCH --mem=50gb
 #SBATCH --time=0-07:59:00
 #SBATCH --cpus-per-task=8
 #SBATCH --open-mode=truncate
