@@ -173,5 +173,15 @@ for (s in samples) {
    ss <- c(ss,ssplit[[1]][1])
 }
 
+# add the sample names to the columns and rows of the data matrix
+rownames(data) <- ss
+colnames(data) <- ss
+
+# make symmetric, add lower triangle to upper triangle
+data[lower.tri(data)] <- t(data)[lower.tri(data)]
+
+# save it
+write.table(data,paste0(gsub('\\.dmat','',inFile),'_dmat_Rready.csv'),sep=',',row.names=T)
+
 ```
 
