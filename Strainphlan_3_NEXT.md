@@ -106,6 +106,7 @@ Example:
 bash ./makeDistMat.sh ./s__Alistipes_shahii/s__Alistipes_shahii.StrainPhlAn3_concatenated.aln
 
 ```
+srun --pty -c5 --mem=8g --time=0-14:00 bash
 for i in $(find . -type f -name *.aln); do bash makeDistMat.sh $i; done 
 ```
 ```
