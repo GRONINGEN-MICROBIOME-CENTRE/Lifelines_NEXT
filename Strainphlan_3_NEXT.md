@@ -184,4 +184,8 @@ data[lower.tri(data)] <- t(data)[lower.tri(data)]
 write.table(data,paste0(gsub('\\.dmat','',inFile),'_dmat_Rready.csv'),sep=',',row.names=T)
 
 ```
+# Ready csv's for export 
+```
+for i in $(find . -type f -name *dmat_Rready.csv); do cp $i /groups/umcg-llnext/tmp01/umcg-tsinha/strainphlan_19_08_2022/ready_csv_export_23_08/; done
 
+```
