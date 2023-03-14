@@ -17,7 +17,7 @@ setwd('~/Desktop/Projects_2022/NEXT_pilot_FUP/')
 library(lme4)
 library(RLRsim)
 library(lmerTest)
-
+library(reshape2)
 library(ggplot2)
 library(ggforce)
 ##############################
@@ -37,6 +37,7 @@ MGS_metadata$Timepoint <- factor(MGS_metadata$Timepoint, levels = c("P3", "P7", 
                                                                     "M6", "M9", "M12"), ordered = T)
 MGS_metadata$Type <- as.factor(MGS_metadata$Type)
 MGS_metadata$Short_sample_ID <- row.names(MGS_metadata)
+
 
 # alpha-diversity in virome
 
@@ -98,23 +99,22 @@ summary(btmod1_feeding) #infant_ever_never_breastfed  8.786e-01  3.422e-01  1.94
 
 pdf('./04.PLOTS/Virome_diversity_feeding_plot.pdf', width=12/2.54, height=9/2.54)
 
-feeding_categroties <- as_labeller(c('ever_BF'='Ever breastfed',
-                                     'never_BF'='Never breastfed'))
-ggplot(VLP_metadata[VLP_metadata$Type=='Infant' & !is.na(VLP_metadata$infant_ever_never_breastfed),], aes(Timepoint, viral_alpha_diversity, fill=Type)) + 
+virome_feeding_plot <- melt(VLP_metadata[VLP_metadata$Type=='Infant' & !is.na(VLP_metadata$infant_ever_never_breastfed),c("Timepoint","viral_alpha_diversity", "infant_ever_never_breastfed", "Short_sample_ID")])
+virome_feeding_plot$infant_ever_never_breastfed <- as.factor(virome_feeding_plot$infant_ever_never_breastfed)
+
+ggplot(virome_feeding_plot, aes(Timepoint, value, fill=infant_ever_never_breastfed)) + 
   labs (y="Shannon Diversity Index", x="") + 
-  geom_violin() + 
-  geom_boxplot(width = 0.1, outlier.shape = NA) + 
+  geom_boxplot(outlier.shape = NA) + 
   geom_sina(colour='#303841', size=0.6) +
   theme_bw()+
-  theme(legend.position="none") + 
-  
-  facet_grid(~infant_ever_never_breastfed, scales="free", space = "free", labeller = feeding_categroties) +
   theme(axis.text=element_text(size=12), 
         axis.title=element_text(size=16,face="bold"),
         strip.text.x = element_text(size = 12),
         legend.text = element_text(size=10),
         legend.title = element_text(size=12, face="bold")) +
-  labs(colour = "Type")
+  scale_fill_manual(name = "Feeding mode", 
+                      labels=c('Ever breastfed', 'Never breastfed'),
+                      values=c("#FAE3D9", "#BBDED6"))
 dev.off()
 
 # alpha-diversity in microbiome
@@ -177,6 +177,24 @@ dev.off()
 btmod1_bac_a  = lmer(bacterial_alpha_diversity ~ Age_days + infant_ever_never_breastfed + DNA_CONC + Clean_reads + (1|NEXT_ID), REML = F, data = MGS_metadata[MGS_metadata$Type=="Infant",])
 summary(btmod1_bac_a) #infant_ever_never_breastfed  1.569e-01  1.735e-01  2.834e+01   0.904    0.373  
 
+pdf('./04.PLOTS/Bacteriome_diversity_feeding_plot.pdf', width=12/2.54, height=9/2.54)
 
+bacteriome_feeding_plot <- melt(MGS_metadata[MGS_metadata$Type=='Infant' & !is.na(MGS_metadata$infant_ever_never_breastfed),c("Timepoint","bacterial_alpha_diversity", "infant_ever_never_breastfed", "Short_sample_ID")])
+bacteriome_feeding_plot$infant_ever_never_breastfed <- as.factor(bacteriome_feeding_plot$infant_ever_never_breastfed)
+
+ggplot(bacteriome_feeding_plot, aes(Timepoint, value, fill=infant_ever_never_breastfed)) + 
+  labs (y="Shannon Diversity Index", x="") + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_sina(colour='#303841', size=0.6) +
+  theme_bw()+
+  theme(axis.text=element_text(size=12), 
+        axis.title=element_text(size=16,face="bold"),
+        strip.text.x = element_text(size = 12),
+        legend.text = element_text(size=10),
+        legend.title = element_text(size=12, face="bold")) +
+  scale_fill_manual(name = "Feeding mode", 
+                    labels=c('Ever breastfed', 'Never breastfed'),
+                    values=c("#FAE3D9", "#BBDED6"))
+dev.off()
 
 
