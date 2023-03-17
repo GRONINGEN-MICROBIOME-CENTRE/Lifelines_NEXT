@@ -9,7 +9,7 @@ Languages: Bash and R.
 
 ## Step 1: Reconstruct all species strains
 
-(see main microbiome profiling pipeline) 
+https://github.com/GRONINGEN-MICROBIOME-CENTRE/gmc-mgs-pipeline/blob/main/GMH_pipe.py 
 
 ## Step 2: Profile the clades present in the samples (profileClades.sh)
 
