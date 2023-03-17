@@ -1,23 +1,76 @@
-# Strainphlan 4.0 analysis for Lifelines NEXT pilot 
+# Strainphlan 4.0 analysis Lifelines NEXT 
 
-Adapted from Biobakery (StrainPhlAn 4.0) by Trishla Sinha (2023)
+Adapted from Biobakery (StrainPhlAn 4.0). 
+https://github.com/biobakery/MetaPhlAn/wiki/StrainPhlAn-4
 
-# Step 1: After creating consensus-marker files which are the input for StrainPhlAn (.pkl) run the following code: 
+Authors: Trishla Sinha
+Description: The script shows how strain profiling was performed using Strainphlan 4 for all maternal and infant samples post QC, for all species.   
+Languages: Bash and R.   
 
-sbatch ./doMarkerComparisonLLNext.sh species name
+## Step 1: Reconstruct all species strains
 
-Example: sbatch ./doMarkerComparisonLLNext.sh s__Bifidobacterium_bifidum
+(see main microbiome profiling pipeline) 
 
+## Step 2: Profile the clades present in the samples (profileClades.sh)
 
-#This will perform MSA and create .tre files and .aln files for each of the species you feed it in. 
-# Note: due to a bug in Strainphlan 3.0 this only works with bacterial species whose names are not longer than 50 characters. If a bacteria is too long then this causes an incompatibility with Blast
-# MSA was performed on consensus marker presence in at least in 50 samples 
-
-#doMarkerComparisonLLNext.sh consists of: 
-
+```
 #!/bin/bash
 
-#SBATCH --mem=32gb
+#SBATCH --mem=30gb
+#SBATCH --time=0-00:30:00
+#SBATCH --cpus-per-task=4
+#SBATCH --open-mode=truncate
+
+# NOTES:
+# > $1 is clade name
+# > variables should be set to:
+#   MARKERS_INPUTDATA: where markers for DATASET TO PROCESS are (must be bundled in one folder)
+#   OUTFOLDER: where results go
+#   MPA_MARKERS_EXTRACTED: folder with extracted metaphlan markers (extracted from metaphlan pkled markers database = MPA_PKL)
+#   MPA_PKL: metaphlan pkled database
+#   THREADS: NR of threads for main app
+#   THREADS_RAXML: NR of threads for RAXML
+
+# purge modules
+module purge
+
+# load conda
+ml Anaconda3/5.3.0
+
+# load conda env
+source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
+
+# run clade profiling
+strainphlan -s /groups/umcg-llnext/tmp01/umcg-tsinha/strainphlan_19_08_2022/*.pkl --print_clades_only --marker_in_n_samples 60 --sample_with_n_markers 20 --output_dir . > LLNEXT_sp_clades.txt
+
+```
+### Execution 
+
+```
+sbatch ./profileClades.sh 
+
+```
+This will generate a .txt file with the list of clades that have been detected in the samples. The cut-offs used were: 60% in the --marker_in_n_samples, which means in how many (in percentage) samples a marker has to be present to be keep in the MSA. This 60% is applied only on the samples that pass the --sample_with_n_makers (that in this case is 20 markers). We used a lower cut-off for detection due to the mother-infant nature of the cohort, but set a higher cut-off for detection of markers
+
+E.g _s__Bifidobacterium_scardovi: in 12 samples._ 
+
+We process the output file to select only the clade names
+
+```
+cat LLNEXT_sp_clades.txt | grep s__ | cut -f 2 | cut -f 1 -d ':' > LLNEXT_sp_clades_names.txt
+
+```
+
+This will give us the names of each species found 
+_s__Bifidobacterium_scradovi_
+
+## Step 3: Build the multiple sequence alignment (doMarkerComparisonLLNext.sh)
+
+
+```
+#!/bin/bash
+
+#SBATCH --mem=50gb
 #SBATCH --time=0-07:59:00
 #SBATCH --cpus-per-task=8
 #SBATCH --open-mode=truncate
@@ -30,34 +83,62 @@ ml Anaconda3/5.3.0
 source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
 
 mkdir ${1}
-strainphlan -s /groups/umcg-dag3/tmp01/NEXT_pilot_results/strainphlan3/*.pkl --output_dir ./${1} --clade ${1} --marker_in_n_samples 50 --sample_with_n_markers 20 --nprocs 8
+strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl  --output_dir ./${1} --clade ${1} --marker_in_n_samples 60 --sample_with_n_makers 20 --nprocs 8
 doMarkerComparisonLLNext.sh (END)
 
-# Step 2: Make distance matrix from MSA file
+```
 
-bash./makeDistMat.sh ./species_directory/species.aln
-#Example: 
-#bash ./makeDistMat.sh ./s__Alistipes_shahii/s__Alistipes_shahii.StrainPhlAn3_concatenated.aln
+### Execution
 
+```
+for i in $(cat LLNEXT_sp_clades_names.txt); do sbatch doMarkerComparisonLLNext.sh $i; done 
+```
+This will perform MSA and create .tre files and .aln files for each of the species you feed it in 
+
+*** Important *** Metaphlan and Strainphlan are not designed to work with phages and other viruses so even if these fit the cut-off do not work with them! 
+
+
+
+
+## Step 4: Make distance matrix from MSA file
+
+Example: 
+bash ./makeDistMat.sh ./s__Alistipes_shahii/s__Alistipes_shahii.StrainPhlAn3_concatenated.aln
+
+```
+srun --pty -c5 --mem=8g --time=0-14:00 bash
+for i in $(find . -type f -name *.aln); do bash makeDistMat.sh $i; done 
+```
+```
 #!/bin/bash
 echo 'maker of distance matrix from multiple alignment'
 echo ' feed it with .aln file (multiple alignment)'
-echo 'NOTE: make sure conda is loaded'
 
-#Create a distance matrix from a multiple sequence alignment using the EMBOSS package (https://www.bioinformatics.nl/cgi-bin/emboss/help/distmat) 
+module purge
+ml Anaconda3/5.3.0
+# load conda env
+source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
+
+
+# Creates a distance matrix from a multiple sequence alignment using the EMBOSS package (https://www.bioinformatics.nl/cgi-bin/emboss/help/distmat) 
 # distmat calculates the evolutionary distance between every pair of sequences in a multiple sequence alignment.
 # Uses Kimura Two-Parameter distance (distances expressed in terms of the number of substitutions per 100 b.p or amino acids) 
 distmat -sequence ${1} -nucmethod 2 -outfile ${1/.aln/.dmat}
 
+```
+## Step 5: Cleaning the distance matrix from MSA file 
 
-# Step 3: Cleaning the distance matrix from MSA file 
+First, load RPlus
+```
 ml RPlus 
+```
 
 #Example: Rscript parseDMat_LLNext.R s__Bifidobacterium_bifidum.dmat
-
-
+```
+for i in $(find . -type f -name *.dmat); do Rscript parseDMat_LLNext.R $i; done 
+```
 #parseDMat_LLNext.R consists of: 
-
+```
 library(optparse)
 # CL PARSER
 help_description <- ""
@@ -93,5 +174,19 @@ for (s in samples) {
    ss <- c(ss,ssplit[[1]][1])
 }
 
+# add the sample names to the columns and rows of the data matrix
+rownames(data) <- ss
+colnames(data) <- ss
 
+# make symmetric, add lower triangle to upper triangle
+data[lower.tri(data)] <- t(data)[lower.tri(data)]
 
+# save it
+write.table(data,paste0(gsub('\\.dmat','',inFile),'_dmat_Rready.csv'),sep=',',row.names=T)
+
+```
+# Ready csv's for export 
+```
+for i in $(find . -type f -name *dmat_Rready.csv); do cp $i /groups/umcg-llnext/tmp01/umcg-tsinha/strainphlan_19_08_2022/ready_csv_export_23_08/; done
+
+```
