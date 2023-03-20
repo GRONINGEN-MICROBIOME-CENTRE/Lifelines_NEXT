@@ -16,8 +16,8 @@ https://github.com/GRONINGEN-MICROBIOME-CENTRE/gmc-mgs-pipeline/blob/main/GMH_pi
 ```
 #!/bin/bash
 
-#SBATCH --mem=30gb
-#SBATCH --time=0-01:59:59
+#SBATCH --mem=24gb
+#SBATCH --time=0-07:59:59
 #SBATCH --cpus-per-task=4
 #SBATCH --open-mode=truncate
 #SBATCH --job-name=SP4pr
@@ -27,11 +27,13 @@ https://github.com/GRONINGEN-MICROBIOME-CENTRE/gmc-mgs-pipeline/blob/main/GMH_pi
 # NOTES:
 # script profiles all clades in the dataset in given folder ($1)
 # puts results in the current folder!
+# Adding --mutation_rates will give a mutation rates table for each of the alignes markers and a summary table for the concatenated MSA
+# Removing the --print_clades only will actually run it 
 
 # PARAMS
 N=1 # --marker_in_n_samples
-S=10 # --sample_with_n_markers 
-DB=/data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103
+S=10 # --sample_with_n_markers
+DB=/data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103/mpa_vJan21_CHOCOPhlAnSGB_202103.pkl 
 
 # purge modules
 module purge
@@ -40,7 +42,7 @@ ml Miniconda3/4.8.3
 # load conda env
 source activate /data/umcg-tifn/rgacesa/conda_biobakery4
 # run clade profiling
-strainphlan -s ${1}/*.pkl --database ${DB} --marker_in_n_samples ${N} --sample_with_n_markers ${S} --print_clades_only --phylophlan_mode accurate -mutation_rates --output_dir . > strainphlan4_clades_${N}.txt
+strainphlan -s *.pkl --database /data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103/mpa_vJan21_CHOCOPhlAnSGB_202103.pkl --marker_in_n_samples ${N} --sample_with_n_markers ${S} --print_clades_only --phylophlan_mode accurate --output_dir . > strainphlan4_clades_${N}.txt
 
 ```
 ### Execution 
