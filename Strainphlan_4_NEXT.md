@@ -17,31 +17,30 @@ https://github.com/GRONINGEN-MICROBIOME-CENTRE/gmc-mgs-pipeline/blob/main/GMH_pi
 #!/bin/bash
 
 #SBATCH --mem=30gb
-#SBATCH --time=0-00:30:00
+#SBATCH --time=0-01:59:59
 #SBATCH --cpus-per-task=4
 #SBATCH --open-mode=truncate
+#SBATCH --job-name=SP4pr
+#SBATCH --error=__SP4_profile.err
+#SBATCH --output=__SP4_profile.out
 
 # NOTES:
-# > $1 is clade name
-# > variables should be set to:
-#   MARKERS_INPUTDATA: where markers for DATASET TO PROCESS are (must be bundled in one folder)
-#   OUTFOLDER: where results go
-#   MPA_MARKERS_EXTRACTED: folder with extracted metaphlan markers (extracted from metaphlan pkled markers database = MPA_PKL)
-#   MPA_PKL: metaphlan pkled database
-#   THREADS: NR of threads for main app
-#   THREADS_RAXML: NR of threads for RAXML
+# script profiles all clades in the dataset in given folder ($1)
+# puts results in the current folder!
+
+# PARAMS
+N=50 # --marker_in_n_samples
+S=20 # --sample_with_n_markers 
+DB=/data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103
 
 # purge modules
 module purge
-
 # load conda
-ml Anaconda3/5.3.0
-
+ml Miniconda3/4.8.3
 # load conda env
-source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
-
+source activate /data/umcg-tifn/rgacesa/conda_biobakery4
 # run clade profiling
-strainphlan -s /groups/umcg-llnext/tmp01/umcg-tsinha/strainphlan_19_08_2022/*.pkl --print_clades_only --marker_in_n_samples 60 --sample_with_n_markers 20 --output_dir . > LLNEXT_sp_clades.txt
+strainphlan -s ${1}/*.pkl --database ${DB} --marker_in_n_samples ${N} --sample_with_n_markers ${S} --print_clades_only --output_dir . > strainphlan4_clades_${N}.txt
 
 ```
 ### Execution 
