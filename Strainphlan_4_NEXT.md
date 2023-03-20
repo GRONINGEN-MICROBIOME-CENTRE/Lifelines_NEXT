@@ -29,8 +29,8 @@ https://github.com/GRONINGEN-MICROBIOME-CENTRE/gmc-mgs-pipeline/blob/main/GMH_pi
 # puts results in the current folder!
 
 # PARAMS
-N=50 # --marker_in_n_samples
-S=20 # --sample_with_n_markers 
+N=1 # --marker_in_n_samples
+S=10 # --sample_with_n_markers 
 DB=/data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103
 
 # purge modules
@@ -40,7 +40,7 @@ ml Miniconda3/4.8.3
 # load conda env
 source activate /data/umcg-tifn/rgacesa/conda_biobakery4
 # run clade profiling
-strainphlan -s ${1}/*.pkl --database ${DB} --marker_in_n_samples ${N} --sample_with_n_markers ${S} --print_clades_only --output_dir . > strainphlan4_clades_${N}.txt
+strainphlan -s ${1}/*.pkl --database ${DB} --marker_in_n_samples ${N} --sample_with_n_markers ${S} --print_clades_only --phylophlan_mode accurate -mutation_rates --output_dir . > strainphlan4_clades_${N}.txt
 
 ```
 ### Execution 
