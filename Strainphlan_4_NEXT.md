@@ -92,7 +92,7 @@ t__S6_group
 t__SGB2303
 
 
-## Step 3: Build the multiple sequence alignment (doMarkerComparisonLLNext.sh)
+## Step 3: Build the multiple sequence alignment (doMarkerComparison.sh)
 
 
 ```
