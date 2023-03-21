@@ -51,19 +51,46 @@ strainphlan -s *.pkl --database /data/umcg-tifn/rgacesa/conda_biobakery4/lib/pyt
 sbatch ./profileClades.sh 
 
 ```
-This will generate a .txt file with the list of clades that have been detected in the samples. The cut-offs used were: 60% in the --marker_in_n_samples, which means in how many (in percentage) samples a marker has to be present to be keep in the MSA. This 60% is applied only on the samples that pass the --sample_with_n_makers (that in this case is 20 markers). We used a lower cut-off for detection due to the mother-infant nature of the cohort, but set a higher cut-off for detection of markers
+Mon Mar 20 17:47:58 2023: Start StrainPhlAn 4.0.6 execution
+Mon Mar 20 17:47:58 2023: Loading MetaPhlAn mpa_vJan21_CHOCOPhlAnSGB_202103 database...
+Mon Mar 20 17:48:20 2023: Done.
+Mon Mar 20 17:48:23 2023: Detecting clades...
+Mon Mar 20 18:40:14 2023: Done.
+Mon Mar 20 18:40:14 2023: Detected clades: 
+Mon Mar 20 18:40:14 2023:       t__SGB10068: in 103 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB8007_group: in 86 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB6936: in 82 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB17248: in 77 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB6952: in 74 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB6939: in 73 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB9712_group: in 60 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB10120: in 58 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB10115: in 58 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB17247: in 56 samples.
+Mon Mar 20 18:40:14 2023:       t__SGB7962: in 55 samples.
 
-E.g _s__Bifidobacterium_scardovi: in 12 samples._ 
 
-We process the output file to select only the clade names
+We next process this output file to select only the clade names
 
 ```
-cat LLNEXT_sp_clades.txt | grep s__ | cut -f 2 | cut -f 1 -d ':' > LLNEXT_sp_clades_names.txt
+cat strainphlan4_clades_1.txt | grep t__ | cut -f 2 | cut -f 1 -d ':' > LLNEXT_sp_clades_names.txt
 
 ```
 
-This will give us the names of each species found 
-_s__Bifidobacterium_scradovi_
+This will give us the names of each species found: 
+t__SGB10068
+t__SGB8007_group
+t__SGB6936
+t__SGB17248
+t__SGB6952
+t__SGB6939
+t__SGB9712_group
+t__SGB10120
+t__SGB10115
+t__SGB17247
+t__S6_group
+t__SGB2303
+
 
 ## Step 3: Build the multiple sequence alignment (doMarkerComparisonLLNext.sh)
 
