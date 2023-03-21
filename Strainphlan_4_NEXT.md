@@ -99,20 +99,28 @@ t__SGB2303
 #!/bin/bash
 
 #SBATCH --mem=50gb
-#SBATCH --time=0-07:59:00
+#SBATCH --time=0-09:59:00
 #SBATCH --cpus-per-task=8
 #SBATCH --open-mode=truncate
 
 # NOTES:
 # > $1 is clade name
+
+# PARAMS
+N=4 # --marker_in_n_samples
+S=10 # --sample_with_n_markers
+DB=/data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103/mpa_vJan21_CHOCOPhlAnSGB_202103.pkl 
+
+# purge modules
 module purge
-ml Anaconda3/5.3.0
+# load conda
+ml Miniconda3/4.8.3
 # load conda env
-source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
+source activate /data/umcg-tifn/rgacesa/conda_biobakery4
 
 mkdir ${1}
-strainphlan -s /groups/umcg-llnext/tmp01/pilot_microbiome/pilot_april_2022/strainphlan_all_april_2022/*.pkl  --output_dir ./${1} --clade ${1} --marker_in_n_samples 60 --sample_with_n_makers 20 --nprocs 8
-doMarkerComparisonLLNext.sh (END)
+strainphlan -s *.pkl  --database /data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103/mpa_vJan21_CHOCOPhlAnSGB_202103.pkl --marker_in_n_samples ${N} --sample_with_n_markers ${S} --phylophlan_mode accurate --output_dir ./${1} --clade ${1} --nprocs 8
+
 
 ```
 
