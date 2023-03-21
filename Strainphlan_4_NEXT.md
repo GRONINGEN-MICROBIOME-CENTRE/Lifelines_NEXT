@@ -127,7 +127,7 @@ strainphlan -s *.pkl  --database /data/umcg-tifn/rgacesa/conda_biobakery4/lib/py
 ### Execution
 
 ```
-for i in $(cat LLNEXT_sp_clades_names.txt); do sbatch doMarkerComparisonLLNext.sh $i; done 
+for i in $(cat LLNEXT_sp_clades_names.txt); do sbatch doMarkerComparison.sh $i; done 
 ```
 This will perform MSA and create .tre files and .aln files for each of the species you feed it in 
 
