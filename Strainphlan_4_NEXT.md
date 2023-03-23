@@ -3,7 +3,7 @@
 Adapted from Biobakery (StrainPhlAn 4.0). 
 https://github.com/biobakery/MetaPhlAn/wiki/StrainPhlAn-4
 
-Authors: Trishla Sinha
+Authors: Ranko Gascesa, Trishla Sinha
 Description: The script shows how strain profiling was performed using Strainphlan 4 for all maternal and infant samples post QC, for all species.   
 Languages: Bash and R.   
 
@@ -97,41 +97,58 @@ t__SGB2303
 
 ```
 #!/bin/bash
-
-#SBATCH --mem=50gb
+#SBATCH --mem=24gb
 #SBATCH --time=0-09:59:00
 #SBATCH --cpus-per-task=8
 #SBATCH --open-mode=truncate
 
 # NOTES:
-# > $1 is clade name
+# > $1 is input folder
+# > $2 is clade name
+
+echo "Invoking runMarkerComparison.sh"
+echo "CLs: ${1} ${2}"
+
+# HELP / USE
+if [[ $# -ne 2 ]]; 
+    then 
+    echo "ERROR: script requires two command line parameters:"
+    echo " <input folder with pkl files> <clade name>"
+    exit 2
+fi
 
 # PARAMS
+# ===================
 N=4 # --marker_in_n_samples
-S=10 # --sample_with_n_markers
-DB=/data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103/mpa_vJan21_CHOCOPhlAnSGB_202103.pkl 
+S=10 # --sample_with_n_markers 
+MODE=accurate # {accurate,fast}
+CONDA=/data/umcg-tifn/rgacesa/conda_biobakery4
+#CM= # clade markers
 
 # purge modules
 module purge
+
 # load conda
 ml Miniconda3/4.8.3
 # load conda env
-source activate /data/umcg-tifn/rgacesa/conda_biobakery4
+source deactivate
+source activate ${CONDA}
 
-mkdir ${1}
-strainphlan -s *.pkl  --database /data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103/mpa_vJan21_CHOCOPhlAnSGB_202103.pkl --marker_in_n_samples ${N} --sample_with_n_markers ${S} --phylophlan_mode accurate --output_dir ./${1} --clade ${1} --nprocs 8
-
+# prep results folder (where clade result goes)
+mkdir ${2}
+# run strainphlan for that clade
+echo "strainphlan -s ${1}/*.pkl --output_dir ./${2} --clade ${2} --marker_in_n_samples ${N} --sample_with_n_markers ${S} --nprocs 8 --phylophlan_mode ${MODE}"
+strainphlan -s ${1}/*.pkl --database /data/umcg-tifn/rgacesa/conda_biobakery4/lib/python3.10/site-packages/metaphlan/metaphlan_databases/mpa_vJan21_CHOCOPhlAnSGB_202103/mpa_vJan21_CHOCOPhlAnSGB_202103.pkl --output_dir ./${2} --clade ${2} --marker_in_n_samples ${N} --sample_with_n_markers ${S} --nprocs 8 --phylophlan_mode ${MODE} #--tmp ${OUT_TMP}
 
 ```
 
 ### Execution
 
 ```
-for i in $(cat LLNEXT_sp_clades_names.txt); do sbatch doMarkerComparison.sh $i; done 
+for i in $(cat CS_BABY_BIOME_clades_names.txt); do sbatch sp4_runMarkerComparison.sh  /scratch/umcg-tsinha/strainphlan_4_CS_BABY_BIOME $i; done
 ```
-This will perform MSA and create .tre files and .aln files for each of the species you feed it in 
-
-*** Important *** Metaphlan and Strainphlan are not designed to work with phages and other viruses so even if these fit the cut-off do not work with them! 
+Where CS_BABY_BIOME_clades_names.txt contains a list of names of all (sub) species identified in the previous step 
+This will perform MSA and create .tre files and .aln files for each of the (sub)species you feed it in 
 
 
 
