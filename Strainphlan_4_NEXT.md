@@ -193,9 +193,9 @@ ml RPlus
 
 #Example: Rscript parseDMat_LLNext.R s__Bifidobacterium_bifidum.dmat
 ```
-for i in $(find . -type f -name *.dmat); do Rscript parseDMat_LLNext.R $i; done 
+for i in $(find . -type f -name *.dmat); do Rscript parseDMAT.R $i; done 
 ```
-#parseDMat_LLNext.R consists of: 
+#parseDMAT.R consists of: 
 ```
 library(optparse)
 # CL PARSER
