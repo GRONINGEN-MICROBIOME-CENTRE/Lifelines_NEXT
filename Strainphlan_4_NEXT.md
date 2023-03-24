@@ -153,30 +153,28 @@ This will perform MSA and create .tre files and .aln files for each of the (sub)
 
 
 
-## Step 4: Make distance matrix from MSA file
+## Step 4: Make distance matrix from MSA file (makeDistMatAll.sh)
 
-Example: 
-bash ./makeDistMat.sh ./s__Alistipes_shahii/s__Alistipes_shahii.StrainPhlAn3_concatenated.aln
-
-```
-srun --pty -c5 --mem=8g --time=0-14:00 bash
-for i in $(find . -type f -name *.aln); do bash makeDistMat.sh $i; done 
-```
 ```
 #!/bin/bash
-echo 'maker of distance matrix from multiple alignment'
-echo ' feed it with .aln file (multiple alignment)'
+echo "maker of distance matrices"
+echo " > goes through each folder and attempts to make distmat"
 
-module purge
-ml Anaconda3/5.3.0
-# load conda env
-source activate /groups/umcg-dag3/tmp01/rgacesa_tools/conda/envs/dag3pipe_v3_conda
-
-
+echo " > loading EMBOSS"
+ml EMBOSS/6.6.0-foss-2018a
+for F in */
+do
+   SN=${F/\/}
+   echo ${SN}
+   FM=${SN}.StrainPhlAn4_concatenated.aln
+   echo "  >> making distmat"
+   echo "distmat -sequence ${SN}/${FM} -nucmethod 2 -outfile ${SN}/${SN}.dmat"
+   distmat -sequence ${SN}/${F
+ 
 # Creates a distance matrix from a multiple sequence alignment using the EMBOSS package (https://www.bioinformatics.nl/cgi-bin/emboss/help/distmat) 
 # distmat calculates the evolutionary distance between every pair of sequences in a multiple sequence alignment.
 # Uses Kimura Two-Parameter distance (distances expressed in terms of the number of substitutions per 100 b.p or amino acids) 
-distmat -sequence ${1} -nucmethod 2 -outfile ${1/.aln/.dmat}
+
 
 ```
 ## Step 5: Cleaning the distance matrix from MSA file 
