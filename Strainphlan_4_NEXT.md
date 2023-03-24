@@ -177,6 +177,13 @@ do
 
 
 ```
+### Execution
+
+```
+sbtach makeDistMatAll.sh 
+
+```
+
 ## Step 5: Cleaning the distance matrix from MSA file 
 
 First, load RPlus
