@@ -114,8 +114,8 @@ metadata_full <- metadata_full %>%
   add_count(NEXT_ID, name = 'N_timepoints')
 
 # changing NG ids to improve the error with twins:
-metadata_full[metadata_full$Unified_ID=="LN_4E09_VL_262", c("ID_1", "NG_ID")] <- c("D", "D01VLP04224E09")
-
+metadata_full[metadata_full$Lifelines_ID=="6527985", "ID_1"] <- "D"
+metadata_full[metadata_full$Lifelines_ID=="6527985", "NG_ID"] <- "D01VLP04224E09"
 
 # Short sample & Individual ID:
 metadata_full$Short_sample_ID <- paste0(metadata_full$ID_1, 
@@ -156,7 +156,7 @@ RPKM_counts_VLP <- RPKM_counts_VLP[,metadata_full$Unified_ID]
 if (identical(metadata_full$Unified_ID, colnames(RPKM_counts_VLP))) {
   colnames(RPKM_counts_VLP) <- metadata_full$Short_sample_ID
 }
-
+colSums(RPKM_counts_VLP[,c('D010422V', 'C010422V')]>0)
 
 # Total MGS metadata
 MGS_metadata <- read.table("01.RAW_DATA/Metadata/MGS_metadata_updated_ages_01_02_2023.txt", sep='\t', header=T)
@@ -359,6 +359,7 @@ microbiome_phyla <- microbiome_phyla[-grep('c__', row.names(microbiome_phyla) ),
 
 # bacterial species table:
 microbiome_species <- metaphlan4_output[grep('s__', row.names(metaphlan4_output) ) ,]
+microbiome_species <- metaphlan4_output[-grep('t__', row.names(metaphlan4_output) ) ,]
 
 # bacterial genera table:
 microbiome_genera <- metaphlan4_output[grep('g__', row.names(metaphlan4_output)),]
