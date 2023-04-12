@@ -354,6 +354,31 @@ ggplot(sharedness_timepoints_iVM_mVM_melt, aes(Timepoint, value, fill=variable))
                     values=c("#FAE3D2", "#BBDED2"))
 dev.off()
 
+##### DOES TAKING INTO ACCOUNT INFANT PROPHAGES INCREASE SHAREDNESS?
+comparison_VLP_VLP_pro <- sharedness_timepoints_melt
+comparison_VLP_VLP_pro$source <- 'VLP'
+buffer <- sharedness_timepoints_iVM_mVM_melt
+buffer$source <- 'VLP_plus_ALL_prophages'
+
+comparison_VLP_VLP_pro <- rbind(comparison_VLP_VLP_pro, buffer)
+
+t.test(comparison_VLP_VLP_pro$value ~ comparison_VLP_VLP_pro$source, paired=T)
+
+pdf('./04.PLOTS/Difference_infant_virus_shared_VLP_PRO_vs_VLP_PRO.pdf', width=12/2.54, height=9/2.54)
+ggplot(comparison_VLP_VLP_pro, aes(source, value)) +
+  geom_boxplot() + 
+  labs (y="% Infant viruses shared", x="Type of data") + 
+  geom_sina(aes(fill=source), size=0.6,alpha=0.5) +
+  theme_bw()+
+  theme(axis.text=element_text(size=12), 
+        axis.title=element_text(size=16,face="bold"),
+        strip.text.x = element_text(size = 12),
+        legend.text = element_text(size=10),
+        legend.title = element_text(size=12, face="bold"),
+        legend.position = 'none') + 
+  annotate(geom="text", x=1.5, y=0.83, 
+           label="p-value = 9.009e-12\nmedian difference 0.05")
+dev.off()
 ##############################
 # OUTPUT
 ##############################
