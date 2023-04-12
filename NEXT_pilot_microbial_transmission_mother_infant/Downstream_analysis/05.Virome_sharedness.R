@@ -305,6 +305,55 @@ ggplot(comparison_VLP_VLP_pro, aes(source, value)) +
            label="p-value = 7.674e-14\nmedian difference 0.007")
 dev.off()
 
+######### INFANT VLP + prophages TO MATERNAL VLP + prophages (ENRICHNED FOR MGS-DETECTED PROPHAGES STAT) #########
+RPKM_counts_VLP_plus_prophages_all <- RPKM_counts_VLP
+
+
+RPKM_counts_MGS_prophages_only <- RPKM_counts_MGS[row.names(RPKM_counts_MGS) %in% contigs_metadata[contigs_metadata$temperate==1,]$V1,]
+
+
+for (i in VLP_metadata$Universal_fecal_ID) {
+  
+  if ( any(MGS_metadata$Short_sample_ID == paste0(i,'M')) ) {
+    prophages_detected_in_MGS <- row.names(RPKM_counts_MGS_prophages_only[ RPKM_counts_MGS_prophages_only[,paste0(i,'M')]!=0 , ])
+    
+    RPKM_counts_VLP_plus_prophages_all[prophages_detected_in_MGS,paste0(i,'V')] <- 1
+  }
+  
+}
+
+VLP_metadata_pro <- VLP_metadata
+RPKM_counts_VLP_plus_prophages_all <- RPKM_counts_VLP_plus_prophages_all[,VLP_metadata_pro$Short_sample_ID]
+identical(VLP_metadata_pro$Short_sample_ID, colnames(RPKM_counts_VLP_plus_prophages_all) )
+VLP_metadata_pro$viral_richness <- colSums(RPKM_counts_VLP_plus_prophages_all>0)
+RPKM_counts_VLP_plus_prophages_all$MOCK <- 0
+
+sharedness_timepoints_iVM_mVM <- calculate_sharedness(RPKM_counts_VLP_plus_prophages_all, VLP_metadata_pro, c('P7', 'B'), c('M1', 'M3'))
+
+sharedness_timepoints_iVM_mVM$ID <- row.names(sharedness_timepoints_iVM_mVM)
+sharedness_timepoints_iVM_mVM_melt <- melt(sharedness_timepoints_iVM_mVM)
+sharedness_timepoints_iVM_mVM_melt$Timepoint <- gsub('.*B_', '', sharedness_timepoints_iVM_mVM_melt$variable)
+sharedness_timepoints_iVM_mVM_melt$Timepoint <- factor(sharedness_timepoints_iVM_mVM_melt$Timepoint, levels=c('M1', 'M2', 'M3', 'M6',  "M12"), ordered = T)
+sharedness_timepoints_iVM_mVM_melt$variable <- sub('B_.*', '', sharedness_timepoints_iVM_mVM_melt$variable)
+sharedness_timepoints_iVM_mVM_melt$variable <- factor(sharedness_timepoints_iVM_mVM_melt$variable, levels=c('to_pre', 'to_post'), ordered=T)
+
+
+pdf('./04.PLOTS/Infant_Viruses_shared_iVLP_PRO_mVLP_PRO.pdf', width=12/2.54, height=9/2.54)
+ggplot(sharedness_timepoints_iVM_mVM_melt, aes(Timepoint, value, fill=variable)) +
+  geom_boxplot(outlier.shape = NA) +
+  labs (y="% Infant viruses shared", x="Infant Timepoint") + 
+  geom_sina(aes(fill=variable), size=0.6,alpha=0.5) +
+  theme_bw()+
+  theme(axis.text=element_text(size=12), 
+        axis.title=element_text(size=16,face="bold"),
+        strip.text.x = element_text(size = 12),
+        legend.text = element_text(size=10),
+        legend.title = element_text(size=12, face="bold")) +
+  scale_fill_manual(name = "Maternal\nTimepoints", 
+                    labels=c('Pre birth', 'Post birth'),
+                    values=c("#FAE3D2", "#BBDED2"))
+dev.off()
+
 ##############################
 # OUTPUT
 ##############################
