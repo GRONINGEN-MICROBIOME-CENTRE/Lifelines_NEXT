@@ -267,4 +267,9 @@ ggplot(plot_distances_select, aes(vector4analysis,easy_name, fill=factor4analysi
   theme(axis.text.y = element_text(colour=myPalette$color) )
 dev.off()
 
+##############################
+# OUTPUT
+##############################
+
+write.table(family_viruses, '02.CLEAN_DATA/List_viruses_results_checking_transmission.txt', sep='\t', quote=F, row.names = F)
 
