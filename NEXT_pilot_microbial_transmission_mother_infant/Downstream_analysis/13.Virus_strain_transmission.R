@@ -34,8 +34,6 @@ virus=lapply(paste0(folder, file_list), function(x) read.table(x, sep='\t', head
 names(virus) <- gsub(".dist.txt", '', file_list)
 
 
-
-
 ##############################
 # ANALYSIS
 ##############################
@@ -52,40 +50,42 @@ for (n in 1:NROW(virus) ) {
   # get the virus name and distance matrix
   virusN <- virus[[n]]
   virusName <- names(virus[n])
+  # reformat symmetric distance matrix to only contain mother-infant distances (mothers in rows and infants in columns)
+  virusN <- virusN[grep('Mother', row.names(virusN)), grep('Infant', colnames(virusN))]
   
   # two lists to store pair-wise distances for the current virus[[n]] per family
   mother_infant_distances <- list()
+  mother_unrelated_distances <- list()
   
-  A <- virusN #this will be needed for parsing distances between unrelated samples
-  
-  for (i in unique( substr(colnames( virusN ), 1, 7)) ) { # getting the FAM_IDs of all virus-positive families from the distance matrix 
+  # loop over all families
+  for (i in unique( substr(row.names( virusN ), 1, 7)) ) { # getting the FAM_IDs of all virus-positive families from the distance matrix 
     
     # Check if within the selected family both mother and infant have virus-positive samples
-    if (any(grep(paste0(i, '_Mother'),  colnames(virusN) ))==T & any(grep(paste0(i, '_Infant'),  colnames(virusN) ))==T) {
+    if (any(grep(paste0(i, '_Mother'),  row.names(virusN) ))==T & any(grep(paste0(i, '_Infant'),  colnames(virusN) ))==T) {
       
       # Parsing pair-wise distances between maternal and infant samples from the selected family
-      mother_infant_distances[[i]] <- unlist( virusN[grep( paste0(i, '_Mother') , colnames(virusN) ), grep( paste0(i, '_Infant'), colnames( virusN ) ) ] )
+      mother_infant_distances[[i]] <- unlist( virusN[grep( paste0(i, '_Mother') , row.names(virusN) ), grep( paste0(i, '_Infant'), colnames( virusN ) ) ] )
       
       # Parsing pair_wise distances between maternal samples and samples of unrelated individuals:
       # Assigning all pair-wise distances between samples of related individuals as NA for the selected family
-      # in the end of the loop matrix A should only contain numeric values for unrelated samples
-      A[grep(i, colnames(A)), grep(i, colnames(A))] <- NA
+      
+      mother_unrelated_distances[[i]] <- unlist( virusN[grep( paste0(i, '_Mother') , row.names(virusN) ), 
+                                                        grep( paste0(i, '_Infant'), colnames( virusN ), invert = T ) ] )
       
     } else {
       
       mother_infant_distances[[i]] <- NA
+      mother_unrelated_distances[[i]] <- NA
       
     }
 
   }
   
-  # taking only upper triangle of the symmetric distance matrix
-  unrelated_distances <- A[upper.tri(A)]
-  
   # collecting the distances per virus:
   mother_infant_distances_virus[[virusName]] <- as.numeric(na.omit(unname ( unlist(mother_infant_distances) )))
-  unrelated_distances_virus[[virusName]] <- as.numeric(na.omit(unrelated_distances) )
+  unrelated_distances_virus[[virusName]] <- as.numeric(na.omit( unname( unlist(mother_unrelated_distances) ) ) )
 }
+
 
 
 # testing if distances in mother-infant pairs are smaller than between unrelated individuals
@@ -98,7 +98,7 @@ plot_distances <- data.frame()
 for (n in 1:NROW(virus)) {
   F_stat_real[n,1] <- names(virus[n])
   F_stat_real[n,2] <- length(mother_infant_distances_virus[[n]])
-  if (length(mother_infant_distances_virus[[n]])!=0) {
+  if (length(unrelated_distances_virus[[n]])!=0) {
     vector4analysis = c(mother_infant_distances_virus[[n]], unrelated_distances_virus[[n]])
     factor4analysis = c(rep("Related",length(mother_infant_distances_virus[[n]])),
                         rep("Unrelated",length(unrelated_distances_virus[[n]])))
@@ -113,6 +113,7 @@ for (n in 1:NROW(virus)) {
   }
   
 }
+
 
 #permutations test
 
@@ -130,50 +131,55 @@ for (n in 1:NROW(virus) ) {
     
     virusN <- virus[[n]]
     virusName <- names(virus[n])
+    virusN <- virusN[grep('Mother', row.names(virusN)), grep('Infant', colnames(virusN))]
     
     # randomly permuting the samples:
-    # first get the random permutation
+    # first get the random permutation of columns
     sample_permut = sample( 1:ncol(virusN) )
+    # second get the random permutation of columns
+    sample_permut_row = sample( 1:nrow(virusN) )
+    
     # reorder the table of distances for the chosen virus according to the permutation
-    perm_table = virusN[sample_permut,sample_permut]
+    #perm_table = virusN[sample_permut,sample_permut]
+    perm_table = virusN[sample_permut_row,sample_permut]
     # rename columns
     colnames(perm_table) = colnames(virusN)
     row.names(perm_table) = row.names(virusN)
     
+    mother_infant_distances <- list()
+    mother_unrelated_distances <- list()
+    
     # creating a vector for storage of pair-wise distances between related samples for this iteration of permutation
     mother_infant_distances_virus_perm <- c()
+    # creating a vector for storage of pair-wise distances between unrelated samples for this iteration of permutation
+    mother_unrelated_distances_perm <- c()
     
-    A <- perm_table # we will need it for unrelated distances
-    
-    for (j in unique( substr(colnames( perm_table ), 1, 7)) ) {
+    for (j in unique( substr(row.names( perm_table ), 1, 7)) ) {
       
-      if (any(grep(paste0(j, '_Mother'),  colnames(perm_table) ))==T & any(grep(paste0(j, '_Infant'),  colnames(perm_table) ))==T) {
+      if (any(grep(paste0(j, '_Mother'),  row.names(perm_table) ))==T & any(grep(paste0(j, '_Infant'),  colnames(perm_table) ))==T) {
         
-        mother_infant_distances[[j]] <- unlist( perm_table[grep( paste0(j, '_Mother') , colnames(perm_table) ), grep( paste0(j, '_Infant'), colnames( perm_table ) ) ] )
+        mother_infant_distances[[j]] <- unlist( perm_table[grep( paste0(j, '_Mother') , row.names(perm_table) ), grep( paste0(j, '_Infant'), colnames( perm_table ) ) ] )
        
-        
-        A[grep(j, colnames(A)), grep(j, colnames(A))] <- NA
-        
-        
+        mother_unrelated_distances[[j]] <- unlist( perm_table[grep( paste0(j, '_Mother') , row.names(perm_table) ), 
+                                                          grep( paste0(j, '_Infant'), colnames( perm_table ), invert = T ) ] )
+    
       } else {
         mother_infant_distances[[j]] <- NA
+        mother_unrelated_distances[[j]] <- NA
       }
       
     }
     
-    unrelated_distances <- A[upper.tri(A)]
-    
     mother_infant_distances_virus_perm <- as.numeric(na.omit(unname ( unlist(mother_infant_distances) )))
-    unrelated_distances_virus_perm <- as.numeric(na.omit(unrelated_distances) )
-  
-  
+    mother_unrelated_distances_perm  <- as.numeric(na.omit( unname( unlist(mother_unrelated_distances) ) ) )
+
     #calculating F-stat for permuted table
     
-    if (length(unrelated_distances_virus_perm)!=0) {
+    if (length(mother_unrelated_distances_perm)!=0) {
       
-      vector4analysis <- c(mother_infant_distances_virus_perm, unrelated_distances_virus_perm)
+      vector4analysis <- c(mother_infant_distances_virus_perm, mother_unrelated_distances_perm )
       factor4analysis <- c( rep('Related', length(mother_infant_distances_virus_perm) ),
-                            rep('Unelated', length(unrelated_distances_virus_perm) ) )
+                            rep('Unrelated', length(mother_unrelated_distances_perm ) ) )
       lm_perm = lm(vector4analysis ~ factor4analysis)
       
       # storing F_stat for this permutation
@@ -227,7 +233,7 @@ ggplot(plot_distances_select, aes(vector4analysis,easy_name, fill=factor4analysi
   geom_boxplot(outlier.shape = NA,alpha=0.5) +
   labs (y="Viruses", x="Log-scaled Kimura distance") + 
   geom_sina(aes(fill=factor4analysis), size=0.6,alpha=0.5) +
-  #geom_jitter(aes(vector4analysis,virus_name),size=0.6,alpha=0.5) +
+  #geom_jitter(,size=0.6,alpha=0.5) +
   theme_bw()+
   scale_x_log10() +
   theme(axis.text=element_text(size=12), 
@@ -253,7 +259,7 @@ ggplot(plot_distances_select, aes(vector4analysis,easy_name, fill=factor4analysi
   geom_boxplot(outlier.shape = NA,alpha=0.5) +
   labs (y="Viruses", x="Log-scaled Kimura distance") + 
   geom_sina(aes(fill=factor4analysis), size=0.6,alpha=0.5) +
-  #geom_jitter(aes(vector4analysis,virus_name),size=0.6,alpha=0.5) +
+  #geom_jitter(aes(),size=0.6,alpha=0.5) +
   theme_bw()+
   scale_x_log10() +
   theme(axis.text=element_text(size=12), 
