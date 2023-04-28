@@ -359,7 +359,7 @@ microbiome_phyla <- microbiome_phyla[-grep('c__', row.names(microbiome_phyla) ),
 
 # bacterial species table:
 microbiome_species <- metaphlan4_output[grep('s__', row.names(metaphlan4_output) ) ,]
-microbiome_species <- metaphlan4_output[-grep('t__', row.names(metaphlan4_output) ) ,]
+microbiome_species <- microbiome_species[-grep('t__', row.names(microbiome_species) ) ,]
 
 # bacterial genera table:
 microbiome_genera <- metaphlan4_output[grep('g__', row.names(metaphlan4_output)),]
