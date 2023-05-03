@@ -161,4 +161,4 @@ if (identical(colnames(RPKM_counts_VLP), VLP_metadata$Short_sample_ID)) {
 
 ###### OUTPUT #####
 write.table(bacteria_permanova, '03a.RESULTS/Bacterial_spp_bray_PERMANOVA.txt', sep='\t', quote=F)
-write.table(bacteria_permanova, '03a.RESULTS/Viral_vOTUs_bray_PERMANOVA.txt', sep='\t', quote=F)
+write.table(viruses_permanova, '03a.RESULTS/Viral_vOTUs_bray_PERMANOVA.txt', sep='\t', quote=F)
