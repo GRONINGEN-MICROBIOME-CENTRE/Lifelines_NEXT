@@ -179,4 +179,8 @@ if (identical(row.names(RPKM_counts_VLP), VLP_metadata$Short_sample_ID)) {
 ###### OUTPUT #####
 write.table(bacteria_permanova, '03a.RESULTS/Bacterial_spp_filt_CLR_Aitchison_PERMANOVA.txt', sep='\t', quote=F)
 write.table(viruses_permanova, '03a.RESULTS/Viral_vOTUs_filt_CLR_Aitchison_PERMANOVA.txt', sep='\t', quote=F)
+write.table(microbiome_filt_CLR, '02.CLEAN_DATA/Bacterial_spp_filtered_CLR_transformed.txt', sep='\t', quote=F)
+write.table(RPKM_counts_VLP_filt_CLR, '02.CLEAN_DATA/Viral_vOTUs_filtered_CLR_transformed.txt', sep='\t', quote=F)
+write.table(microbiome_filt, '02.CLEAN_DATA/Bacterial_spp_filtered.txt', sep='\t', quote=F)
+write.table(RPKM_counts_VLP_filt, '02.CLEAN_DATA/Viral_vOTUs_filtered.txt', sep='\t', quote=F)
 
