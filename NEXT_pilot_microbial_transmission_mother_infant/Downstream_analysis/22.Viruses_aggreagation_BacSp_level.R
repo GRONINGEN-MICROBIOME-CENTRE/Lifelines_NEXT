@@ -82,7 +82,7 @@ for (i in colnames(RPKM_VLP_by_BacSp) ) {
 # no need to filter at 0.05 prevalence, as they have been already filtered
 
 # CLR transformation:
-RPKM_VLP_by_BacSp_filt <- as.data.frame(RPKM_VLP_by_BacSp)
+RPKM_VLP_by_BacSp_filt <- as.data.frame(t(RPKM_VLP_by_BacSp))
 my_pseudocount_normal=min(RPKM_VLP_by_BacSp_filt[RPKM_VLP_by_BacSp_filt!=0])/2
 RPKM_VLP_by_BacSp_filt_CLR<-decostand(RPKM_VLP_by_BacSp_filt, "clr", pseudocount=my_pseudocount_normal)
 
@@ -91,6 +91,6 @@ RPKM_VLP_by_BacSp_filt_CLR<-decostand(RPKM_VLP_by_BacSp_filt, "clr", pseudocount
 # OUTPUT
 ##############################
 write.table(RPKM_VLP_by_BacSp_raw, '02.CLEAN_DATA/RPKM_counts_aggregated_bacterial_host_raw.txt', sep='\t', quote = F)
-write.table(RPKM_VLP_by_BacSp, '02.CLEAN_DATA/RPKM_counts_aggregated_bacterial_host_filt.txt', sep='\t', quote=F)
+write.table(RPKM_VLP_by_BacSp_filt, '02.CLEAN_DATA/RPKM_counts_aggregated_bacterial_host_filt.txt', sep='\t', quote=F)
 write.table(RPKM_VLP_by_BacSp_filt_CLR, '02.CLEAN_DATA/RPKM_counts_aggregated_bacterial_host_filtered_CLR_transformed.txt', sep='\t', quote=F)
 
