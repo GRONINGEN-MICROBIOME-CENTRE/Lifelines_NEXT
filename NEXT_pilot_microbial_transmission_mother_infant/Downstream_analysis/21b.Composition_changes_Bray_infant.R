@@ -1,8 +1,8 @@
 setwd('~/Desktop/Projects_2022/NEXT_pilot_FUP/')
 
 #############################################################
-# Here we explore the differences in bacteriome and virome 
-# communitues between infant and maternal samples at the 
+# Here we explore the dynamics of bacteriome and virome 
+# communitues within infant samples at the 
 # species and vOTUs levels USING BRAY-CURTIS DISTANCE
 #############################################################
 
