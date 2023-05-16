@@ -169,7 +169,7 @@ do
    FM=${SN}.StrainPhlAn4_concatenated.aln
    echo "  >> making distmat"
    echo "distmat -sequence ${SN}/${FM} -nucmethod 2 -outfile ${SN}/${SN}.dmat"
-   distmat -sequence ${SN}/${F
+  
  
 # Creates a distance matrix from a multiple sequence alignment using the EMBOSS package (https://www.bioinformatics.nl/cgi-bin/emboss/help/distmat) 
 # distmat calculates the evolutionary distance between every pair of sequences in a multiple sequence alignment.
