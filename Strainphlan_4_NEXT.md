@@ -180,7 +180,7 @@ do
 ### Execution
 
 ```
-sbtach makeDistMatAll.sh 
+sbatch makeDistMatAll.sh 
 
 ```
 
