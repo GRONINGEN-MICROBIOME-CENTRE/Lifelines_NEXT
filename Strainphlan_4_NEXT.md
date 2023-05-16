@@ -161,7 +161,8 @@ echo "maker of distance matrices"
 echo " > goes through each folder and attempts to make distmat"
 
 echo " > loading EMBOSS"
-ml EMBOSS/6.6.0-foss-2018a
+ml Anaconda3
+source activate /home2/hb-llnext/EMBOSS_conda/ 
 for F in */
 do
    SN=${F/\/}
@@ -169,11 +170,13 @@ do
    FM=${SN}.StrainPhlAn4_concatenated.aln
    echo "  >> making distmat"
    echo "distmat -sequence ${SN}/${FM} -nucmethod 2 -outfile ${SN}/${SN}.dmat"
-  
+distmat -sequence ${SN}/${FM} -nucmethod 2 -outfile ${SN}/${SN}.dmat
+done   
  
 # Creates a distance matrix from a multiple sequence alignment using the EMBOSS package (https://www.bioinformatics.nl/cgi-bin/emboss/help/distmat) 
 # distmat calculates the evolutionary distance between every pair of sequences in a multiple sequence alignment.
 # Uses Kimura Two-Parameter distance (distances expressed in terms of the number of substitutions per 100 b.p or amino acids) 
+
 
 
 ```
