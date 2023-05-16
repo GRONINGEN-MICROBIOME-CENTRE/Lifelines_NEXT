@@ -9,41 +9,7 @@ setwd('~/Desktop/Projects_2022/NEXT_pilot_FUP/')
 ##############################
 # Functions
 ##############################
-taxonomy_abundance <- function(taxonomy_table) {
-  my_results=matrix(ncol = 5, nrow=ncol(taxonomy_table))
-  rownames(my_results) = colnames(taxonomy_table)
-  colnames(my_results) = c("Mean","Prevalence", "nz_mean", "N_of_0", "perc_missing") 
-  ##Function to calculate mean excluding 0 values
-  nzmean <- function(a){
-    mean(a[a!=0])
-  }
-  ##Function to calculate nº of 0
-  zsum <- function(a){
-    sum (a==0)
-  }
-  ##Function to calculate nº of non-0
-  nsum <- function(a){
-    sum (a!=0)
-  }
-  ## Loop for each column (taxonomy) in the taxonomy table
-  for (i in 1:ncol(taxonomy_table)) {
-    #Calculate mean for each column
-    aa = mean(taxonomy_table[,i])
-    #Calculate number of non-zeros (individuals)
-    bb = nsum(taxonomy_table[,i])
-    #Calculate mean without taking into account the 0
-    cc = nzmean(taxonomy_table[,i])
-    #Calculate number of zeros 
-    dd = zsum(taxonomy_table[,i])
-    ee= (dd/(dd+bb))*100
-    my_results[i,1] = aa
-    my_results[i,2] = bb
-    my_results[i,3] = cc
-    my_results[i,4] = dd
-    my_results[i,5] = ee
-  }
-  return(my_results)
-}
+
 ##############################
 # Loading libraries
 ##############################
