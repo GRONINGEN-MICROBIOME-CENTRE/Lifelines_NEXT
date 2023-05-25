@@ -90,26 +90,26 @@ for (n in 1:NROW(virus) ) {
 
 # testing if distances in mother-infant pairs are smaller than between unrelated individuals
 
-F_stat_real <- as.data.frame(matrix(NA, nrow=length(virus), ncol=3))
-colnames(F_stat_real)[c(1:3)] <- c("Virus", "N_related_distances", "F_stat")
+p_value_real <- as.data.frame(matrix(NA, nrow=length(virus), ncol=3))
+colnames(p_value_real)[c(1:3)] <- c("Virus", "N_related_distances", "p_value")
 
 plot_distances <- data.frame()
 
 for (n in 1:NROW(virus)) {
-  F_stat_real[n,1] <- names(virus[n])
-  F_stat_real[n,2] <- length(mother_infant_distances_virus[[n]])
+  p_value_real[n,1] <- names(virus[n])
+  p_value_real[n,2] <- length(mother_infant_distances_virus[[n]])
   if (length(unrelated_distances_virus[[n]])!=0) {
     vector4analysis = c(mother_infant_distances_virus[[n]], unrelated_distances_virus[[n]])
     factor4analysis = c(rep("Related",length(mother_infant_distances_virus[[n]])),
                         rep("Unrelated",length(unrelated_distances_virus[[n]])))
-    lm_real = lm(vector4analysis ~ factor4analysis)
-    F_stat_real[n,3] <- anova(lm_real, test = "F")[1,4]
+    wilcoxon_real = wilcox.test(vector4analysis ~ factor4analysis)
+    p_value_real[n,3] <- wilcoxon_real$p.value
     
     #table for plot
     virus_name <- c( rep( names(virus[n]), length(factor4analysis) ) )
     plot_distances <- rbind(plot_distances, data.frame(virus_name, factor4analysis, vector4analysis))
   } else {
-    F_stat_real[n,3] <- "Comparison not possible"
+    p_value_real[n,3] <- "Comparison not possible"
   }
   
 }
@@ -118,13 +118,13 @@ for (n in 1:NROW(virus)) {
 #permutations test
 
 # storing F-statistics for permuted tables
-F_stat_perm <- list()
+p_value_perm <- list()
 
 # loop over all viruses
 for (n in 1:NROW(virus) ) {
   
   # creating a vector for storing F-statistics for the virus[[n]]
-  F_stat <- as.numeric(c())
+  p_value <- as.numeric(c())
   
   # loop over 1000 permutations
   for (i in 1:1000) {
@@ -173,41 +173,41 @@ for (n in 1:NROW(virus) ) {
     mother_infant_distances_virus_perm <- as.numeric(na.omit(unname ( unlist(mother_infant_distances) )))
     mother_unrelated_distances_perm  <- as.numeric(na.omit( unname( unlist(mother_unrelated_distances) ) ) )
 
-    #calculating F-stat for permuted table
+    #calculating p-value for permuted table
     
     if (length(mother_unrelated_distances_perm)!=0) {
       
       vector4analysis <- c(mother_infant_distances_virus_perm, mother_unrelated_distances_perm )
       factor4analysis <- c( rep('Related', length(mother_infant_distances_virus_perm) ),
                             rep('Unrelated', length(mother_unrelated_distances_perm ) ) )
-      lm_perm = lm(vector4analysis ~ factor4analysis)
+      wilcox_perm = wilcox.test(vector4analysis ~ factor4analysis)
       
-      # storing F_stat for this permutation
-      F_stat[i] <- anova(lm_perm, test = "F")[1,4] 
+      # storing p-vaule for this permutation
+      p_value[i] <- wilcox_perm$p.value
       
     } else {
-      F_stat[i] <- "Comparison not possible"
+      p_value[i] <- "Comparison not possible"
     }
     
   }
   
-  # storing F-statistics of permutations for every virus
-  F_stat_perm[names(virus[n])] <- as.data.frame(F_stat)
+  # storing p-value of permutations for every virus
+  p_value_perm[names(virus[n])] <- as.data.frame(p_value)
 }
 
 # calculation of p-value based on permutations:
-F_stat_real$p.value <- NA
+p_value_real$p_value_adj <- NA
 
 # loop goes over all viruses
-for (i in F_stat_real$Virus) {
+for (i in p_value_real$Virus) {
   
   # calculating the probability of event if the effect is random
-  F_stat_real[F_stat_real$Virus==i,4] <- sum(F_stat_perm[[i]] >= as.numeric(F_stat_real[F_stat_real$Virus==i,3]))/1000
+  p_value_real[p_value_real$Virus==i,"p_value_adj"] <- sum(p_value_perm[[i]] <= as.numeric(p_value_real[p_value_real$Virus==i,3]))/1000
 }
 
 # calculating FDR
-family_viruses <- F_stat_real[!is.na(F_stat_real$p.value),]
-family_viruses$FDR <- p.adjust(family_viruses$p.value, method = "BH")
+family_viruses <- p_value_real[!is.na(p_value_real$p_value_adj),]
+family_viruses$FDR <- p.adjust(family_viruses$p_value_adj, method = "BH")
 
 
 ##### PLOTS ####
@@ -217,6 +217,7 @@ plot_distances$vector4analysis <- plot_distances$vector4analysis + min(plot_dist
 plot_distances_select <- plot_distances[ plot_distances$virus_name %in% names(virus)[lengths(mother_infant_distances_virus)>5] ,]
 # renaming contigs for easier perception:
 plot_distances_select$easy_name <- paste0( 'L_', gsub('.*_length_','',plot_distances_select$virus_name))
+plot_distances_select$easy_name <- gsub("\\...\\K\\d+", "", plot_distances_select$easy_name, perl = TRUE)
 
 # color-coding the y-axis titles depending on statistical significance of the differnece:
 myPalette <- family_viruses
