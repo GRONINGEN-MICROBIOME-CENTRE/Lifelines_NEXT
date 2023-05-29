@@ -102,7 +102,7 @@ for (n in 1:NROW(virus)) {
     vector4analysis = c(mother_infant_distances_virus[[n]], unrelated_distances_virus[[n]])
     factor4analysis = c(rep("Related",length(mother_infant_distances_virus[[n]])),
                         rep("Unrelated",length(unrelated_distances_virus[[n]])))
-    wilcoxon_real = wilcox.test(vector4analysis ~ factor4analysis)
+    wilcoxon_real = wilcox.test(vector4analysis ~ factor4analysis, alternative='less', paired=F)
     p_value_real[n,3] <- wilcoxon_real$p.value
     
     #table for plot
@@ -180,7 +180,7 @@ for (n in 1:NROW(virus) ) {
       vector4analysis <- c(mother_infant_distances_virus_perm, mother_unrelated_distances_perm )
       factor4analysis <- c( rep('Related', length(mother_infant_distances_virus_perm) ),
                             rep('Unrelated', length(mother_unrelated_distances_perm ) ) )
-      wilcox_perm = wilcox.test(vector4analysis ~ factor4analysis)
+      wilcox_perm = wilcox.test(vector4analysis ~ factor4analysis, alternative='less', paired=F)
       
       # storing p-vaule for this permutation
       p_value[i] <- wilcox_perm$p.value
@@ -229,7 +229,7 @@ myPalette$easy_name <-  paste0( 'L_', gsub('.*_length_','',myPalette$Virus))
 myPalette <- myPalette[order(myPalette$easy_name),]
 
 # all virus strains
-pdf('./04.PLOTS/Infant_virus_strain_all.pdf', width=29.7/2.54, height=21/2.54)
+pdf('./04.PLOTS/Infant_virus_strain_all_wilcox_less.pdf', width=29.7/2.54, height=21/2.54)
 ggplot(plot_distances_select, aes(vector4analysis,easy_name, fill=factor4analysis)) + 
   geom_boxplot(outlier.shape = NA,alpha=0.5) +
   labs (y="Viruses", x="Log-scaled Kimura distance") + 
@@ -255,8 +255,8 @@ myPalette <- myPalette[myPalette$FDR<0.05,]
 plot_distances_select <- plot_distances_select[plot_distances_select$virus_name %in% myPalette$Virus,]
 
 
-pdf('./04.PLOTS/Infant_virus_strains_significant.pdf', width=29.7/2.54, height=21/2.54)
-ggplot(plot_distances_select, aes(vector4analysis,easy_name, fill=factor4analysis)) + 
+pdf('./04.PLOTS/Infant_virus_strains_significant_wilcox_less.pdf', width=29.7/2.54, height=21/2.54)
+ggplot(plot_distances_select, aes(vector4analysis, easy_name, fill=factor4analysis)) + 
   geom_boxplot(outlier.shape = NA,alpha=0.5) +
   labs (y="Viruses", x="Log-scaled Kimura distance") + 
   geom_sina(aes(fill=factor4analysis), size=0.6,alpha=0.5) +
