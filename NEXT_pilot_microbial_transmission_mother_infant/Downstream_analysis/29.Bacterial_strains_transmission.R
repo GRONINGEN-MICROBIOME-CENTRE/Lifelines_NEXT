@@ -2,7 +2,7 @@ setwd('~/Desktop/Projects_2022/NEXT_pilot_FUP/')
 
 #############################################################
 # Here we explore inter-individual variation of bacterial 
-# strains that are predicted to be infected by the bacteriumes of
+# strains that are predicted to be infected by the viruses of
 # interest
 #############################################################
 
@@ -137,7 +137,7 @@ for (n in 1:NROW(bacterium_to_test)) {
     vector4analysis = c(mother_infant_distances_bacterium[[n]], unrelated_distances_bacterium[[n]])
     factor4analysis = c(rep("Related",length(mother_infant_distances_bacterium[[n]])),
                         rep("Unrelated",length(unrelated_distances_bacterium[[n]])))
-    wilcoxon_real = wilcox.test(vector4analysis ~ factor4analysis)
+    wilcoxon_real = wilcox.test(vector4analysis ~ factor4analysis, alternative='less', paired=F)
     p_value_real[n,3] <- wilcoxon_real$p.value
     
     #table for plot
@@ -221,7 +221,7 @@ for (n in 1:NROW(bacterium_to_test) ) {
       vector4analysis <- c(mother_infant_distances_bacterium_perm, mother_unrelated_distances_perm )
       factor4analysis <- c( rep('Related', length(mother_infant_distances_bacterium_perm) ),
                             rep('Unrelated', length(mother_unrelated_distances_perm ) ) )
-      wilcox_perm = wilcox.test(vector4analysis ~ factor4analysis)
+      wilcox_perm = wilcox.test(vector4analysis ~ factor4analysis, alternative='less', paired=F)
       
       # storing p-vaule for this permutation
       p_value[i] <- wilcox_perm$p.value
@@ -257,8 +257,8 @@ family_bacteria$FDR <- p.adjust(family_bacteria$p_value_adj, method = "BH")
 # adding the smallest non-zero Kimura distance to all distances (to use logarithmic scale in the plot)
 plot_distances$vector4analysis <- plot_distances$vector4analysis + min(plot_distances[plot_distances$vector4analysis!=0,]$vector4analysis)
 # showing only those viruses that have more than 5 pair-wise distances for related samples
-plot_distances_select <- plot_distances[ plot_distances$bacterium_name %in% names(bacterium_to_test)[lengths(mother_infant_distances_bacterium)>5] ,]
-plot_distances_select <- plot_distances_select[plot_distances_select$vector4analysis!=Inf,] 
+plot_distances_select <- plot_distances[ plot_distances$bacterium_name %in% family_bacteria[family_bacteria$N_related_distances>5,]$Bacterium,]
+
 
 # color-coding the y-axis titles depending on statistical significance of the differnece:
 myPalette <- family_bacteria
@@ -273,7 +273,7 @@ plot_distances_select$easy_name <- paste0(plot_distances_select$bacterium_name, 
 
 
 # all virus strains
-pdf('./04.PLOTS/Infant_bacteria_strain_all.pdf', width=29.7/2.54, height=21/2.54)
+pdf('./04.PLOTS/Infant_bacteria_strain_all_wilcoxon_less.pdf', width=29.7/2.54, height=21/2.54)
 ggplot(plot_distances_select, aes(vector4analysis,easy_name, fill=factor4analysis)) + 
   geom_boxplot(outlier.shape = NA,alpha=0.5) +
   labs (y="Bacterial strains", x="Log-scaled Kimura distance") + 
@@ -299,7 +299,7 @@ myPalette <- myPalette[myPalette$FDR<0.05,]
 plot_distances_select <- plot_distances_select[plot_distances_select$bacterium_name %in% myPalette$Bacterium,]
 
 
-pdf('./04.PLOTS/Infant_bacteria_strains_significant.pdf', width=29.7/2.54, height=21/2.54)
+pdf('./04.PLOTS/Infant_bacteria_strains_significant_wilcoxon_less.pdf', width=29.7/2.54, height=21/2.54)
 ggplot(plot_distances_select, aes(vector4analysis, easy_name, fill=factor4analysis)) + 
   geom_boxplot(outlier.shape = NA,alpha=0.5) +
   labs (y="Bacterial strains", x="Log-scaled Kimura distance") + 
