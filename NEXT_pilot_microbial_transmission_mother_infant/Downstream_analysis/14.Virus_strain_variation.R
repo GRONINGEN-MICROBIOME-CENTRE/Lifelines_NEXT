@@ -190,10 +190,10 @@ dev.off()
 
 # removing those that do not have between-individual distances
 between_individual_distances_virus_mothers[["LN_4E02_VL_255_NODE_333_length_8047_cov_10.923048"]] <- NULL
-between_individual_distances_virus_mothers[["LN_4F04_VL_266_NODE_141_length_37775_cov_36892.259438"]] <- NULL
+between_individual_distances_virus_mothers[["LN_6C08_VL_324_NODE_10_length_35342_cov_52985.538045"]] <- NULL
 
 within_individual_distances_virus_mothers[["LN_4E02_VL_255_NODE_333_length_8047_cov_10.923048"]] <- NULL
-within_individual_distances_virus_mothers[["LN_4F04_VL_266_NODE_141_length_37775_cov_36892.259438"]] <- NULL
+within_individual_distances_virus_mothers[["LN_6C08_VL_324_NODE_10_length_35342_cov_52985.538045"]] <- NULL
 
 cutpoints_mothers <- data.frame( matrix(NA, nrow = length(within_individual_distances_virus_mothers), ncol=3 )  )
 row.names(cutpoints_mothers) <- names(within_individual_distances_virus_mothers)
@@ -211,7 +211,7 @@ for (n in 1:NROW(within_individual_distances_virus_mothers)) {
   
   
   if (median( unname(unlist(within_individual_distances_virus_mothers[[n]])) ) ==0) {
-    mothers_virus$Distance <- mothers_virus$Distance/sort(unname(unlist(within_individual_distances_virus_mothers[[n]])) [unname(unlist(within_individual_distances_virus_mothers[[n]]))!=0])[1]
+    mothers_virus$Distance <- mothers_virus$Distance/sort(unname(unlist(within_individual_distances_virus_mothers[[n]]))[unname(unlist(within_individual_distances_virus_mothers[[n]]))!=0])[1]
   } else {
     mothers_virus$Distance <- mothers_virus$Distance/median( unname(unlist(within_individual_distances_virus_mothers[[n]])) )
   }
@@ -310,8 +310,8 @@ for (n in 1:NROW(virus_hists_data)) {
     geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(virus_hists_data[[n]]$Distance) ), alpha=0.7) + 
     geom_density(aes(y = (after_stat(count)/sum(after_stat(count)))*2000), alpha=0.2   ) + 
     labs(x="Normalized Distance", y="proportion (%)") +
-    geom_vline(aes(xintercept=cutpoints_infants[ names(virus_hists_data[n])  ,"Youden_index"]), linetype="dashed") + 
-    geom_vline(aes(xintercept=cutpoints_infants[ names(virus_hists_data[n])  ,"FDR_value"]), linetype="dashed", color="red") +
+    geom_vline(aes(xintercept=cutpoints_all[ names(virus_hists_data[n])  ,"Youden_index"]), linetype="dashed") + 
+    geom_vline(aes(xintercept=cutpoints_all[ names(virus_hists_data[n])  ,"FDR_value"]), linetype="dashed", color="red") +
     ggtitle( gsub("\\...\\K\\d+", "", gsub(".*_length", "L"  , names(virus_hists_data[n]) ), perl=T) ) +
     theme_bw() + 
     theme(title=element_text(size=8))
@@ -405,6 +405,8 @@ for (n in 1:NROW(transmission_virus)) {
 
 row.names(list_transmitted) <- list_transmitted$Virus
 list_transmitted$p_value_kinship_transmission <- NA
+
+testing_enrichment_transmission <- list()
 for (i in list_transmitted$Virus) {
   
   testing_enrichment_transmission[[i]] <- matrix( c(list_transmitted[i,"N_related_pairs_transmitted"], 
@@ -480,7 +482,6 @@ for (i in unique(host_assignment$species)) {
 host_assignment <- host_assignment[host_assignment$species!='',]
 unique(host_assignment[!is.na(host_assignment$present_metaphlan),]$species)
 
-View(list_transmitted[list_transmitted$p_value_kinship_transmission_adj < 0.05,])
 
 dist_example <- virus[["LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609"]]
 
@@ -545,8 +546,8 @@ dev.off()
 ##############################
 # OUTPUT
 ##############################
-write.table(host_assignment, '02.CLEAN_DATA/Table_predicted_hosts_shared_strains.txt', sep='\t', quote=F, row.names = F)
-write.table(unique(host_assignment[!is.na(host_assignment$present_metaphlan),]$species), '02.CLEAN_DATA/List_predicted_hosts_shared_strains_260523.txt', sep='\t', quote=F, row.names = F, col.names = F)
+write.table(host_assignment, '02.CLEAN_DATA/Table_predicted_hosts_shared_strains_maximized_Youden_combined_wilcox_less.txt', sep='\t', quote=F, row.names = F)
+write.table(unique(host_assignment[!is.na(host_assignment$present_metaphlan),]$species), '02.CLEAN_DATA/List_predicted_hosts_shared_strains_290523.txt', sep='\t', quote=F, row.names = F, col.names = F)
 write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609']])) &
                        metadata$source=='VLP', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L85266_LS0_VLP_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
 write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609']])) &
