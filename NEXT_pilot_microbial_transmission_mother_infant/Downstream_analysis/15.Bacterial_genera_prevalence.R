@@ -109,3 +109,4 @@ dev.off()
 ##############################
 # OUTPUT
 ##############################
+write.table(my_results,'03a.RESULTS/Top20_prevalent_bacgenera_by_Type.txt', sep='\t', row.names=F, quote=F)
