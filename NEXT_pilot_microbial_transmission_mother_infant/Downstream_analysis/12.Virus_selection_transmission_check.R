@@ -65,8 +65,8 @@ metadata_MGS <- read.table("02.CLEAN_DATA/MGS_metadata_with_phenos.txt", sep='\t
 metadata_MGS$Timepoint <- factor(metadata_MGS$Timepoint, levels=c('P3','P7', 'B', 'M1', 'M2', 'M3', 'M6', 'M9','M12'), ordered=T)
 
 # combined metadata for VLP and MGS samples:
-metadata <- rbind(metadata_MGS[,c("Short_sample_ID", "NG_ID", "FAM_ID", "Timepoint", "Type", "Individual_ID")],
-                  metadata_VLP[,c("Short_sample_ID", "NG_ID", "FAM_ID", "Timepoint", "Type", "Individual_ID")])
+metadata <- rbind(metadata_MGS[,c("Short_sample_ID", "NG_ID", "FAM_ID", "Timepoint", "Type", "Individual_ID", "Short_sample_ID_bact", "Universal_fecal_ID")],
+                  metadata_VLP[,c("Short_sample_ID", "NG_ID", "FAM_ID", "Timepoint", "Type", "Individual_ID", "Short_sample_ID_bact", "Universal_fecal_ID")])
 metadata$source <- 'MGS'
 metadata[grep('V', metadata$Short_sample_ID),]$source <- 'VLP'
 metadata$Type <- factor(metadata$Type, levels=c('Mother', 'Infant'), ordered=T)
@@ -196,10 +196,11 @@ for (i in names(plot_list)) {
 dev.off()
 
 RPKM_combined <- RPKM_combined[,colSums(RPKM_combined)!=0]
+metadata_for_exp <- metadata[metadata$Short_sample_ID %in% colnames(RPKM_combined),]
 
 ###### OUTPUT #####
 write.table(phages_of_interest_for_check, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/Viruses_shared_min_5_families_UPD_final.txt', sep='\t', quote=F, row.names = F)
-write.table(RPKM_combined, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/RPKM_counts_combined_0.95_UPD_final.txt', sep='\t', quote=F)
-
+write.table(RPKM_combined, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/RPKM_counts_combined_0.95_UPD_final_for_exp.txt', sep='\t', quote=F)
+write.table(metadata_for_exp, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/metadata_combined_for_exp.txt', sep='\t', quote=F, row.names = F)
 
 
