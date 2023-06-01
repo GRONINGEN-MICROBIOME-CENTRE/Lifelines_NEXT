@@ -468,8 +468,9 @@ ggplot(for_plot, aes(value, easy_name, fill=variable)) +
 dev.off()
 
 
- <- merge(host_assignment, list_transmitted, by='Species', all=T)
+virus_host_transmission <- merge(host_assignment, list_transmitted, by='Species', all=T)
 
 ##############################
 # OUTPUT
 ##############################
+write.table(virus_host_transmission, "03a.RESULTS/Bacterial_hosts_transmission_for_transmitted_viruses.txt", sep='\t', row.names = F, quote=F)
