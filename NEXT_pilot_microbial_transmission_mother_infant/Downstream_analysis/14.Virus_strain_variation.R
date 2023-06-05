@@ -1,8 +1,10 @@
 setwd('~/Desktop/Projects_2022/NEXT_pilot_FUP/')
 
 #############################################################
-# Here we explore inter-individual variation of virus 'strains' 
-# in both VLP and MGS samples
+# Here we explore inter-individual variation of virus 
+# 'strains'/consensuses reconstructed from both VLP and MGS 
+# samples in order to estimate the number of strain sharing
+# events.
 #############################################################
 
 ##############################
@@ -12,38 +14,21 @@ setwd('~/Desktop/Projects_2022/NEXT_pilot_FUP/')
 ##############################
 # Loading libraries
 ##############################
-library(vegan)
-library(ggplot2)
-
-library(ape)
-library(treeio)
-
-library(ggtree)
-library(scales)
-library(ggforestplot)
-library(ggforce)
-
 library(cutpointr)
+library(ggplot2)
 library(patchwork)
 library(reshape2)
+library(ggforestplot)
 
 ##############################
 # Input data
 ##############################
 
-metadata <- read.table('03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/metadata_combined_for_exp.txt', sep='\t', header=T)
-metadata$Alex_ID <- paste0(metadata$FAM_ID, '_', metadata$Type, '_', substr(metadata$Short_sample_ID, 1,1), '_', metadata$source, '_', metadata$Timepoint)
-row.names(metadata) <- metadata$Alex_ID
-metadata$label <- metadata$Alex_ID
-  
-RPKM_combined_0.95 <- read.table('03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/RPKM_counts_combined_0.95_UPD_final_for_exp.txt', sep='\t', header=T)
 
-selected_viruses <- read.table('03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/Viruses_shared_min_5_families_UPD_final.txt', sep='\t', header=T)
-colnames(selected_viruses)[1] <- 'Virus'
+selected_viruses <- read.table('02.CLEAN_DATA/List_viruses_selected_transmission_metadata.txt', sep='\t', header=T)
 
 list_transmitted <- read.table('02.CLEAN_DATA/List_viruses_results_checking_transmission.txt', sep='\t', header=T)
 list_transmitted <- list_transmitted[list_transmitted$FDR<= 0.05,]
-list_transmitted <- merge(list_transmitted, selected_viruses, by='Virus')
 
 folder = "02.CLEAN_DATA/dist.matrices/"  
 file_list = list.files(path=folder, pattern="*.txt")  
@@ -54,219 +39,83 @@ virus <- virus[names(virus) %in% list_transmitted$Virus]
 
 host_assignment <- read.csv('01.RAW_DATA/Host_assignment/MERGED_Host_prediction_to_genome_m90.csv')
 
-hosts <- read.csv('01.RAW_DATA/Host_assignment/MERGED_Host_prediction_to_genome_m90.csv')
-
 metaphlan <- read.table('02.CLEAN_DATA/Microbiome_species_unfiltred.txt', sep='\t', header=T)
-metaphlan_species <- metaphlan[grep('s__', row.names(metaphlan)),]
-
 
 ##############################
 # ANALYSIS
 ##############################
 
-# defining the inter-personal virus genetic distance variation
+# collecting the within- and between-individual pairwise distances for infants and mothers separately
 
-within_individual_distances_virus_infants <- list()
-between_individual_distances_virus_infants <- list()
+# creating lists to keep the respective distances:
+within_infant_distances_virus <- list()
+between_infants_distances_virus <- list()
 
-within_individual_distances_virus_mothers <- list()
-between_individual_distances_virus_mothers <- list()
+within_mother_distances_virus <- list()
+between_mothers_distances_virus <- list()
 
 
-for (n in 1:NROW(virus)) {
-  print(paste0(' > prepping within-infant distances for strain ', names(virus[n])))  
+# loop to go over infant and maternal samples separately:
+for (p in c("Infant", "Mother")) {
   
-  # get the virus name and distance matrix
-  virusN <- virus[[n]]
-  virusN_infants <- virusN[grep('Infant', row.names(virusN)), grep('Infant', colnames(virusN))]
-  virusN_mothers <- virusN[grep('Mother', row.names(virusN)), grep('Mother', colnames(virusN))]
-  
-  virusName <- names(virus[n])
-  
-  within_individual_distances <- list()
-  between_individual_distances <- list()
-  
-  for (i in unique( gsub("(FAM0[0-9]{3}_Infant_[A-Za-z]).*", "\\1", colnames(virusN_infants)[grep('Infant', colnames(virusN_infants))] ) ) ) {
+  # loop to go over all viruses:
+  for (n in 1:NROW(virus)) {
     
-    if (length(grep(i, colnames(virusN_infants)))>1) {
+    # progress notification
+    print(paste0(' > prepping within-infant distances for strain ', names(virus[n])))  
+    
+    # get the virus name and distance matrix
+    virusName <- names(virus[n])
+    virusN <- virus[[n]]
+    
+    # keep only infants or mothers in the matrix
+    virusN <- virusN[grep(p, row.names(virusN)), grep(p, colnames(virusN))]
+    
+    # create empty lists to keep the within- and between-individual distances for the current virus selection:
+    within_individual_distances <- list()
+    between_individual_distances <- list()
+    
+    # collect pairwise distances per infant or mother:
+    for (i in unique( gsub( paste0("(FAM0[0-9]{3}_", p, "_[A-Za-z]).*"), "\\1", colnames(virusN) ) ) ) {
       
-      A  <- virusN_infants[grep(i, colnames(virusN_infants)),grep(i, colnames(virusN_infants))]
-      within_individual_distances[[i]] <- A[upper.tri(A)]
-      between_individual_distances[[i]] <- unlist(virusN_infants[grep(i, colnames(virusN_infants)),grep(i, colnames(virusN_infants), invert=T)])
-    } 
-    
-  }
-  
-  within_individual_distances_virus_infants[[virusName]] <- as.numeric(na.omit(unname ( unlist(within_individual_distances) )))
-  between_individual_distances_virus_infants[[virusName]] <- as.numeric(na.omit(unname ( unlist(between_individual_distances) )))
-  
-  
-  within_individual_distances <- list()
-  between_individual_distances <- list()
-  
-  for (i in unique( gsub("(FAM0[0-9]{3}_Mother_[A-Za-z]).*", "\\1", colnames(virusN_mothers)[grep('Mother', colnames(virusN_mothers))] ) ) ) {
-    
-    if (length(grep(i, colnames(virusN_mothers)))>1) {
+      # collect distances only for infants or mothers that have at least 2 longitudinal samples:
+      if (length(grep(i, colnames(virusN)))>1) {
+        
+        # get all pairwise distances to longitudinal samples of the infant or mother:
+        A  <- virusN[grep(i, colnames(virusN)),grep(i, colnames(virusN))]
+        within_individual_distances[[i]] <- A[upper.tri(A)]
+        
+        ## if treating twins as unrelated individuals:
+        #between_individual_distances[[i]] <- unlist(virusN_infants[grep(i, colnames(virusN_infants)),grep(i, colnames(virusN_infants), invert=T)])
+        
+        ## if treating twins as related individuals:
+        # get all pairwise distances to samples of unrelated individuals by excluding columns with the samples of longitudinal samples/samples of the twin
+        between_individual_distances[[i]] <- unlist(virusN[grep(i, colnames(virusN)), grep(substr(i, 1, 14), colnames(virusN), invert=T)])
+        
+      } 
       
-      A  <- virusN_mothers[grep(i, colnames(virusN_mothers)),grep(i, colnames(virusN_mothers))]
-      within_individual_distances[[i]] <- A[upper.tri(A)]
-      between_individual_distances[[i]] <- unlist(virusN_mothers[grep(i, colnames(virusN_mothers)),grep(i, colnames(virusN_mothers), invert=T)])
-    } 
+    }
+    
+    # keep the collected infant distances for the current virus selection:
+    
+    if (p=='Infant') {
+      
+      within_infant_distances_virus[[virusName]] <- as.numeric(na.omit(unname ( unlist(within_individual_distances) )))
+      between_infants_distances_virus[[virusName]] <- as.numeric(na.omit(unname ( unlist(between_individual_distances) )))
+      
+    } else {
+      
+      # keep the collected infant distances for the current virus selection:
+      within_mother_distances_virus[[virusName]] <- as.numeric(na.omit(unname ( unlist(within_individual_distances) )))
+      between_mothers_distances_virus[[virusName]] <- as.numeric(na.omit(unname ( unlist(between_individual_distances) )))
+      
+    }
     
   }
   
-  within_individual_distances_virus_mothers[[virusName]] <- as.numeric(na.omit(unname ( unlist(within_individual_distances) )))
-  between_individual_distances_virus_mothers[[virusName]] <- as.numeric(na.omit(unname ( unlist(between_individual_distances) )))
-  
-  
-  
 }
 
-### Threshold calculation
-
-cutpoints_infants <- data.frame( matrix(NA, nrow = length(virus), ncol=3 )  )
-row.names(cutpoints_infants) <- names(virus)
-colnames(cutpoints_infants) <- c('Youden_index', 'FDR_value', 'N_within_comparisons')
-
-infants_virus_hists_data <- list()
-for (n in 1:NROW(virus)) {
-  
-  infants_virus <- data.frame( c(within_individual_distances_virus_infants[[n]],
-                                 between_individual_distances_virus_infants[[n]]),
-                               c(rep("Within", length(within_individual_distances_virus_infants[[n]])),
-                                 rep("Between", length(between_individual_distances_virus_infants[[n]])) ) ) 
-  
-  colnames(infants_virus) <- c('Distance', 'Variable')
-  
-  infants_virus$Distance <- infants_virus$Distance/median( unname(unlist(virus[[n]])) )
-  
-  Youden <- cutpointr(infants_virus, Distance, Variable, 
-                            pos_class = "Within",
-                            neg_class = "Between", 
-                            method = maximize_metric, 
-                            metric = youden)
-  cutpoints_infants[n,"Youden_index"] <- Youden$optimal_cutpoint
-  
-  cutpoints_infants[n,"FDR_value"] <- quantile(infants_virus[infants_virus$Variable=="Between",]$Distance, probs = 0.05)
-  
-  cutpoints_infants[n,"N_within_comparisons"] <- length(within_individual_distances_virus_infants[[n]])
-  
-  infants_virus_hists_data[[names(virus[n])]] <- infants_virus
-}
-
-distance_histograms <- list()
-
-for (n in 1:NROW(infants_virus_hists_data)) {
-  
-  distance_histograms[[names(infants_virus_hists_data[n])]] <- ggplot(infants_virus_hists_data[[n]], aes(x=Distance, fill=Variable)) + 
-                                  geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(infants_virus_hists_data[[n]]$Distance) ), alpha=0.7) + 
-                                  geom_density(aes(y = (after_stat(count)/sum(after_stat(count)))*2000), alpha=0.2   ) + 
-                                  labs(x="Normalized Distance", y="proportion (%)") +
-                                  geom_vline(aes(xintercept=cutpoints_infants[ names(infants_virus_hists_data[n])  ,"Youden_index"]), linetype="dashed") + 
-                                  geom_vline(aes(xintercept=cutpoints_infants[ names(infants_virus_hists_data[n])  ,"FDR_value"]), linetype="dashed", color="red") +
-                                  ggtitle( gsub("\\...\\K\\d+", "", gsub(".*_length", "L"  , names(infants_virus_hists_data[n]) ), perl=T) ) +
-                                  theme_bw() + 
-                                  theme(title = element_text(size=8))
-  
-}
-
-
-combined_plot <- distance_histograms[[1]]
-
-for (h in 2:NROW(infants_virus_hists_data)) {
-  combined_plot <- combined_plot + distance_histograms[[h]]
-}
-
-
-combined_plot <- combined_plot +
-  plot_layout(ncol = 5, guides = "collect") + 
-  plot_annotation(title = "")
-pdf('./04.PLOTS/Cutpoints_within_infants_viruses.pdf', width=27/2.54, height=24/2.54)
-combined_plot
-dev.off()
-
-
-#### Threshold in mothers
-
-# removing those that do not have between-individual distances
-between_individual_distances_virus_mothers[["LN_4E02_VL_255_NODE_333_length_8047_cov_10.923048"]] <- NULL
-between_individual_distances_virus_mothers[["LN_6C08_VL_324_NODE_10_length_35342_cov_52985.538045"]] <- NULL
-
-within_individual_distances_virus_mothers[["LN_4E02_VL_255_NODE_333_length_8047_cov_10.923048"]] <- NULL
-within_individual_distances_virus_mothers[["LN_6C08_VL_324_NODE_10_length_35342_cov_52985.538045"]] <- NULL
-
-cutpoints_mothers <- data.frame( matrix(NA, nrow = length(within_individual_distances_virus_mothers), ncol=3 )  )
-row.names(cutpoints_mothers) <- names(within_individual_distances_virus_mothers)
-colnames(cutpoints_mothers) <- c('Youden_index', 'FDR_value', 'N_within_comparisons')
-
-mothers_virus_hists_data <- list()
-for (n in 1:NROW(within_individual_distances_virus_mothers)) {
-  
-  mothers_virus <- data.frame( c(within_individual_distances_virus_mothers[[n]],
-                                 between_individual_distances_virus_mothers[[n]]),
-                               c(rep("Within", length(within_individual_distances_virus_mothers[[n]])),
-                                 rep("Between", length(between_individual_distances_virus_mothers[[n]])) ) ) 
-  
-  colnames(mothers_virus) <- c('Distance', 'Variable')
-  
-  
-  if (median( unname(unlist(within_individual_distances_virus_mothers[[n]])) ) ==0) {
-    mothers_virus$Distance <- mothers_virus$Distance/sort(unname(unlist(within_individual_distances_virus_mothers[[n]]))[unname(unlist(within_individual_distances_virus_mothers[[n]]))!=0])[1]
-  } else {
-    mothers_virus$Distance <- mothers_virus$Distance/median( unname(unlist(within_individual_distances_virus_mothers[[n]])) )
-  }
- 
-  
-  Youden <- cutpointr(mothers_virus, Distance, Variable, 
-                      pos_class = "Within",
-                      neg_class = "Between", 
-                      method = maximize_metric, 
-                      metric = youden)
-  cutpoints_mothers[n,"Youden_index"] <- Youden$optimal_cutpoint
-  
-  if (round(length(mothers_virus[mothers_virus$Variable=="Between",]$Distance)*0.05)==0) {
-    cutpoints_mothers[n,"FDR_value"] <- sort(mothers_virus[mothers_virus$Variable=="Between",]$Distance)[1]
-  } else {
-    cutpoints_mothers[n,"FDR_value"] <- sort(mothers_virus[mothers_virus$Variable=="Between",]$Distance)[ round(length(mothers_virus[mothers_virus$Variable=="Between",]$Distance)*0.05) ]
-  }
-  
-  cutpoints_mothers[n,"N_within_comparisons"] <- length(within_individual_distances_virus_mothers[[n]])
-  
-  mothers_virus_hists_data[[names(within_individual_distances_virus_mothers[n])]] <- mothers_virus
-}
-
-distance_histograms_mothers <- list()
-
-for (n in 1:NROW(mothers_virus_hists_data)) {
-  
-  distance_histograms_mothers[[names(mothers_virus_hists_data[n])]] <- ggplot(mothers_virus_hists_data[[n]], aes(x=Distance, fill=Variable)) + 
-    geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(mothers_virus_hists_data[[n]]$Distance) ), alpha=0.7) + 
-    geom_density(aes(y = (after_stat(count)/sum(after_stat(count)))*2000), alpha=0.2   ) + 
-    labs(x="Normalized Distance", y="proportion (%)") +
-    geom_vline(aes(xintercept=cutpoints_mothers[ names(mothers_virus_hists_data[n])  ,"Youden_index"]), linetype="dashed") + 
-    geom_vline(aes(xintercept=cutpoints_mothers[ names(mothers_virus_hists_data[n])  ,"FDR_value"]), linetype="dashed", color="red") +
-    ggtitle( gsub("\\...\\K\\d+", "", gsub(".*_length", "L"  , names(mothers_virus_hists_data[n]) ), perl=T) ) +
-    theme_bw() + 
-    theme(title=element_text(size=8))
-  
-}
-
-
-combined_plot_mothers <- distance_histograms_mothers[[1]]
-
-for (h in 2:NROW(mothers_virus_hists_data)) {
-  combined_plot_mothers <- combined_plot_mothers + distance_histograms_mothers[[h]]
-}
-
-combined_plot_mothers <- combined_plot_mothers +
-  plot_layout(ncol = 5, guides = "collect") + 
-  plot_annotation(title = "")
-
-pdf('./04.PLOTS/Cutpoints_within_mothers_viruses.pdf', width=27/2.54, height=24/2.54)
-combined_plot_mothers
-dev.off()
-
-#### Threshold merged: 
+#### Threshold merged individuals (infants and mothers together): 
 
 cutpoints_all <- data.frame( matrix(NA, nrow = length(virus), ncol=3 )  )
 row.names(cutpoints_all) <- names(virus)
@@ -275,14 +124,14 @@ colnames(cutpoints_all) <- c('Youden_index', 'FDR_value', 'N_within_comparisons'
 virus_hists_data <- list()
 for (n in 1:NROW(virus)) {
   
-  virusN <- data.frame( c(within_individual_distances_virus_infants[[n]],
-                          between_individual_distances_virus_infants[[n]],
-                          within_individual_distances_virus_mothers[[n]],
-                          between_individual_distances_virus_mothers[[n]]),
-                               c(rep("Within", length(within_individual_distances_virus_infants[[n]])),
-                                 rep("Between", length(between_individual_distances_virus_infants[[n]])),
-                                 rep("Within", length(within_individual_distances_virus_mothers[[n]])),
-                                 rep("Between", length(between_individual_distances_virus_mothers[[n]])) ) ) 
+  virusN <- data.frame( c(within_infant_distances_virus[[n]],
+                          between_infants_distances_virus[[n]],
+                          within_mother_distances_virus[[n]],
+                          between_mothers_distances_virus[[n]]),
+                        c(rep("Within", length(within_infant_distances_virus[[n]])),
+                          rep("Between", length(between_infants_distances_virus[[n]])),
+                          rep("Within", length(within_mother_distances_virus[[n]])),
+                          rep("Between", length(between_mothers_distances_virus[[n]])) ) ) 
   
   colnames(virusN) <- c('Distance', 'Variable')
   
@@ -297,7 +146,7 @@ for (n in 1:NROW(virus)) {
   
   cutpoints_all[n,"FDR_value"] <- quantile(virusN[virusN$Variable=="Between",]$Distance, probs = 0.05)
   
-  cutpoints_all[n,"N_within_comparisons"] <- length(c(within_individual_distances_virus_infants[[n]], within_individual_distances_virus_mothers[[n]]))
+  cutpoints_all[n,"N_within_comparisons"] <- length(c(within_infant_distances_virus[[n]], within_mother_distances_virus[[n]]))
   
   virus_hists_data[[names(virus[n])]] <- virusN
 }
@@ -329,16 +178,197 @@ combined_plot <- combined_plot +
   plot_layout(ncol = 5, guides = "collect") + 
   plot_annotation(title = "")
 
-pdf('./04.PLOTS/Cutpoints_within_mothers_and_infants_combined_viruses.pdf', width=27/2.54, height=24/2.54)
+pdf('./04.PLOTS/Cutpoints_within_mothers_and_infants_combined_viruses_twins_as_related_oc_youden_kernel.pdf', width=27/2.54, height=24/2.54)
 combined_plot
 dev.off()
 
 
+### Threshold calculation in infants:
+
+cutpoints_infants <- data.frame( matrix(NA, nrow = length(virus), ncol=3 )  )
+row.names(cutpoints_infants) <- names(virus)
+colnames(cutpoints_infants) <- c('Youden_index', 'FDR_value', 'N_within_comparisons')
+
+infants_virus_hists_data <- list()
+for (n in 1:NROW(virus)) {
+  
+  infants_virus <- data.frame( c(within_infant_distances_virus[[n]],
+                                 between_infants_distances_virus[[n]]),
+                               c(rep("Within", length(within_infant_distances_virus[[n]])),
+                                 rep("Between", length(between_infants_distances_virus[[n]])) ) ) 
+  
+  colnames(infants_virus) <- c('Distance', 'Variable')
+  
+  infants_virus$Distance <- infants_virus$Distance/median( unname(unlist(virus[[n]])) )
+  
+  # cannot use oc_youden_kernel if the positive class has only zeros
+  # cannot use oc_youden_kernel if there is only 1 observation in the class
+  if ( sum(infants_virus[infants_virus$Variable=='Within',]$Distance, na.rm = T)!=0 & length(infants_virus[infants_virus$Variable=="Within",]$Distance) > 1) {
+    Youden <- cutpointr(infants_virus, Distance, Variable, 
+                        pos_class = "Within",
+                        neg_class = "Between", 
+                        method = oc_youden_kernel, 
+                        metric = youden)
+  } else {
+    Youden <- cutpointr(infants_virus, Distance, Variable, 
+                        pos_class = "Within",
+                        neg_class = "Between", 
+                        method = maximize_metric, 
+                        metric = youden)
+  }
+  
+  
+  cutpoints_infants[n,"Youden_index"] <- Youden$optimal_cutpoint
+  
+  cutpoints_infants[n,"FDR_value"] <- quantile(infants_virus[infants_virus$Variable=="Between",]$Distance, probs = 0.05)
+  
+  cutpoints_infants[n,"N_within_comparisons"] <- length(within_infant_distances_virus[[n]])
+  
+  infants_virus_hists_data[[names(virus[n])]] <- infants_virus
+}
+
+distance_histograms_infants <- list()
+
+for (n in 1:NROW(infants_virus_hists_data)) {
+  
+  distance_histograms_infants[[names(infants_virus_hists_data[n])]] <- ggplot(infants_virus_hists_data[[n]], aes(x=Distance, fill=Variable)) + 
+                                  geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(infants_virus_hists_data[[n]]$Distance) ), alpha=0.7) + 
+                                  geom_density(aes(y = (after_stat(count)/sum(after_stat(count)))*2000), alpha=0.2   ) + 
+                                  labs(x="Normalized Distance", y="proportion (%)") +
+                                  geom_vline(aes(xintercept=cutpoints_infants[ names(infants_virus_hists_data[n])  ,"Youden_index"]), linetype="dashed") + 
+                                  geom_vline(aes(xintercept=cutpoints_infants[ names(infants_virus_hists_data[n])  ,"FDR_value"]), linetype="dashed", color="red") +
+                                  ggtitle( gsub("\\...\\K\\d+", "", gsub(".*_length", "L"  , names(infants_virus_hists_data[n]) ), perl=T) ) +
+                                  theme_bw() + 
+                                  theme(title = element_text(size=8))
+  
+}
+
+
+combined_plot_infants <- distance_histograms_infants[[1]]
+
+for (h in 2:NROW(infants_virus_hists_data)) {
+  combined_plot_infants <- combined_plot_infants + distance_histograms_infants[[h]]
+}
+
+
+combined_plot_infants <- combined_plot_infants +
+  plot_layout(ncol = 5, guides = "collect") + 
+  plot_annotation(title = "")
+pdf('./04.PLOTS/Cutpoints_within_infants_viruses_twins_as_related_oc_youden_kernel.pdf', width=27/2.54, height=24/2.54)
+combined_plot_infants
+dev.off()
+
+
+#### Threshold in mothers
+
+# removing those that do not have between-individual distances
+between_mothers_distances_virus <- between_mothers_distances_virus[ lapply(between_mothers_distances_virus, length) > 0 ]
+within_mother_distances_virus <- within_mother_distances_virus[ lapply(within_mother_distances_virus, length) > 0 ]
+
+if( identical(names(between_mothers_distances_virus), names(between_mothers_distances_virus)) ) {
+  
+  cutpoints_mothers <- data.frame( matrix(NA, nrow = length(within_mother_distances_virus), ncol=3 )  )
+  row.names(cutpoints_mothers) <- names(within_mother_distances_virus)
+  colnames(cutpoints_mothers) <- c('Youden_index', 'FDR_value', 'N_within_comparisons')
+  
+  mothers_virus_hists_data <- list()
+  for (n in 1:NROW(within_mother_distances_virus)) {
+    
+    mothers_virus <- data.frame( c(within_mother_distances_virus[[n]],
+                                   between_mothers_distances_virus[[n]]),
+                                 c(rep("Within", length(within_mother_distances_virus[[n]])),
+                                   rep("Between", length(between_mothers_distances_virus[[n]])) ) ) 
+    
+    colnames(mothers_virus) <- c('Distance', 'Variable')
+    
+    
+    if (median( unname(unlist(within_mother_distances_virus[[n]])) ) == 0) {
+      
+      mothers_virus$Distance <- mothers_virus$Distance/mean( unname(unlist(within_mother_distances_virus[[n]])) )
+    
+      } else {
+        
+      mothers_virus$Distance <- mothers_virus$Distance/median( unname(unlist(within_mother_distances_virus[[n]])) )
+    
+      }
+    
+    
+    if ( sum(mothers_virus[mothers_virus$Variable=='Within',]$Distance, na.rm = T)!=0 & length(mothers_virus[mothers_virus$Variable=="Within",]$Distance) > 1  ) {
+      
+      Youden <- cutpointr(mothers_virus, Distance, Variable, 
+                          pos_class = "Within",
+                          neg_class = "Between", 
+                          method = oc_youden_kernel, 
+                          metric = youden)
+      
+    } else {
+      
+      Youden <- cutpointr(mothers_virus, Distance, Variable, 
+                          pos_class = "Within",
+                          neg_class = "Between", 
+                          method = maximize_metric, 
+                          metric = youden)
+    
+      }
+
+    cutpoints_mothers[n,"Youden_index"] <- Youden$optimal_cutpoint
+    
+    
+    cutpoints_mothers[n,"FDR_value"] <- quantile(mothers_virus[mothers_virus$Variable=="Between",]$Distance, probs = 0.05)
+    
+    cutpoints_mothers[n,"N_within_comparisons"] <- length(within_mother_distances_virus[[n]])
+    
+    mothers_virus_hists_data[[names(within_mother_distances_virus[n])]] <- mothers_virus
+  }
+  
+  distance_histograms_mothers <- list()
+  
+  for (n in 1:NROW(mothers_virus_hists_data)) {
+    
+    distance_histograms_mothers[[names(mothers_virus_hists_data[n])]] <- ggplot(mothers_virus_hists_data[[n]], aes(x=Distance, fill=Variable)) + 
+      geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(mothers_virus_hists_data[[n]]$Distance) ), alpha=0.7) + 
+      geom_density(aes(y = (after_stat(count)/sum(after_stat(count)))*2000), alpha=0.2   ) + 
+      labs(x="Normalized Distance", y="proportion (%)") +
+      geom_vline(aes(xintercept=cutpoints_mothers[ names(mothers_virus_hists_data[n])  ,"Youden_index"]), linetype="dashed") + 
+      geom_vline(aes(xintercept=cutpoints_mothers[ names(mothers_virus_hists_data[n])  ,"FDR_value"]), linetype="dashed", color="red") +
+      ggtitle( gsub("\\...\\K\\d+", "", gsub(".*_length", "L"  , names(mothers_virus_hists_data[n]) ), perl=T) ) +
+      theme_bw() + 
+      theme(title=element_text(size=8))
+    
+  }
+  
+  
+  combined_plot_mothers <- distance_histograms_mothers[[1]]
+  
+  for (h in 2:NROW(mothers_virus_hists_data)) {
+    combined_plot_mothers <- combined_plot_mothers + distance_histograms_mothers[[h]]
+  }
+  
+  combined_plot_mothers <- combined_plot_mothers +
+    plot_layout(ncol = 5, guides = "collect") + 
+    plot_annotation(title = "")
+  
+  
+} else {
+  
+  print("Check the between and within distances")
+  
+}
+
+pdf('./04.PLOTS/Cutpoints_within_mothers_viruses_oc_youden_kernel.pdf', width=27/2.54, height=24/2.54)
+combined_plot_mothers
+dev.off()
+
+#### Chose to use the combined mother-infant cutpoints
 list_transmitted$cutpoint <- NA
 
 for (i in list_transmitted$Virus) {
   list_transmitted[list_transmitted$Virus==i,]$cutpoint <- ifelse( cutpoints_all[i,"Youden_index"] >= cutpoints_all[i,"FDR_value"],  cutpoints_all[i,"FDR_value"],  cutpoints_all[i,"Youden_index"])
 }
+
+selected_viruses$Youden_index <- cutpoints_all$Youden_index[match(selected_viruses$Virus, row.names(cutpoints_all))]
+selected_viruses$FDR_ipv_Youden <- cutpoints_all$FDR_value[match(selected_viruses$Virus, row.names(cutpoints_all))]
+selected_viruses$N_within_comparisons <- cutpoints_all$N_within_comparisons[match(selected_viruses$Virus, row.names(cutpoints_all))]
 
 # based on the inter-individual strain variation, how often is the virus transmitted between related and unrelated individuals?
 
@@ -354,8 +384,8 @@ list_transmitted$N_related_pairs <- NA
 list_transmitted$N_unrelated_pairs <- NA
 
 for (n in 1:NROW(transmission_virus)) {
-  # get the virus name and distance matrix
   
+  # get the virus name and distance matrix
   virusN <- transmission_virus[[n]]
   virusN <- virusN/median( unname(unlist(transmission_virus[[n]])) )
   virusName <- names(transmission_virus[n])
@@ -403,6 +433,9 @@ for (n in 1:NROW(transmission_virus)) {
   list_transmitted[list_transmitted$Virus==virusName,]$N_unrelated_pairs <- length(unrelated_distances_virus[[virusName]])
 }
 
+selected_viruses$Transmitted_in_N_related <- list_transmitted$N_related_pairs_transmitted[match(selected_viruses$Virus, list_transmitted$Virus)]
+selected_viruses$Transmitted_in_N_unrelated <- list_transmitted$N_unrelated_pairs_transmitted[match(selected_viruses$Virus, list_transmitted$Virus)]
+
 row.names(list_transmitted) <- list_transmitted$Virus
 list_transmitted$p_value_kinship_transmission <- NA
 
@@ -417,7 +450,7 @@ for (i in list_transmitted$Virus) {
                                                   dimnames = list(Transmitted=c('Related', 'Unrelated'),
                                                                   Not_transmitted=c('Related', 'Unrelated'))) 
   
-  check_association_with_kinship <- fisher.test(testing_enrichment_transmission[[i]])
+  check_association_with_kinship <- fisher.test(testing_enrichment_transmission[[i]], alternative="greater")
   
   list_transmitted[i,]$p_value_kinship_transmission <- check_association_with_kinship$p.value
   
@@ -425,6 +458,8 @@ for (i in list_transmitted$Virus) {
 
 list_transmitted$p_value_kinship_transmission_adj <- p.adjust(list_transmitted$p_value_kinship_transmission, method = "BH")
 
+selected_viruses$FDR_enirched_related_transmission <- list_transmitted$p_value_kinship_transmission_adj[match(selected_viruses$Virus, list_transmitted$Virus)]
+selected_viruses$Transmission_enriched_in_related <- ifelse( (selected_viruses$FDR_enirched_related_transmission <= 0.05), "YES", "NO" )
 
 
 list_transmitted$significance_level_transmission <- NA
@@ -433,127 +468,140 @@ list_transmitted[list_transmitted$p_value_kinship_transmission_adj <= 0.05,]$sig
 list_transmitted[list_transmitted$p_value_kinship_transmission_adj <= 0.01,]$significance_level_transmission <- '**'
 list_transmitted[list_transmitted$p_value_kinship_transmission_adj <= 0.001,]$significance_level_transmission <- '***'
 
-for_plot <- melt(list_transmitted[,c(52,56:57,62)])
+list_transmitted$ContigID_easy <- selected_viruses$ContigID_easy[match(list_transmitted$Virus, selected_viruses$Virus)]
 
-pdf('./04.PLOTS/Perc_transmitted_in_pairs_maximized_Youden.pdf', width=15.7/2.54, height=24/2.54)
-ggplot(for_plot, aes(value, ContigID_easy, fill=variable)) + 
-  geom_col(position = 'dodge', alpha=0.8) +
-  labs (y="Viruses", x="% transmitted in mother-infant samples pairs") + 
+
+# calculate how many unique mother-infant pairs are positive for the virus:
+for (n in 1:NROW(virus) ) {
+  
+  # get the virus name and distance matrix
+  virusN <- virus[[n]]
+  virusName <- names(virus[n])
+  # reformat symmetric distance matrix to only contain mother-infant distances (mothers in rows and infants in columns)
+  virusN <- virusN[grep('Mother', row.names(virusN)), grep('Infant', colnames(virusN))]
+  
+  # two lists to store N positive pairs
+  related_positive_families <- list()
+  unrelated_positive_families <- list()
+  
+  # loop over all families
+  for (i in unique( substr(row.names( virusN ), 1, 7)) ) { # getting the FAM_IDs of all virus-positive families from the distance matrix 
+    
+    # Check if within the selected family both mother and infant have virus-positive samples
+    if (any(grep(paste0(i, '_Mother'),  row.names(virusN) ))==T & any(grep(paste0(i, '_Infant'),  colnames(virusN) ))==T) {
+      
+      virusNM <- virusN[grep(paste0(i, '_Mother'),  row.names(virusN) ),, drop=F]
+      # Parsing pair-wise distances between maternal and infant samples from the selected family
+      related_positive_families[[i]] <- length(unique( substr(grep(paste0(i, '_Infant'),  colnames(virusNM), value=T ), 1, 16) ))
+      
+      # Parsing pair_wise distances between maternal samples and samples of unrelated individuals:
+      # Assigning all pair-wise distances between samples of related individuals as NA for the selected family
+      
+      unrelated_positive_families[[i]] <- length(unique( substr(grep(paste0(i, '_Infant'),  colnames(virusNM), value=T, invert=T ), 1, 16) ))
+      
+    } else {
+      
+      related_positive_families[[i]] <- NA
+      unrelated_positive_families[[i]] <- NA
+      
+    }
+    
+  }
+  
+  # collecting the distances per virus:
+  related_positive_virus[[virusName]] <- as.numeric(na.omit(unname ( unlist(related_positive_families) )))
+  unrelated_positive_virus[[virusName]] <- as.numeric(na.omit( unname( unlist(unrelated_positive_families) ) ) )
+}
+
+list_transmitted$N_unique_positive_related_pairs <- NA
+for (i in list_transmitted$Virus) {
+  
+  list_transmitted[list_transmitted$Virus==i,]$N_unique_positive_related_pairs <- sum(related_positive_virus[[i]])
+}
+
+list_transmitted$N_unique_positive_related_pairs_from_32 <- paste0(list_transmitted$N_unique_positive_related_pairs, '/32')
+
+for_plot <- melt(list_transmitted[,c("ContigID_easy", "Perc_related_pairs_transmitted", "Perc_unrelated_pairs_transmitted","significance_level_transmission", "N_unique_positive_related_pairs_from_32")])
+
+#### Plot for proportion of related-unrelated pairs sharing the virus
+p1 <- ggplot(for_plot, aes(value, ContigID_easy, fill=variable)) + 
+  geom_col(position = 'dodge', alpha=1) +
+  labs (y="Viruses", x="% mother-infant sample\npairs with shared virus") + 
   theme_bw()+
-  theme(axis.text=element_text(size=12), 
-        axis.title=element_text(size=12,face="bold"),
-        strip.text.x = element_text(size = 12),
-        legend.text = element_text(size=10),
-        legend.title = element_text(size=12, face="bold")) +
+  theme(axis.text=element_text(size=6), 
+        axis.title=element_text(size=6,face="bold"),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=7, face="bold"), 
+        legend.position = 'bottom') +
   labs(fill="Kinship") + 
   geom_stripes(odd = "#33333333", even = "#00000000") +
   scale_fill_manual(labels = c("Related", "Unrelated"), 
                     values=c("#17B971", "#7d8bb1")) +
-  geom_text(aes(label = significance_level_transmission, x = 1.05, y = ContigID_easy), size = 3, angle=270) 
+  geom_text(data=for_plot[for_plot$variable=='Perc_related_pairs_transmitted',], aes(label = significance_level_transmission, x = 1.05, y = ContigID_easy), size = 2, angle=270)
+
+
+related_positive_virus <- list()
+unrelated_positive_virus <- list()
+
+p2 <- ggplot(list_transmitted, aes(N_unique_positive_related_pairs_from_32, ContigID_easy)) + 
+  geom_stripes(odd = "#33333333", even = "#00000000") + 
+  labs (y="Viruses", x="N positive\nmother-infant\ndyads") +
+  geom_text(aes(label = N_unique_positive_related_pairs_from_32, x=1.5, y = ContigID_easy, fontface = "bold"), color="#17B971",size=3    ) + 
+  theme_bw() + 
+  theme(axis.text.y = element_blank(), 
+        axis.title.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x = element_text(size=6, face="bold"),
+        legend.position = "none") +
+  scale_x_discrete(limits=c("0/32", "0/32")) 
+  
+transmission_enrichment <- p1+p2 + 
+  plot_layout(ncol = 2, nrow = 1, guides="collect", widths = c(5, 1.2)) + 
+  plot_annotation(title = "") & theme(legend.position = 'bottom') 
+
+pdf('./04.PLOTS/Perc_transmitted_in_pairs_maximized_Youden_with_N.pdf', width=8/2.54, height=14/2.54)
+transmission_enrichment
 dev.off()
 
-
-pdf('./04.PLOTS/Individual_strain_variation.pdf', width=6/2.54, height=6/2.54)
-ggplot(list_transmitted, aes('',y=cutpoint)) + 
-  geom_violin()+
-  geom_boxplot(width=0.1) +
-  geom_sina() +
-  labs (y="Kimura distance", x="Within-individuals") + 
-  theme_bw()+
-  theme(axis.text=element_text(size=12), 
-        axis.title=element_text(size=12,face="bold"),
-        strip.text.x = element_text(size = 12),
-        legend.text = element_text(size=10),
-        legend.title = element_text(size=12, face="bold"))
+pdf('./04.PLOTS/Perc_transmitted_viruses_in_pairs_maximized_Youden.pdf', width=7/2.54, height=14/2.54)
+p1
 dev.off()
-
 
 # Bacterial hosts of viruses that were predicted to have smaller within-family distances
 host_assignment <- host_assignment[host_assignment$Virus %in% list_transmitted$Virus,]
+host_assignment$genus <- gsub('.*g__','', sapply(strsplit(host_assignment$Host.taxonomy, '\\;'), "[", 6))
 host_assignment$species <- gsub('.*s__','',host_assignment$Host.taxonomy)
 host_assignment$species <- sub(' ', '_', host_assignment$species)
+host_assignment$species <- gsub('_([[:upper:]])', '',host_assignment$species, perl=T)
+
 host_assignment$present_metaphlan <- NA
 
 for (i in unique(host_assignment$species)) {
-  if ( length( grep(i, row.names(metaphlan_species)) )!=0 ) {
-    host_assignment[host_assignment$species==i,8] <- T
+  if ( length( grep(i, row.names(metaphlan)) )!=0 ) {
+    host_assignment[host_assignment$species==i,"present_metaphlan"] <- T
   }
 }
 host_assignment <- host_assignment[host_assignment$species!='',]
+
 unique(host_assignment[!is.na(host_assignment$present_metaphlan),]$species)
 
 
-dist_example <- virus[["LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609"]]
-
-
-
-#dist_example[dist_example<=0.818604e-05] <- 0
-
-heatmap(as.matrix(dist_example))
-#L85266_cov_2453.209609_tree <- nj(as.matrix(dist_example))
-tree <- nj(as.matrix(dist_example))
-plot(tree, cex=0.5)
-
-tree <- full_join(tree, metadata, by='label')
-
-ggtree(tree, options(ignore.negative.edge = T)) + 
-  geom_tiplab(size=3, color="blue")
-
-pdf('./04.PLOTS/PhTree_L85266_cov_2453.209609.pdf', width=29.7/2.54, height=11/2.54)
-ggplot(tree, aes(x, y), options(ignore.negative.edge = TRUE) ) + 
-  geom_tree() + 
-  geom_tiplab(size=3, color="blue") +
-  theme_tree() 
-dev.off()
-
-pdf('./04.PLOTS/PhTree_L87092_cov_9507.222710.pdf', width=29.7/2.54, height=11/2.54)
-ggplot(L85266_cov_2453.209609_tree, aes(x, y), options(ignore.negative.edge=TRUE)) + 
-  geom_tree() + 
-  geom_tiplab(size=3, color="blue") +
-  theme_tree() 
-dev.off()
-
-metaphlan_species <- read.table('02.CLEAN_DATA/Microbiome_species_unfiltred.txt', sep='\t', header = T)
-microbiome_species <- metaphlan_species[grep('s__', row.names(metaphlan_species) ) ,]
-MGS_metadata <- read.table('02.CLEAN_DATA/MGS_metadata_with_phenos.txt', sep='\t', header=T)
-MGS_metadata$Timepoint <- factor(MGS_metadata$Timepoint, levels=c('P3','P7', 'B', 'M1', 'M2', 'M3', 'M6', 'M9','M12'), ordered=T)
-MGS_metadata$Type <- factor(MGS_metadata$Type, levels=c('Mother', 'Infant'), ordered=T)
-bacteroides_uniformis <- microbiome_species[grep('Bacteroides_uniformis', row.names(microbiome_species)),grep('0154B', colnames(microbiome_species)) ]
-row.names(bacteroides_uniformis) <- 'Bacteroides uniformis'
-library(reshape2)
-
-plot_host <- melt(bacteroides_uniformis)
-colnames(plot_host)[1] <- 'Short_sample_ID_bact'
-plot_host <- merge(plot_host, MGS_metadata, by='Short_sample_ID_bact')
-
-pdf('./04.PLOTS/Bacteroides_uniformis_FAM0154.pdf', width=14/2.54, height=8/2.54)
-ggplot(plot_host, aes(Timepoint, value, color=Individual_ID, group=Individual_ID) ) + 
-  geom_point() + 
-  geom_line() +
-  facet_wrap(~Type) +
-  theme_bw()+
-  scale_y_log10() + 
-  labs (y="log-transformed abundance", x="Timepoint") +
-  ggtitle('Bacteroides uniformis') + 
-  theme(axis.text=element_text(size=12), 
-        axis.title=element_text(size=16,face="bold"),
-        strip.text.x = element_text(size = 12),
-        legend.text = element_text(size=10),
-        legend.title = element_text(size=12, face="bold")) +
-  labs(colour = "Type") 
-dev.off()
 
 ##############################
 # OUTPUT
 ##############################
-write.table(host_assignment, '02.CLEAN_DATA/Table_predicted_hosts_shared_strains_maximized_Youden_combined_wilcox_less.txt', sep='\t', quote=F, row.names = F)
-write.table(unique(host_assignment[!is.na(host_assignment$present_metaphlan),]$species), '02.CLEAN_DATA/List_predicted_hosts_shared_strains_290523.txt', sep='\t', quote=F, row.names = F, col.names = F)
-write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609']])) &
-                       metadata$source=='VLP', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L85266_LS0_VLP_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
-write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609']])) &
-                       metadata$source=='MGS', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L85266_LS0_MGS_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
-write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_4F04_VL_266_NODE_141_length_37775_cov_36892.259438']])) &
-                       metadata$source=='VLP', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L37775_LS1_VLP_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
-write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_4F04_VL_266_NODE_141_length_37775_cov_36892.259438']])) &
-                       metadata$source=='MGS', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L37775_LS1_MGS_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
+write.table(list_transmitted[,-c(1:6)], '02.CLEAN_DATA/PREPARED_DATA_FOR_PLOTS/Perc_transmitted_viruses_in_pairs_maximized_Youden_with_N.txt', sep='\t', quote=F)
+
+write.table(host_assignment, '02.CLEAN_DATA/Table_predicted_hosts_shared_strains_maximized_Youden_combined_wilcox_less_050623.txt', sep='\t', quote=F, row.names = F)
+write.table(unique(host_assignment[!is.na(host_assignment$present_metaphlan),]$species), '02.CLEAN_DATA/List_predicted_hosts_shared_strains_050623.txt', sep='\t', quote=F, row.names = F, col.names = F)
+
+#write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609']])) &
+#                       metadata$source=='VLP', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L85266_LS0_VLP_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
+#write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609']])) &
+#                       metadata$source=='MGS', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L85266_LS0_MGS_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
+#write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_4F04_VL_266_NODE_141_length_37775_cov_36892.259438']])) &
+#                       metadata$source=='VLP', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L37775_LS1_VLP_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
+#write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_4F04_VL_266_NODE_141_length_37775_cov_36892.259438']])) &
+#                       metadata$source=='MGS', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L37775_LS1_MGS_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
 
