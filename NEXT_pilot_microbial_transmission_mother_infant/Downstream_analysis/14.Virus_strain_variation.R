@@ -586,7 +586,8 @@ host_assignment <- host_assignment[host_assignment$species!='',]
 
 unique(host_assignment[!is.na(host_assignment$present_metaphlan),]$species)
 
-
+selected_viruses <- merge(selected_viruses, host_assignment, by='Virus', all.x=T)
+colnames(selected_viruses)[length(selected_viruses)] <- "Host_in_metaphlan"
 
 ##############################
 # OUTPUT
@@ -596,6 +597,7 @@ write.table(list_transmitted[,-c(1:6)], '02.CLEAN_DATA/PREPARED_DATA_FOR_PLOTS/P
 write.table(host_assignment, '02.CLEAN_DATA/Table_predicted_hosts_shared_strains_maximized_Youden_combined_wilcox_less_050623.txt', sep='\t', quote=F, row.names = F)
 write.table(unique(host_assignment[!is.na(host_assignment$present_metaphlan),]$species), '02.CLEAN_DATA/List_predicted_hosts_shared_strains_050623.txt', sep='\t', quote=F, row.names = F, col.names = F)
 
+write.table(selected_viruses, '02.CLEAN_DATA/List_viruses_selected_transmission_metadata_with_host.txt', sep='\t', quote = F, row.names=F)
 #write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609']])) &
 #                       metadata$source=='VLP', ]$NG_ID, '03.SCRIPTS/NEXT_pilot_FUP_bf_origin/Data_for_Alex/L85266_LS0_VLP_positive_list.txt', sep='\t', quote=F, row.names = F, col.names = F)
 #write.table(metadata[(metadata$Alex_ID %in% colnames(virus[['LN_6A08_VL_306_NODE_3_length_85266_cov_2453.209609']])) &
