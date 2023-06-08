@@ -131,22 +131,22 @@ row.names(cutpoints_all) <- names(bacterium_to_test)
 colnames(cutpoints_all) <- c('Youden_index', 'FDR_value', 'N_within_comparisons')
 
 bacterium_hists_data <- list()
-for (n in 1:NROW(bacterium_to_test)) {
+for (bacteriumName in names(bacterium_to_test)) {
   
-  bacteriumN <- data.frame( c(within_infant_distances_bacterium[[n]],
-                              between_infants_distances_bacterium[[n]],
-                              within_mother_distances_bacterium[[n]],
-                              between_mothers_distances_bacterium[[n]]),
-                            c(rep("Within", length(within_infant_distances_bacterium[[n]])),
-                              rep("Between", length(between_infants_distances_bacterium[[n]])),
-                              rep("Within", length(within_mother_distances_bacterium[[n]])),
-                              rep("Between", length(between_mothers_distances_bacterium[[n]])) ) ) 
+  bacteriumN <- data.frame( c(within_infant_distances_bacterium[[bacteriumName]],
+                              between_infants_distances_bacterium[[bacteriumName]],
+                              within_mother_distances_bacterium[[bacteriumName]],
+                              between_mothers_distances_bacterium[[bacteriumName]]),
+                            c(rep("Within", length(within_infant_distances_bacterium[[bacteriumName]])),
+                              rep("Between", length(between_infants_distances_bacterium[[bacteriumName]])),
+                              rep("Within", length(within_mother_distances_bacterium[[bacteriumName]])),
+                              rep("Between", length(between_mothers_distances_bacterium[[bacteriumName]])) ) ) 
   
   colnames(bacteriumN) <- c('Distance', 'Variable')
   
   bacteriumN <- bacteriumN[bacteriumN$Distance!=Inf,]
   
-  A <- bacterium_to_test[[n]]
+  A <- bacterium_to_test[[bacteriumName]]
   A <- A[upper.tri(A)]
   
   bacteriumN$Distance <- bacteriumN$Distance/median( A, na.rm = T )
@@ -157,11 +157,11 @@ for (n in 1:NROW(bacterium_to_test)) {
                       method = oc_youden_kernel, 
                       metric = youden, 
                       na.rm=T)
-  cutpoints_all[n,"Youden_index"] <- Youden$optimal_cutpoint
+  cutpoints_all[bacteriumName,"Youden_index"] <- Youden$optimal_cutpoint
   
-  cutpoints_all[n,"FDR_value"] <- quantile(bacteriumN[bacteriumN$Variable=="Between",]$Distance, probs = 0.05)
+  cutpoints_all[bacteriumName,"FDR_value"] <- quantile(bacteriumN[bacteriumN$Variable=="Between",]$Distance, probs = 0.05)
   
-  cutpoints_all[n,"N_within_comparisons"] <- length(c(within_infant_distances_bacterium[[n]], within_mother_distances_bacterium[[n]]))
+  cutpoints_all[bacteriumName,"N_within_comparisons"] <- length(c(within_infant_distances_bacterium[[bacteriumName]], within_mother_distances_bacterium[[bacteriumName]]))
   
   # lines that are needed for the correct threshold depiction at the plots later
   bacteriumN$Youden <- NA
@@ -169,9 +169,9 @@ for (n in 1:NROW(bacterium_to_test)) {
   bacteriumN$FDR_value <- NA
   bacteriumN[1,"FDR_value"] <- quantile(bacteriumN[bacteriumN$Variable=="Between",]$Distance, probs = 0.05)
   bacteriumN$N_within_comparisons <- NA
-  bacteriumN[1,"N_within_comparisons"] <- length(c(within_infant_distances_bacterium[[n]], within_mother_distances_bacterium[[n]]))
+  bacteriumN[1,"N_within_comparisons"] <- length(c(within_infant_distances_bacterium[[bacteriumName]], within_mother_distances_bacterium[[bacteriumName]]))
   
-  bacterium_hists_data[[names(bacterium_to_test[n])]] <- bacteriumN
+  bacterium_hists_data[[bacteriumName]] <- bacteriumN
 }
 
 # for alphabetic order:
@@ -179,16 +179,16 @@ bacterium_hists_data <- bacterium_hists_data[list_transmitted$Host_SGB]
 
 distance_histograms_all <- list()
 
-for (n in 1:NROW(bacterium_hists_data)) {
+for (bacteriumName in names(bacterium_hists_data)) {
   
-  distance_histograms_all[[names(bacterium_hists_data[n])]] <- ggplot(bacterium_hists_data[[n]], aes(x=Distance, fill=Variable)) + 
-    geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(bacterium_hists_data[[n]]$Distance) ), alpha=0.7) + 
+  distance_histograms_all[[bacteriumName]] <- ggplot(bacterium_hists_data[[bacteriumName]], aes(x=Distance, fill=Variable)) + 
+    geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(bacterium_hists_data[[bacteriumName]]$Distance) ), alpha=0.7) + 
     geom_density(aes(x=Distance, fill=Variable), alpha=0.2) +
     labs(x="Normalized Distance", y="proportion (%)") +
     geom_vline(aes(xintercept=Youden[1], color="Youden_index"), linetype="dashed") + 
     geom_vline(aes(xintercept=FDR_value[1], color="FDR_value"), linetype="dashed") +
-    annotate(geom = "text", label=paste0("N=",bacterium_hists_data[[n]]$N_within_comparisons[1]), x=Inf, y=Inf, hjust=+1.1,vjust=+2, size=3) +
-    ggtitle( gsub('_', ' ', species_names$species[match(names(bacterium_hists_data[n]), species_names$Host_SGB)] ) ) +
+    annotate(geom = "text", label=paste0("N=",bacterium_hists_data[[bacteriumName]]$N_within_comparisons[1]), x=Inf, y=Inf, hjust=+1.1,vjust=+2, size=3) +
+    ggtitle( gsub('_', ' ', species_names$species[match(bacteriumName, species_names$Host_SGB)] ) ) +
     theme_bw() + 
     theme(title = element_text(size=7), 
           axis.title = element_text(size=9),
@@ -234,14 +234,12 @@ colnames(cutpoints_infants) <- c('Youden_index', 'FDR_value', 'N_within_comparis
 
 infants_bacterium_hists_data <- list()
 
-for (n in 1:NROW(within_infant_distances_bacterium)) {
+for (bacteriumName in names(within_infant_distances_bacterium)) {
   
-  bacteriumName <- names(within_infant_distances_bacterium[n])
-  
-  bacteriumN <- data.frame( c(within_infant_distances_bacterium[[n]],
-                                 between_infants_distances_bacterium[[n]]),
-                               c(rep("Within", length(within_infant_distances_bacterium[[n]])),
-                                 rep("Between", length(between_infants_distances_bacterium[[n]])) ) ) 
+  bacteriumN <- data.frame( c(within_infant_distances_bacterium[[bacteriumName]],
+                                 between_infants_distances_bacterium[[bacteriumName]]),
+                               c(rep("Within", length(within_infant_distances_bacterium[[bacteriumName]])),
+                                 rep("Between", length(between_infants_distances_bacterium[[bacteriumName]])) ) ) 
   
   colnames(bacteriumN) <- c('Distance', 'Variable')
   bacteriumN <- bacteriumN[bacteriumN$Distance!=Inf,]
@@ -269,11 +267,11 @@ for (n in 1:NROW(within_infant_distances_bacterium)) {
                         na.rm=T)
   }
   
-  cutpoints_infants[n,"Youden_index"] <- Youden$optimal_cutpoint
+  cutpoints_infants[bacteriumName,"Youden_index"] <- Youden$optimal_cutpoint
   
-  cutpoints_infants[n,"FDR_value"] <- quantile(bacteriumN[bacteriumN$Variable=="Between",]$Distance, probs = 0.05, na.rm=T)
+  cutpoints_infants[bacteriumName,"FDR_value"] <- quantile(bacteriumN[bacteriumN$Variable=="Between",]$Distance, probs = 0.05, na.rm=T)
   
-  cutpoints_infants[n,"N_within_comparisons"] <- length(within_infant_distances_bacterium[[n]])
+  cutpoints_infants[bacteriumName,"N_within_comparisons"] <- length(within_infant_distances_bacterium[[bacteriumName]])
   
   # lines that are needed for the correct threshold depiction at the plots later
   bacteriumN$Youden <- NA
@@ -281,7 +279,7 @@ for (n in 1:NROW(within_infant_distances_bacterium)) {
   bacteriumN$FDR_value <- NA
   bacteriumN[1,"FDR_value"] <- quantile(bacteriumN[bacteriumN$Variable=="Between",]$Distance, probs = 0.05)
   bacteriumN$N_within_comparisons <- NA
-  bacteriumN[1,"N_within_comparisons"] <- length(within_infant_distances_bacterium[[n]])
+  bacteriumN[1,"N_within_comparisons"] <- length(within_infant_distances_bacterium[[bacteriumName]])
   
   infants_bacterium_hists_data[[bacteriumName]] <- bacteriumN
   
@@ -293,16 +291,16 @@ infants_bacterium_hists_data <- infants_bacterium_hists_data[ lapply(infants_bac
 
 distance_histograms <- list()
 
-for (n in 1:NROW(infants_bacterium_hists_data)) {
+for (bacteriumName in names(infants_bacterium_hists_data)) {
   
-  distance_histograms[[names(infants_bacterium_hists_data[n])]] <- ggplot(infants_bacterium_hists_data[[n]], aes(x=Distance, fill=Variable)) + 
-    geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(infants_bacterium_hists_data[[n]]$Distance) ), alpha=0.7) + 
+  distance_histograms[[bacteriumName]] <- ggplot(infants_bacterium_hists_data[[bacteriumName]], aes(x=Distance, fill=Variable)) + 
+    geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(infants_bacterium_hists_data[[bacteriumName]]$Distance) ), alpha=0.7) + 
     geom_density(aes(x=Distance, fill=Variable), alpha=0.2) + 
     labs(x="Normalized Distance", y="proportion (%)") +
     geom_vline(aes(xintercept=Youden[1], color="Youden_index"), linetype="dashed") + 
     geom_vline(aes(xintercept=FDR_value[1], color="FDR_value"), linetype="dashed") +
-    annotate(geom = "text", label=paste0("N=",infants_bacterium_hists_data[[n]]$N_within_comparisons[1]), x=Inf, y=Inf, hjust=+1.1,vjust=+2, size=3) +
-    ggtitle( gsub('_', ' ', species_names$species[match(names(infants_bacterium_hists_data[n]), species_names$Host_SGB)] ) ) +
+    annotate(geom = "text", label=paste0("N=",infants_bacterium_hists_data[[bacteriumName]]$N_within_comparisons[1]), x=Inf, y=Inf, hjust=+1.1,vjust=+2, size=3) +
+    ggtitle( gsub('_', ' ', species_names$species[match(bacteriumName, species_names$Host_SGB)] ) ) +
     theme_bw() + 
     theme(title = element_text(size=7), 
           axis.title = element_text(size=9),
@@ -347,14 +345,12 @@ row.names(cutpoints_mothers) <- names(within_mother_distances_bacterium)
 colnames(cutpoints_mothers) <- c('Youden_index', 'FDR_value', 'N_within_comparisons')
 
 mothers_bacterium_hists_data <- list()
-for (n in 1:NROW(within_mother_distances_bacterium)) {
+for (bacteriumName in names(within_mother_distances_bacterium)) {
   
-  bacteriumName <- names(within_mother_distances_bacterium[n])
-  
-  bacteriumN <- data.frame( c(within_mother_distances_bacterium[[n]],
-                                 between_mothers_distances_bacterium[[n]]),
-                               c(rep("Within", length(within_mother_distances_bacterium[[n]])),
-                                 rep("Between", length(between_mothers_distances_bacterium[[n]])) ) ) 
+  bacteriumN <- data.frame( c(within_mother_distances_bacterium[[bacteriumName]],
+                                 between_mothers_distances_bacterium[[bacteriumName]]),
+                               c(rep("Within", length(within_mother_distances_bacterium[[bacteriumName]])),
+                                 rep("Between", length(between_mothers_distances_bacterium[[bacteriumName]])) ) ) 
   
   colnames(bacteriumN) <- c('Distance', 'Variable')
   bacteriumN <- bacteriumN[bacteriumN$Distance!=Inf,]
@@ -372,12 +368,12 @@ for (n in 1:NROW(within_mother_distances_bacterium)) {
                       method = oc_youden_kernel, 
                       metric = youden, 
                       na.rm=T)
-  cutpoints_mothers[n,"Youden_index"] <- Youden$optimal_cutpoint
+  cutpoints_mothers[bacteriumName,"Youden_index"] <- Youden$optimal_cutpoint
   
-  cutpoints_mothers[n,"FDR_value"] <- quantile(bacteriumN[bacteriumN$Variable=="Between",]$Distance, probs = 0.05, na.rm=T)
+  cutpoints_mothers[bacteriumName,"FDR_value"] <- quantile(bacteriumN[bacteriumN$Variable=="Between",]$Distance, probs = 0.05, na.rm=T)
   
   
-  cutpoints_mothers[n,"N_within_comparisons"] <- length(within_mother_distances_bacterium[[n]])
+  cutpoints_mothers[bacteriumName,"N_within_comparisons"] <- length(within_mother_distances_bacterium[[bacteriumName]])
   
   # lines that are needed for the correct threshold depiction at the plots later
   bacteriumN$Youden <- NA
@@ -385,9 +381,9 @@ for (n in 1:NROW(within_mother_distances_bacterium)) {
   bacteriumN$FDR_value <- NA
   bacteriumN[1,"FDR_value"] <- quantile(bacteriumN[bacteriumN$Variable=="Between",]$Distance, probs = 0.05)
   bacteriumN$N_within_comparisons <- NA
-  bacteriumN[1,"N_within_comparisons"] <- length(within_mother_distances_bacterium[[n]])
+  bacteriumN[1,"N_within_comparisons"] <- length(within_mother_distances_bacterium[[bacteriumName]])
   
-  mothers_bacterium_hists_data[[names(within_mother_distances_bacterium[n])]] <- bacteriumN
+  mothers_bacterium_hists_data[[bacteriumName]] <- bacteriumN
 }
 
 
@@ -397,16 +393,16 @@ mothers_bacterium_hists_data <- mothers_bacterium_hists_data[ lapply(mothers_bac
 
 distance_histograms_mothers <- list()
 
-for (n in 1:NROW(mothers_bacterium_hists_data)) {
+for (bacteriumName in names(mothers_bacterium_hists_data)) {
   
-  distance_histograms_mothers[[names(mothers_bacterium_hists_data[n])]] <- ggplot(mothers_bacterium_hists_data[[n]], aes(x=Distance, fill=Variable)) + 
-    geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(mothers_bacterium_hists_data[[n]]$Distance) ), alpha=0.7) + 
+  distance_histograms_mothers[[bacteriumName]] <- ggplot(mothers_bacterium_hists_data[[bacteriumName]], aes(x=Distance, fill=Variable)) + 
+    geom_histogram(aes(y = (after_stat(count)/sum(after_stat(count)))*100), position = 'identity', bins=length( unique(mothers_bacterium_hists_data[[bacteriumName]]$Distance) ), alpha=0.7) + 
     geom_density(aes(x=Distance, fill=Variable), alpha=0.2) +  
     labs(x="Normalized Distance", y="proportion (%)") +
     geom_vline(aes(xintercept=Youden[1], color="Youden_index"), linetype="dashed") + 
     geom_vline(aes(xintercept=FDR_value[1], color="FDR_value"), linetype="dashed") +
-    annotate(geom = "text", label=paste0("N=",mothers_bacterium_hists_data[[n]]$N_within_comparisons[1]), x=Inf, y=Inf, hjust=+1.1,vjust=+2, size=3) +
-    ggtitle( gsub('_', ' ', species_names$species[match(names(mothers_bacterium_hists_data[n]), species_names$Host_SGB)] ) ) +
+    annotate(geom = "text", label=paste0("N=",mothers_bacterium_hists_data[[bacteriumName]]$N_within_comparisons[1]), x=Inf, y=Inf, hjust=+1.1,vjust=+2, size=3) +
+    ggtitle( gsub('_', ' ', species_names$species[match(bacteriumName, species_names$Host_SGB)] ) ) +
     theme_bw() + 
     theme(title = element_text(size=7), 
           axis.title = element_text(size=9),
@@ -445,7 +441,7 @@ cutpoints_compare$source <- c(rep("Combined", length(cutpoints_all$Youden_index)
 cutpoints_compare$Host_SGB <- row.names(cutpoints_compare)
 # is Youden index different? (No, p-value: 0.2238)
 wilcox.test(cutpoints_compare[cutpoints_compare$Host_SGB!="SGB17247",]$Youden_index ~ cutpoints_compare[cutpoints_compare$Host_SGB!="SGB17247",]$source, paired=T)
-# is 5% FDR value different? (Yes, p-value: 0.2873), but the N of within comparisons is different as well
+# is 5% FDR value different? (No, p-value: 0.2873), but the N of within comparisons is different as well
 wilcox.test(cutpoints_compare[cutpoints_compare$Host_SGB!="SGB17247",]$FDR_value ~ cutpoints_compare[cutpoints_compare$Host_SGB!="SGB17247",]$source, paired=T)
 
 #### Chose to use the combined mother-infant cutpoints
@@ -473,11 +469,10 @@ list_transmitted$Perc_unrelated_pairs_transmitted <- NA
 list_transmitted$N_related_pairs <- NA
 list_transmitted$N_unrelated_pairs <- NA
 
-for (n in 1:NROW(transmission_bacterium)) {
+for (bacteriumName in names(transmission_bacterium)) {
   # get the virus name and distance matrix
-  
-  bacteriumName <- names(transmission_bacterium[n])
-  bacteriumN <- transmission_bacterium[[n]]
+
+  bacteriumN <- transmission_bacterium[[bacteriumName]]
   
   A <- bacteriumN[upper.tri(bacteriumN)]
   
@@ -566,11 +561,9 @@ list_transmitted$species_names <- gsub('_', ' ',list_transmitted$Host_species)
 related_positive_bacterium <- list()
 unrelated_positive_bacterium <- list()
 
-for (n in 1:NROW(bacterium_to_test) ) {
+for (bacteriumName in names(bacterium_to_test) ) {
   
-  # get the bacterium name and distance matrix
-  bacteriumName <- names(bacterium_to_test[n])
-  bacteriumN <- bacterium_to_test[[n]]
+  bacteriumN <- bacterium_to_test[[bacteriumName]]
   # reformat symmetric distance matrix to only contain mother-infant distances (mothers in rows and infants in columns)
   bacteriumN <- bacteriumN[grep('Mother', row.names(bacteriumN)), grep('Infant', colnames(bacteriumN))]
   
@@ -615,7 +608,7 @@ for (i in list_transmitted$Host_SGB) {
 
 list_transmitted$N_unique_positive_related_pairs_from_32 <- paste0(list_transmitted$N_unique_positive_related_pairs, '/32')
 
-list_transmitted$ord <- sprintf("%02i", 25:1)
+list_transmitted$ord <- sprintf("%02i", 26:1)
 
 for_plot <- melt(list_transmitted[,c("Host_SGB", 
                                      "species_names", 
@@ -668,12 +661,12 @@ pdf('./04.PLOTS/Perc_transmitted_in_pairs_maximized_Youden_bacteria_with_N.pdf',
 transmission_enrichment
 dev.off()
 
-pdf('./04.PLOTS/Perc_transmittedin_pairs_maximized_Youden_bacteria.pdf', width=7/2.54, height=11/2.54)
+pdf('./04.PLOTS/Perc_transmittedin_pairs_maximized_Youden_bacteria.pdf', width=7/2.54, height=12/2.54)
 p1
 dev.off()
 
 ##############################
 # OUTPUT
 ##############################
-write.table(selected_viruses, "02.CLEAN_DATA/List_viruses_selected_transmission_metadata_with_host.txt.txt", sep='\t', row.names = F, quote=F)
+write.table(selected_viruses, "02.CLEAN_DATA/List_viruses_selected_transmission_metadata_with_host.txt", sep='\t', row.names = F, quote=F)
 write.table(list_transmitted[,-c(1:6)], '02.CLEAN_DATA/PREPARED_DATA_FOR_PLOTS/Perc_transmitted_bacteria_in_pairs_maximized_Youden_with_N.txt', sep='\t', quote=F)
