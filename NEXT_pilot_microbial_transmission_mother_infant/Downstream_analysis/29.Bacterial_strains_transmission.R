@@ -85,7 +85,7 @@ unrelated_distances_bacterium <- list()
 # loop through each bacterium from the selection
 for (n in 1:NROW(bacterium_to_test) ) {
   
-  print(paste0(' > prepping within-mother-infant distances for strain ', names(bacterium[n])))  
+  print(paste0(' > prepping within-mother-infant distances for strain ', names(bacterium_to_test[n])))  
   
   # get the bacterium name and distance matrix
   bacteriumN <- bacterium_to_test[[n]]
@@ -131,29 +131,30 @@ for (n in 1:NROW(bacterium_to_test) ) {
 
 p_value_real <- as.data.frame(matrix(NA, nrow=length(bacterium_to_test), ncol=3))
 colnames(p_value_real)[c(1:3)] <- c("Host_SGB", "N_related_distances_host", "p_value")
+row.names(p_value_real) <- names(bacterium_to_test)
 
 plot_distances <- data.frame()
 
-for (n in 1:NROW(bacterium_to_test)) {
-  p_value_real[n,"Host_SGB"] <- names(bacterium_to_test[n])
-  p_value_real[n,"N_related_distances_host"] <- length(mother_infant_distances_bacterium[[n]])
+for (bacteriumName in names(bacterium_to_test)) {
+  p_value_real[bacteriumName,"Host_SGB"] <- bacteriumName
+  p_value_real[bacteriumName,"N_related_distances_host"] <- length(mother_infant_distances_bacterium[[bacteriumName]])
   
-  if (length(unrelated_distances_bacterium[[n]])!=0) {
+  if (length(unrelated_distances_bacterium[[bacteriumName]])!=0) {
     
-    vector4analysis = c(mother_infant_distances_bacterium[[n]], unrelated_distances_bacterium[[n]])
-    factor4analysis = c(rep("Related",length(mother_infant_distances_bacterium[[n]])),
-                        rep("Unrelated",length(unrelated_distances_bacterium[[n]])))
+    vector4analysis = c(mother_infant_distances_bacterium[[bacteriumName]], unrelated_distances_bacterium[[bacteriumName]])
+    factor4analysis = c(rep("Related",length(mother_infant_distances_bacterium[[bacteriumName]])),
+                        rep("Unrelated",length(unrelated_distances_bacterium[[bacteriumName]])))
     
     wilcoxon_real = wilcox.test(vector4analysis ~ factor4analysis, alternative='less', paired=F)
-    p_value_real[n,"p_value"] <- wilcoxon_real$p.value
+    p_value_real[bacteriumName,"p_value"] <- wilcoxon_real$p.value
     
     #table for plot
-    bacterium_name <- c( rep( names(bacterium[n]), length(factor4analysis) ) )
+    bacterium_name <- c( rep( bacteriumName, length(factor4analysis) ) )
     plot_distances <- rbind(plot_distances, data.frame(bacterium_name, factor4analysis, vector4analysis))
     
   } else {
     
-    p_value_real[n,"p_value"] <- "Comparison not possible"
+    p_value_real[bacteriumName,"p_value"] <- "Comparison not possible"
     
   }
   
@@ -269,6 +270,11 @@ for (i in p_value_real$Host_SGB) {
 p_value_real$FDR <- p.adjust(p_value_real$p_value_adj, method = "BH")
 
 family_bacteria <- p_value_real
+family_bacteria$significance_level <- NA
+family_bacteria[family_bacteria$FDR > 0.05,]$significance_level <- 'ns'
+family_bacteria[family_bacteria$FDR <= 0.05,]$significance_level <- '*'
+family_bacteria[family_bacteria$FDR <= 0.01,]$significance_level <- '**'
+family_bacteria[family_bacteria$FDR <= 0.001,]$significance_level <- '***'
 
 selected_viruses <- merge(selected_viruses, p_value_real[,c("Host_SGB","FDR")], by='Host_SGB', all.x = T)
 colnames(selected_viruses)[length(colnames(selected_viruses))] <- "Host_FDR_dist_comparison"
@@ -289,7 +295,7 @@ selected_viruses[is.na(selected_viruses$Host_SGB),]$Host_easy_name <- NA
 plot_distances$vector4analysis <- plot_distances$vector4analysis + min(plot_distances[plot_distances$vector4analysis!=0,]$vector4analysis)
 # showing only those viruses that have more than 5 pair-wise distances for related samples
 plot_distances_select <- plot_distances[ plot_distances$bacterium_name %in% family_bacteria[family_bacteria$N_related_distances>5,]$Host_SGB,]
-
+plot_distances_select$significance_level <- family_bacteria$significance_level[match(plot_distances_select$bacterium_name, family_bacteria$Host_SGB)]
 
 # color-coding the y-axis titles depending on statistical significance of the differnece:
 myPalette <- family_bacteria
@@ -306,7 +312,7 @@ plot_distances_select$easy_name <- paste0(plot_distances_select$bacterium_name, 
 # all virus strains
 p1 <- ggplot(plot_distances_select, aes(vector4analysis, easy_name, fill=factor4analysis)) + 
   labs (y="Bacterial strains", x="Log-scaled Kimura distance") + 
-  geom_sina(aes(fill=factor4analysis), size=1.3, alpha=0.8, shape=21, stroke=0) +
+  geom_sina(aes(color=factor4analysis), size=0.9, alpha=0.8) +
   geom_boxplot(outlier.shape = NA,alpha=0.3) +
   theme_bw()+
   scale_x_log10() +
@@ -318,6 +324,9 @@ p1 <- ggplot(plot_distances_select, aes(vector4analysis, easy_name, fill=factor4
   geom_stripes(odd = "#33333333", even = "#00000000") +
   scale_fill_manual(labels = c("Related", "Unrelated"), 
                     values=c("#17B971", "#7d8bb1")) + 
+  scale_color_manual(labels = c("Related", "Unrelated"), 
+                     values=c("#17B971", "#7d8bb1")) +
+  geom_text(data=plot_distances_select[plot_distances_select$factor4analysis=='Related',], aes(label = significance_level, x = Inf, vjust=2, y = easy_name), size = 2, angle=270) +
   theme(axis.text.y = element_text(colour=myPalette$color), 
         legend.position = 'none')
 
@@ -347,7 +356,7 @@ p2 <- ggplot(N_pairwise_distance, aes(value, Host_easy_name, fill=variable) ) +
 
 combined_plot <- p1 + p2 +
   plot_layout(ncol = 2, nrow = 1, guides="collect", widths = c(4, 1.5)) + 
-  plot_annotation(title = "") & theme(legend.position = 'bottom') 
+  plot_annotation(title = "") & theme(legend.position = 'bottom') & guides(color="none")
 
 
 pdf('./04.PLOTS/Infant_bacterium_strain_all_wilcox_less_final.pdf', width=15/2.54, height=17/2.54)
@@ -356,27 +365,26 @@ dev.off()
 
 # those where distances are significantly different:
 
-
-
 myPalette <- myPalette[myPalette$FDR<0.05 & myPalette$N_related_distances_host >=7,]
 
 plot_distances_select <- plot_distances_select[plot_distances_select$bacterium_name %in% myPalette$Host_SGB,]
 N_pairwise_distance <- N_pairwise_distance[N_pairwise_distance$Host_SGB %in% myPalette$Host_SGB,]
 N_pairwise_distance$species_names <- gsub('_',' ',species_names$species[match(N_pairwise_distance$Host_SGB, species_names$Host_SGB)])
 
-species_order <- data.frame(sort(unique((N_pairwise_distance$species_name))))
-colnames(species_order) <- "Host_species"
-species_order$ord <- sprintf("%02i", 19:1)
+species_order <- species_names[species_names$Host_SGB %in% N_pairwise_distance$Host_SGB,c("Host_SGB", "species")]
+species_order <- species_order[order(species_order$species),]
+species_order$ord <- sprintf("%02i", 24:1)
+species_order$species <- gsub('_', ' ', species_order$species)
 
-N_pairwise_distance$ord <- species_order$ord[match(N_pairwise_distance$species_names, species_order$Host_species)]
+N_pairwise_distance$ord <- species_order$ord[match(N_pairwise_distance$Host_SGB, species_order$Host_SGB)]
 
 plot_distances_select$species_names <- gsub('_', ' ', species_names$species[match(plot_distances_select$bacterium_name, species_names$Host_SGB)])
-plot_distances_select$ord <- species_order$ord[match(plot_distances_select$species_names, species_order$Host_species)]
+plot_distances_select$ord <- species_order$ord[match(plot_distances_select$bacterium_name, species_order$Host_SGB)]
 
 
 p3 <- ggplot(plot_distances_select, aes(vector4analysis, ord, fill=factor4analysis)) + 
   labs (y="Bacterial strains", x="Log-scaled Kimura distance") + 
-  geom_sina(aes(fill=factor4analysis), size=0.8, alpha=0.8, shape=21, stroke=0) +
+  geom_sina(aes(color=factor4analysis), size=0.7, alpha=0.8) +
   geom_boxplot(outlier.shape = NA,alpha=0.3) +
   theme_bw()+
   scale_y_discrete(labels = setNames(as.character(plot_distances_select$species_name), plot_distances_select$ord)) +
@@ -390,6 +398,9 @@ p3 <- ggplot(plot_distances_select, aes(vector4analysis, ord, fill=factor4analys
   geom_stripes(odd = "#33333333", even = "#00000000") +
   scale_fill_manual(labels = c("Related", "Unrelated"), 
                     values=c("#17B971", "#7d8bb1")) + 
+  scale_color_manual(labels = c("Related", "Unrelated"), 
+                     values=c("#17B971", "#7d8bb1")) +
+  geom_text(data=plot_distances_select[plot_distances_select$factor4analysis=='Related',], aes(label = significance_level, x = Inf, vjust=2, y = ord), size = 2, angle=270) +
   theme(legend.position = "none")
 
 p4 <- ggplot(N_pairwise_distance, aes(value, ord, fill=variable) ) + 
@@ -415,7 +426,7 @@ p4 <- ggplot(N_pairwise_distance, aes(value, ord, fill=variable) ) +
 
 combined_plot_significant <- p3 + p4 +
   plot_layout(ncol = 2, nrow = 1, guides="collect", widths = c(5, 1.5)) + 
-  plot_annotation(title = "") & theme(legend.position = 'bottom') 
+  plot_annotation(title = "") & theme(legend.position = 'bottom') & guides(color="none")
 
 pdf('./04.PLOTS/Infant_bacterium_strains_significant_wilcox_less_final.pdf', width=9/2.54, height=11/2.54)
 combined_plot_significant
