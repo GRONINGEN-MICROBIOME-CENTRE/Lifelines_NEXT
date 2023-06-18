@@ -3,12 +3,69 @@ setwd('~/Desktop/Projects_2022/NEXT_pilot_FUP/')
 #############################################################
 # Here we explore the bacterial species-level stability
 # of infant and maternal gut 
+
+
 #############################################################
 
 ##############################
 # Functions
 ##############################
 source("03.SCRIPTS/NEXT_pilot_FUP_downstream/stability_functions.R")
+
+mixed_models_taxa <- function(metadata, ID, CLR_transformed_data, pheno_list, consider_time) {
+  df <- metadata
+  row.names(df) <- df[,ID]
+  df<-merge(df, CLR_transformed_data, by='row.names')
+  row.names(df) <- df$Row.names
+  df$Row.names <- NULL
+  
+  Prevalent= c(colnames(CLR_transformed_data))
+  #pheno_list= phenotypes
+  
+  Overall_result_phenos =tibble() 
+  
+  for (Bug in Prevalent){
+    if (! Bug %in% colnames(df)){ next }
+    #Prevalence = sum(as.numeric(as_vector(select(df, Bug)) > 0)) / dim(df)[1]
+    # print (c(Bug, Prevalence))
+    Bug2 = paste(c("`",Bug, "`"), collapse="")
+    for ( pheno in pheno_list){
+      pheno2 = paste(c("`",pheno, "`"), collapse="")
+      df[is.na(df[colnames(df) == pheno]) == F, ID] -> To_keep
+      df_pheno = filter(df, !!sym(ID) %in% To_keep )
+      
+      if (consider_time=='time_as_covariate') {
+        Model0 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + infant_mode_delivery + Age_months + (1|Individual_ID)"), collapse="" )) 
+      } else { # else is mainly for associating entities with time alone
+        Model0 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + (1|Individual_ID)"), collapse="" )) 
+      }
+      
+      lmer(Model0, df_pheno) -> resultmodel0
+      base_model=resultmodel0
+      
+      if (consider_time=='time_as_covariate') {
+        Model2 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + infant_mode_delivery + Age_months + ",pheno2, "+ (1|Individual_ID)"), collapse="" ))
+      } else { # else is mainly for associating entities with time alone
+        Model2 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + ",pheno2, "+ (1|Individual_ID)"), collapse="" ))
+      }
+      
+      lmer(Model2, df_pheno, REML = F) -> resultmodel2
+      M = "Mixed"
+      as.data.frame(anova(resultmodel2, base_model))['resultmodel2','Pr(>Chisq)']->p_simp
+      as.data.frame(summary(resultmodel2)$coefficients)[grep(pheno, row.names(as.data.frame(summary(resultmodel2)$coefficients))),] -> Summ_simple
+      Summ_simple %>% rownames_to_column("Feature") %>% as_tibble() %>% mutate(P = p_simp, Model_choice = M, Bug =Bug, Pheno=pheno, Model="simple") -> temp_output
+      rbind(Overall_result_phenos, temp_output) -> Overall_result_phenos
+    }
+  }
+  
+  p=as.data.frame(Overall_result_phenos)
+  p <- p[! duplicated(paste0(p$Pheno, p$Bug)),]
+  p$FDR<-p.adjust(p$P, method = "BH")
+  
+  return(p)
+  
+}
+
 ##############################
 # Loading libraries
 ##############################
@@ -17,13 +74,21 @@ library(tidyverse)
 library(reshape2)
 library(ggplot2)
 library(MetBrewer)
+
+library(lme4)
+library(RLRsim)
+library(lmerTest)
+
+library(ggforce)
 ##############################
 # Input data
 ##############################
+
 MGS_metadata <- read.table('02.CLEAN_DATA/MGS_metadata_final_10_05_2023.txt', sep='\t', header=T)
 MGS_metadata$Timepoint <- factor(MGS_metadata$Timepoint, levels=c("P3", "P7", "B",
                                                                   "M1", "M2", "M3",
                                                                   "M6", "M9", "M12"), ordered=T)
+
 species <- read.table('02.CLEAN_DATA/Microbiome_species_unfiltred.txt', sep='\t', header=T)
 
 species_infants <- species[,MGS_metadata[MGS_metadata$Type=='Infant',]$Short_sample_ID_bact]
@@ -34,24 +99,68 @@ species_mothers <- species_mothers[rowSums(species_mothers)!=0,]
 
 Demuth <- met.brewer("Demuth")
 Monet <- met.brewer('Monet')
+
 ##############################
 # ANALYSIS
 ##############################
 # bacteria:
 Infant_timepoints <- c('M1', 'M2', 'M3', 'M6', 'M9', 'M12')
 Mother_timepoints <- c("P3", "P7", "B", "M1", "M2", "M3")
-### Infant Bacteria ###
 
+### Infant Bacteria ###
 # N bacterial species retained from M1 over different timepoints
 bacstability_M1 <- stability_initial(MGS_metadata[MGS_metadata$Type=='Infant',], species_infants, Infant_timepoints, 'Short_sample_ID_bact', 'Richness')
 bacstability_M1_stat <- summary_stat_bootstrap(bacstability_M1, Infant_timepoints)
 bacstability_M1_stat$Condition <- factor(bacstability_M1_stat$Condition, levels = c('Retained', 'Richness', 'Not_retained'), ordered=T)
 bacstability_M1_stat <- bacstability_M1_stat[row.names(bacstability_M1_stat)!="Richness_M1",]
 
+# what is the percentage of species detected at M1 is retained at different timepoints?
+bacstability_M1_perc_M1 <- bacstability_M1[,c('M2', 'M3', 'M6', 'M9', 'M12')]/bacstability_M1[,"M1"]
+bacstability_M1_perc_M1_stat <- summary_stat_bootstrap(bacstability_M1_perc_M1, c('M2', 'M3', 'M6', 'M9','M12'))
+colnames(bacstability_M1_perc_M1) <- paste0('perc_from_M1_retained_at_', colnames(bacstability_M1_perc_M1))
+
+# what is the percentage of richness at given timepoint is occupied by species present at M1 and given timepoint?
+bacstability_M1_perc_richness <- bacstability_M1[,c('M2', 'M3', 'M6', 'M9', 'M12')]/bacstability_M1[,c("Richness_M2", "Richness_M3", "Richness_M6", "Richness_M9", "Richness_M12")]
+bacstability_M1_perc_richness_stat <- summary_stat_bootstrap(bacstability_M1_perc_richness, c('M2', 'M3', 'M6', 'M9','M12'))
+colnames(bacstability_M1_perc_richness) <- paste0('M1_retained_perc_of_richness_at_', colnames(bacstability_M1_perc_richness))
+
+# what is the relative abundance of vOTUs common with M1 at the given timepoint?
 bacstability_M1_abundance <- stability_initial(MGS_metadata[MGS_metadata$Type=='Infant',], species_infants, Infant_timepoints, 'Short_sample_ID_bact', 'abundance')
 bacstability_M1_abundance_stat <- summary_stat_bootstrap(bacstability_M1_abundance, Infant_timepoints)
 bacstability_M1_abundance_stat$Condition <- factor(bacstability_M1_abundance_stat$Condition, levels = c('Retained', 'Total_space', 'Not_retained'), ordered=T)
 bacstability_M1_abundance_stat <- bacstability_M1_abundance_stat[row.names(bacstability_M1_abundance_stat)!="Total_space_M1",]
+
+# for formal testing
+bacstability_M1_test <- cbind(bacstability_M1_perc_M1, bacstability_M1_perc_richness, bacstability_M1_abundance[,c("M2", "M3", "M6","M9", "M12")])
+colnames(bacstability_M1_test)[c(11:15)] <- paste0("RA_M1_retained_at_", colnames(bacstability_M1_test)[c(11:15)])
+bacstability_M1_test <- bacstability_M1_test[rowSums(is.na(bacstability_M1_test))!=ncol(bacstability_M1_test),]
+bacstability_M1_test$Individual_ID <- row.names(bacstability_M1_test)
+bacstability_M1_test <- melt(bacstability_M1_test)
+bacstability_M1_test$Short_sample_ID_bact <- paste0(substr(bacstability_M1_test$Individual_ID, 1,1),
+                                               sprintf('%02s', gsub('.*_M', '', bacstability_M1_test$variable)),
+                                               substr(bacstability_M1_test$Individual_ID, 2,5),
+                                               'B')
+bacstability_M1_test$Individual_ID <- NULL
+bacstability_M1_test$variable <- gsub("_at_.*", "", bacstability_M1_test$variable)
+bacstability_M1_test <- dcast(bacstability_M1_test, Short_sample_ID_bact~variable, value.var = "value")
+row.names(bacstability_M1_test) <- bacstability_M1_test$Short_sample_ID_bact
+bacstability_M1_test$Short_sample_ID_bact <- NULL
+bacstability_M1_test <- bacstability_M1_test[rowSums(is.na(bacstability_M1_test))!=ncol(bacstability_M1_test),]
+
+# formal testing of dependency on time:
+bacstability_M1_time <- mixed_models_taxa(MGS_metadata, "Short_sample_ID_bact", bacstability_M1_test, "Age_months", "dont_consider_time")
+bacstability_M1_time$FDR <- NULL # use p-value output as these tests are independent
+# formal testing of dependency on time:
+bacstability_M1_withtime <- mixed_models_taxa(MGS_metadata, 
+                                              "Short_sample_ID_bact", 
+                                              bacstability_M1_test,
+                                              c("infant_place_delivery", "infant_ffq_feeding_mode_complex"), 
+                                              "time_as_covariate")
+
+# need to change how FDR is applied due to testing three independent virome traits:
+bacstability_M1_withtime$FDR <- unlist(lapply(colnames(bacstability_M1_test), function(i) {
+  p.adjust(bacstability_M1_withtime[bacstability_M1_withtime$Bug == i, "P"], method = "BH")
+}))
 
 
 pdf('./04.PLOTS/BacSp_retained_from_M1_over_time.pdf', width=8/2.54, height=10/2.54)
@@ -106,7 +215,7 @@ ggplot(bacstability_M1_abundance_stat[bacstability_M1_abundance_stat$Condition!=
 dev.off()
 
 
-######## will not be used probabl y########
+######## will not be used probably ########
 stability <- as.data.frame(matrix(NA, nrow=length( unique(MGS_metadata$Individual_ID) ), ncol=6))
 row.names(stability) <- unique(MGS_metadata$Individual_ID)
 colnames(stability) <- c(paste0('Richness_', Infant_timepoints))
@@ -284,6 +393,61 @@ ggplot(plot_bac_frac_infants_per_sample_N, aes(Sample, value, fill=variable)) +
         legend.position = "bottom", 
         panel.spacing = unit(0.1, "lines"))
 dev.off()
+
+## FRACTION STAT: 
+p_bac_frac_infants_per_sample <- merge(p_bac_frac_infants_per_sample, as.data.frame(colSums(species_infants > 0)), by="row.names")
+row.names(p_bac_frac_infants_per_sample) <- p_bac_frac_infants_per_sample$Row.names
+p_bac_frac_infants_per_sample <- merge(p_bac_frac_infants_per_sample, as.data.frame(colSums(species_infants)), by="row.names")
+p_bac_frac_infants_per_sample$Row.names <- NULL
+row.names(p_bac_frac_infants_per_sample) <- p_bac_frac_infants_per_sample$Row.names
+p_bac_frac_infants_per_sample$Row.names <- NULL
+colnames(p_bac_frac_infants_per_sample)[c(8,9)] <- c('bacterial_richness', 'Total_space')
+p_bac_frac_infants_per_sample_percs <- cbind(p_bac_frac_infants_per_sample[,c("N_PPB", "N_TDB", "N_Singletons")]/p_bac_frac_infants_per_sample[,"bacterial_richness"],
+                                             p_bac_frac_infants_per_sample[,c("ab_PPB", "ab_TDB", "ab_Singletons")]/p_bac_frac_infants_per_sample[,"Total_space"])
+
+p_bac_frac_infants_per_sample_percs <- p_bac_frac_infants_per_sample_percs*100
+p_bac_frac_infants_per_sample_percs_stat <- summary_stat_bootstrap(p_bac_frac_infants_per_sample_percs, colnames(p_bac_frac_infants_per_sample_percs))
+p_bac_frac_infants_per_sample_percs$Short_sample_ID_bact <- row.names(p_bac_frac_infants_per_sample_percs)
+p_bac_frac_infants_per_sample_percs_melt <- melt(p_bac_frac_infants_per_sample_percs)
+p_bac_frac_infants_per_sample_percs_melt$Individual_ID <- MGS_metadata$Individual_ID[match(p_bac_frac_infants_per_sample_percs_melt$Short_sample_ID_bact, MGS_metadata$Short_sample_ID_bact)]
+
+# are the fractions different in size?
+model1 <- lmer(value ~ variable + (1|Individual_ID),
+               data = p_bac_frac_infants_per_sample_percs_melt[grep('N_', p_bac_frac_infants_per_sample_percs_melt$variable),], REML = F)
+summary(model1)
+
+# which is larger?
+anova1 <- aov(value ~ variable,
+              data = p_bac_frac_infants_per_sample_percs_melt[grep('N_', p_bac_frac_infants_per_sample_percs_melt$variable),])
+TukeyHSD(anova1)
+boxplot(data=p_bac_frac_infants_per_sample_percs_melt[grep('N_', p_bac_frac_infants_per_sample_percs_melt$variable),], value ~ variable)
+# are the fractions different in abundance?
+model2 <- lmer(value ~ variable + (1|Individual_ID),
+               data = p_bac_frac_infants_per_sample_percs_melt[grep('ab_', p_bac_frac_infants_per_sample_percs_melt$variable),], REML = F)
+summary(model2)
+anova2 <- aov(value ~ variable,
+              data = p_bac_frac_infants_per_sample_percs_melt[grep('ab_', p_bac_frac_infants_per_sample_percs_melt$variable),])
+TukeyHSD(anova2)
+boxplot(data=p_bac_frac_infants_per_sample_percs_melt[grep('ab_', p_bac_frac_infants_per_sample_percs_melt$variable),], value ~ variable)
+### phenotypes: 
+infant_fractions_time <- mixed_models_taxa(MGS_metadata, 
+                                           "Short_sample_ID_bact", 
+                                           p_bac_frac_infants_per_sample_percs[,-7], 
+                                           c("Age_months"), 
+                                           "dont_consider_time")
+infant_fractions_time$FDR <- unlist(lapply(c("N_", "ab_"), function(i) {
+  p.adjust(infant_fractions_time[grep(i,infant_fractions_time$Bug), "P"], method = "BH")
+}))
+
+infant_fractions_withtime <- mixed_models_taxa(MGS_metadata, 
+                                               "Short_sample_ID_bact", 
+                                               p_bac_frac_infants_per_sample_percs[,-7], 
+                                               c("infant_place_delivery", 
+                                                 "infant_ffq_feeding_mode_complex"), 
+                                               "time_as_covariate")
+infant_fractions_withtime$FDR <- unlist(lapply(c("N_", "ab_"), function(i) {
+  p.adjust(infant_fractions_withtime[grep(i,infant_fractions_withtime$Bug), "P"], method = "BH")
+})) # no significant associations with phenotypes
 
 ### Mother Bacteria ###
 bacstability_P3 <- stability_initial(MGS_metadata[MGS_metadata$Type=='Mother',], species_mothers, Mother_timepoints, 'Short_sample_ID_bact', 'Richness')
