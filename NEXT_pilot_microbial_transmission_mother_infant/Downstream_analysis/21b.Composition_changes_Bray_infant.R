@@ -9,7 +9,7 @@ setwd('~/Desktop/Projects_2022/NEXT_pilot_FUP/')
 ##############################
 # Functions
 ##############################
-mixed_models_taxa <- function(metadata, ID, CLR_transformed_data, pheno_list) {
+mixed_models_taxa <- function(metadata, ID, CLR_transformed_data, pheno_list, consider_time) {
   df <- metadata
   row.names(df) <- df[,ID]
   df<-merge(df, CLR_transformed_data, by='row.names')
@@ -30,10 +30,22 @@ mixed_models_taxa <- function(metadata, ID, CLR_transformed_data, pheno_list) {
       pheno2 = paste(c("`",pheno, "`"), collapse="")
       df[is.na(df[colnames(df) == pheno]) == F, ID] -> To_keep
       df_pheno = filter(df, !!sym(ID) %in% To_keep )
-      Model0 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + (1|Individual_ID)"), collapse="" )) 
+      
+      if (consider_time=='time_as_covariate') {
+        Model0 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + infant_mode_delivery + Age_months + (1|Individual_ID)"), collapse="" )) 
+      } else { # else is mainly for associating entities with time alone
+        Model0 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + (1|Individual_ID)"), collapse="" )) 
+      }
+      
       lmer(Model0, df_pheno) -> resultmodel0
       base_model=resultmodel0
-      Model2 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads +",pheno2, "+ (1|Individual_ID)"), collapse="" ))
+      
+      if (consider_time=='time_as_covariate') {
+        Model2 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + infant_mode_delivery + Age_months + ",pheno2, "+ (1|Individual_ID)"), collapse="" ))
+      } else { # else is mainly for associating entities with time alone
+        Model2 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + ",pheno2, "+ (1|Individual_ID)"), collapse="" ))
+      }
+      
       lmer(Model2, df_pheno, REML = F) -> resultmodel2
       M = "Mixed"
       as.data.frame(anova(resultmodel2, base_model))['resultmodel2','Pr(>Chisq)']->p_simp
@@ -44,6 +56,7 @@ mixed_models_taxa <- function(metadata, ID, CLR_transformed_data, pheno_list) {
   }
   
   p=as.data.frame(Overall_result_phenos)
+  p <- p[! duplicated(paste0(p$Pheno, p$Bug)),]
   p$FDR<-p.adjust(p$P, method = "BH")
   
   return(p)
@@ -140,6 +153,12 @@ ggplot(data = data.scores, aes(x = NMDS1, y = NMDS2, color=Timepoint)) +
         legend.position = "bottom") 
 dev.off()
 
+##### SAVE FOR PATCHING PANELS ####
+write.table(data.scores, "02.CLEAN_DATA/PREPARED_DATA_FOR_PLOTS/Fig1C_NMDS_scores_BacSp.txt", sep='\t', quote = F)
+write.table(centroids, "02.CLEAN_DATA/PREPARED_DATA_FOR_PLOTS/Fig1C_NMDS_centroids_BacSp.txt", sep='\t', quote = F)
+write.table(spp.scrs, "02.CLEAN_DATA/PREPARED_DATA_FOR_PLOTS/Fig1C_NMDS_vectors_BacSp.txt", sep='\t', quote = F)
+##### SAVE FOR PATCHING PANELS ####
+
 #### infants phenotypes
 
 # allow only 1 dimension
@@ -155,7 +174,7 @@ infants_phenos_MGS <- mixed_models_taxa(MGS_metadata[MGS_metadata$Type=='Infant'
                                     "mother_age_years", "infant_feeding_mode_imputed_W2", "infant_feeding_mode_imputed_M1", 
                                     "infant_ever_never_breastfed", "Age_days", "perc_reads_aligned", "viral_richness_MGS", 
                                     "viral_alpha_diversity_MGS", "temperate_richness_MGS", "temperate_RA_MGS",
-                                    "bacterial_alpha_diversity", "infant_ffq_feeding_mode_simple", "infant_ffq_feeding_mode_complex" ))
+                                    "bacterial_alpha_diversity", "infant_ffq_feeding_mode_simple", "infant_ffq_feeding_mode_complex"), "dont_consider_time")
 
 infants_phenos_MGS <- infants_phenos_MGS[infants_phenos_MGS$FDR<0.05,]
 
@@ -184,7 +203,7 @@ ggplot(data = data.scores2, aes(x = viral_richness_MGS, y = NMDS1)) +
   geom_smooth(aes(viral_richness_MGS, y = NMDS1)) +
   geom_point(aes(color=Timepoint), alpha=0.8) +
   theme_bw()+ 
-  annotate("text", x = 3000, y = 1.5, label = "FDR=4.2e-27")+
+  annotate("text", x = 3000, y = 1.5, label = "FDR=3.7e-27")+
   theme(axis.text=element_text(size=10),
         axis.title = element_text(size = 10, face = "bold", colour = "grey30"), 
         panel.background = element_blank(), 
@@ -200,7 +219,7 @@ ggplot(data = data.scores2, aes(x = temperate_richness_MGS, y = NMDS1)) +
   geom_smooth(aes(temperate_richness_MGS, y = NMDS1)) +
   geom_point(aes(color=Timepoint), alpha=0.8) +
   theme_bw()+ 
-  annotate("text", x = 250, y = 1.5, label = "FDR=1.4e-25")+
+  annotate("text", x = 250, y = 1.5, label = "FDR=1.2e-25")+
   theme(axis.text=element_text(size=10),
         axis.title = element_text(size = 10, face = "bold", colour = "grey30"), 
         panel.background = element_blank(), 
@@ -222,7 +241,7 @@ microbiome_infant$Row.names <- NULL
 infant_species <- mixed_models_taxa(microbiome_infant, 
                                     "Short_sample_ID_bact", 
                                     as.data.frame(scores(ord2, "sites")), 
-                                    colnames(microbiome_infant)[grep('k_',colnames(microbiome_infant))])
+                                    colnames(microbiome_infant)[grep('k_',colnames(microbiome_infant))], 'dont_consider_time')
 infant_species <- infant_species[infant_species$FDR<0.05,]
 
 
@@ -277,6 +296,13 @@ ggplot(data = data.scores, aes(x = NMDS1, y = NMDS2, color=Timepoint)) +
         legend.position = "bottom") 
 dev.off()
 
+##### SAVE FOR PATCHING PANELS ####
+write.table(data.scores, "02.CLEAN_DATA/PREPARED_DATA_FOR_PLOTS/Fig1B_NMDS_scores_vOTUs.txt", sep='\t', quote = F)
+write.table(centroids, "02.CLEAN_DATA/PREPARED_DATA_FOR_PLOTS/Fig1B_NMDS_centroids_vOTUs.txt", sep='\t', quote = F)
+write.table(spp.scrs, "02.CLEAN_DATA/PREPARED_DATA_FOR_PLOTS/Fig1B_NMDS_vectors_vOTUs.txt", sep='\t', quote = F)
+##### SAVE FOR PATCHING PANELS ####
+
+
 #### infants phenotypes
 
 # allow only 1 dimension
@@ -287,12 +313,8 @@ colnames(VLP_metadata)
 infants_phenos_VLP <- mixed_models_taxa(VLP_metadata[VLP_metadata$Type=='Infant',], 
                                     "Short_sample_ID", 
                                     as.data.frame(scores(ord2, "sites")), 
-                                    c("infant_type_pregnancy", "infant_sex", "infant_gestational_age",
-                                      "infant_birthweight", "infant_place_delivery", "infant_mode_delivery",
-                                      "mother_age_years", "infant_feeding_mode_imputed_W2", "infant_feeding_mode_imputed_M1", 
-                                      "infant_ever_never_breastfed", "Age_days", "perc_reads_aligned", "viral_richness", 
-                                      "viral_alpha_diversity", "temperate_richness", "temperate_RA",
-                                      "bacterial_alpha_diversity", "infant_ffq_feeding_mode_simple", "infant_ffq_feeding_mode_complex" ))
+                                    c("infant_place_delivery", "Age_days",
+                                      "bacterial_alpha_diversity", "infant_ffq_feeding_mode_complex" ), "dont_consider_time")
 
 infants_phenos_VLP <- infants_phenos_VLP[infants_phenos_VLP$FDR<0.05,]
 
