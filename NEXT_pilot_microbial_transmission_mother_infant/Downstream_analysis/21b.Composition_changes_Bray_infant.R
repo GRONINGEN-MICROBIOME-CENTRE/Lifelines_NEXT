@@ -109,8 +109,7 @@ RPKM_counts_VLP <- read.table('02.CLEAN_DATA/RPKM_counts_VLP.txt', sep='\t', hea
 for_bacplot <- MGS_metadata
 for_bacplot <- for_bacplot[colnames(microbiome),]
 #CHOOSING TECHNICAL PHENOTYPES, SAMPLE TYPE & BACTERIAL ALPHA DIVERSITY
-for_bacplot <- for_bacplot[,c("Clean_reads", "DNA_CONC", "bacterial_alpha_diversity", "Age_days", "Timepoint",
-                              "metaphlan_unknown_perc")]
+for_bacplot <- for_bacplot[,c("Age_days", "Timepoint")]
 
 
 ord <- metaMDS(t(microbiome), distance = "bray", k=2)
@@ -126,7 +125,7 @@ centroids$Timepoint <- factor(centroids$Timepoint, levels = c("M1", "M2", "M3",
 spp.scrs <- as.data.frame(scores(en, display = "vectors"))
 spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs))
 spp.scrs$Type <- 'Infant'
-spp.scrs$Species <- c('N clean reads', 'DNA concentration', 'Alpha diversity (bacteria)', 'Infant age', '% unknown in Metaphlan4')
+spp.scrs$Species <- c('Infant age')
 
 ### for plotting:
 data.scores = as.data.frame(scores(ord, "sites"))
@@ -251,8 +250,7 @@ infant_species <- infant_species[infant_species$FDR<0.05,]
 for_virplot <- VLP_metadata
 for_virplot <- for_virplot[colnames(RPKM_counts_VLP),]
 #CHOOSING TECHNICAL PHENOTYPES, SAMPLE TYPE & BACTERIAL ALPHA DIVERSITY
-for_virplot <- for_virplot[,c("Clean_reads", "DNA_CONC", "viral_alpha_diversity", "Age_days", "Timepoint",
-                              "bacterial_contamination_perc_reads")]
+for_virplot <- for_virplot[,c("Age_days", "Timepoint")]
 
 
 ord <- metaMDS(t(RPKM_counts_VLP), distance = "bray", k=2)
@@ -268,8 +266,7 @@ centroids$Timepoint <- factor(centroids$Timepoint, levels = c("M1", "M2", "M3",
 spp.scrs <- as.data.frame(scores(en, display = "vectors"))
 spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs))
 spp.scrs$Type <- 'Infant'
-spp.scrs <- spp.scrs[!(spp.scrs$Species %in% c('Clean_reads')),]
-spp.scrs$Species <- c('DNA concentration','Alpha diversity (vOTUs)', 'Infant age', '% bacterial contamination')
+spp.scrs$Species <- c('Infant age')
 
 ### for plotting:
 data.scores = as.data.frame(scores(ord, "sites"))
