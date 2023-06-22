@@ -5,12 +5,62 @@ setwd('~/Desktop/Projects_2022/NEXT_pilot_FUP/')
 # alpha-diversity
 #############################################################
 
-
 ##############################
 # Functions
 ##############################
-
-
+mixed_models_taxa <- function(metadata, ID, CLR_transformed_data, pheno_list, consider_time) {
+  df <- metadata
+  row.names(df) <- df[,ID]
+  df<-merge(df, CLR_transformed_data, by='row.names')
+  row.names(df) <- df$Row.names
+  df$Row.names <- NULL
+  
+  Prevalent= c(colnames(CLR_transformed_data))
+  #pheno_list= phenotypes
+  
+  Overall_result_phenos =tibble() 
+  
+  for (Bug in Prevalent){
+    if (! Bug %in% colnames(df)){ next }
+    #Prevalence = sum(as.numeric(as_vector(select(df, Bug)) > 0)) / dim(df)[1]
+    # print (c(Bug, Prevalence))
+    Bug2 = paste(c("`",Bug, "`"), collapse="")
+    for ( pheno in pheno_list){
+      pheno2 = paste(c("`",pheno, "`"), collapse="")
+      df[is.na(df[colnames(df) == pheno]) == F, ID] -> To_keep
+      df_pheno = filter(df, !!sym(ID) %in% To_keep )
+      
+      if (consider_time=='time_as_covariate') {
+        Model0 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + infant_mode_delivery + Age_months + (1|Individual_ID)"), collapse="" )) 
+      } else { # else is mainly for associating entities with time alone
+        Model0 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + (1|Individual_ID)"), collapse="" )) 
+      }
+      
+      lmer(Model0, df_pheno) -> resultmodel0
+      base_model=resultmodel0
+      
+      if (consider_time=='time_as_covariate') {
+        Model2 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + infant_mode_delivery + Age_months + ",pheno2, "+ (1|Individual_ID)"), collapse="" ))
+      } else { # else is mainly for associating entities with time alone
+        Model2 = as.formula(paste( c(Bug2,  " ~ DNA_CONC + Clean_reads + ",pheno2, "+ (1|Individual_ID)"), collapse="" ))
+      }
+      
+      lmer(Model2, df_pheno, REML = F) -> resultmodel2
+      M = "Mixed"
+      as.data.frame(anova(resultmodel2, base_model))['resultmodel2','Pr(>Chisq)']->p_simp
+      as.data.frame(summary(resultmodel2)$coefficients)[grep(pheno, row.names(as.data.frame(summary(resultmodel2)$coefficients))),] -> Summ_simple
+      Summ_simple %>% rownames_to_column("Feature") %>% as_tibble() %>% mutate(P = p_simp, Model_choice = M, Bug =Bug, Pheno=pheno, Model="simple") -> temp_output
+      rbind(Overall_result_phenos, temp_output) -> Overall_result_phenos
+    }
+  }
+  
+  p=as.data.frame(Overall_result_phenos)
+  p <- p[! duplicated(paste0(p$Pheno, p$Bug)),]
+  p$FDR<-p.adjust(p$P, method = "BH")
+  
+  return(p)
+  
+}
 ##############################
 # Loading libraries
 ##############################
@@ -25,19 +75,23 @@ library(ggsignif)
 # Input data
 ##############################
 
-VLP_metadata <- read.table("02.CLEAN_DATA/VLP_metadata_with_phenos.txt", sep='\t', header=T, row.names = "Short_sample_ID")
+VLP_metadata <- read.table("02.CLEAN_DATA/VLP_metadata_final_10_05_2023.txt", sep='\t', header=T, row.names = "Short_sample_ID")
 VLP_metadata$Timepoint <- factor(VLP_metadata$Timepoint, levels = c("P7", "B",
                                                                     "M1", "M2", "M3",
                                                                     "M6", "M12"), ordered = T)
 VLP_metadata$Type <- as.factor(VLP_metadata$Type)
 VLP_metadata$Short_sample_ID <- row.names(VLP_metadata)
 
-MGS_metadata <- read.table("02.CLEAN_DATA/MGS_metadata_with_phenos.txt", sep='\t', header=T, row.names = "Short_sample_ID")
+MGS_metadata <- read.table("02.CLEAN_DATA/MGS_metadata_final_10_05_2023.txt", sep='\t', header=T, row.names = "Short_sample_ID")
 MGS_metadata$Timepoint <- factor(MGS_metadata$Timepoint, levels = c("P3", "P7", "B",
                                                                     "M1", "M2", "M3",
                                                                     "M6", "M9", "M12"), ordered = T)
 MGS_metadata$Type <- as.factor(MGS_metadata$Type)
 MGS_metadata$Short_sample_ID <- row.names(MGS_metadata)
+
+##############################
+# ANALYSIS
+##############################
 
 # alpha-diversity in virome
 
@@ -106,8 +160,12 @@ s_p = sqrt(((n_m - 1) * s_m^2 + (n_i - 1) * s_i^2) / (n_m + n_i - 2))
 Cohens_d = (mean_m - mean_i) / s_p
 
 # dependent on phenotypes in infants? 
-btmod1_feeding  = lmer(viral_alpha_diversity ~ Age_days + infant_ever_never_breastfed + DNA_CONC + Clean_reads + (1|NEXT_ID), REML = F, data = VLP_metadata[VLP_metadata$Type=="Infant",])
-summary(btmod1_feeding) #infant_ever_never_breastfed  8.786e-01  3.422e-01  1.941e+01   2.567   0.0187 *
+vOTUs_diversity_phenos <- mixed_models_taxa(VLP_metadata[VLP_metadata$Type=="Infant",grep("viral_alpha_diversity", colnames(VLP_metadata), invert=T)], 
+                                            "Short_sample_ID",
+                                            VLP_metadata[VLP_metadata$Type=="Infant","viral_alpha_diversity",drop=F],
+                                            c("infant_place_delivery", "infant_ffq_feeding_mode_complex", "infant_ever_never_breastfed"), 
+                                            'time_as_covariate')
+
 
 
 pdf('./04.PLOTS/Virome_diversity_feeding_plot.pdf', width=12/2.54, height=9/2.54)
@@ -130,6 +188,7 @@ ggplot(virome_feeding_plot, aes(Timepoint, value, fill=infant_ever_never_breastf
                       values=c("#FAE3D9", "#BBDED6"))
 dev.off()
 
+
 # alpha-diversity in microbiome
 
 # dependent on type?
@@ -140,15 +199,12 @@ exactLRT(type_mod1_bac,type_mod0_bac)
 summary(type_mod1_bac) # Type 1.767321e+00 9.933489e-02  76.76975 17.791543 5.861632e-29
 as.data.frame(summary(type_mod1_bac)$coefficients)[,1:5]
 
-
 # dependent on type & time?
 mod0_bac <- lm(bacterial_alpha_diversity ~ Timepoint_continuous + DNA_CONC + Clean_reads, data = MGS_metadata)
 mod1_bac  = lmer(bacterial_alpha_diversity ~ Type + Timepoint_continuous + DNA_CONC + Clean_reads + (1|NEXT_ID), REML = F, data = MGS_metadata)
 BIC(mod0_bac, mod1_bac)
 exactLRT(mod1_bac,mod0_bac)
 summary(mod1_bac) #Timepoint_continuous 5.719e-02  7.041e-03  2.759e+02   8.122 1.54e-14 ***
-
-
 
 # dependant on time in babies?
 btmod0_bac <- lm(bacterial_alpha_diversity ~ Age_days + DNA_CONC + Clean_reads, data = MGS_metadata[MGS_metadata$Type=="Infant",])
@@ -187,8 +243,12 @@ dev.off()
 
 
 # dependent on phenotypes in infants? NS
-btmod1_bac_a  = lmer(bacterial_alpha_diversity ~ Age_days + infant_ever_never_breastfed + DNA_CONC + Clean_reads + (1|NEXT_ID), REML = F, data = MGS_metadata[MGS_metadata$Type=="Infant",])
-summary(btmod1_bac_a) #infant_ever_never_breastfed  1.569e-01  1.735e-01  2.834e+01   0.904    0.373  
+bac_diversity_phenos <- mixed_models_taxa(MGS_metadata[MGS_metadata$Type=="Infant",grep("bacterial_alpha_diversity", colnames(MGS_metadata), invert=T)], 
+                                            "Short_sample_ID",
+                                            MGS_metadata[MGS_metadata$Type=="Infant","bacterial_alpha_diversity",drop=F],
+                                            c("infant_place_delivery", "infant_ffq_feeding_mode_complex", "infant_ever_never_breastfed"), 
+                                            'time_as_covariate')
+
 
 pdf('./04.PLOTS/Bacteriome_diversity_feeding_plot.pdf', width=12/2.54, height=9/2.54)
 
@@ -237,3 +297,8 @@ ggplot(together_plot, aes(X1, X2, fill=X1)) +
   facet_grid(~Source)
 dev.off()
 
+##############################
+# ANALYSIS
+##############################
+write.table(vOTUs_diversity_phenos, "03a.RESULTS/vOTUs_alpha_diversity_phenos_mixed_models_FDR_significant.txt", sep='\t', row.names = F, quote=F)
+write.table(bac_diversity_phenos, "03a.RESULTS/BacSp_alpha_diversity_phenos_mixed_models_FDR_significant.txt", sep='\t', row.names = F, quote=F)
