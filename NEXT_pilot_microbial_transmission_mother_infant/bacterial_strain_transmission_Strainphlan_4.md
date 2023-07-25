@@ -3,7 +3,7 @@
 Adapted from Biobakery (StrainPhlAn 4.0). 
 https://github.com/biobakery/MetaPhlAn/wiki/StrainPhlAn-4
 
-Authors: Trishla Sinha
+Authors: Trishla Sinha.
 Description: The script shows how strain profiling was performed using Strainphlan 4 for all maternal and infant samples post QC, for all species.   
 Languages: Bash and R.   
 
