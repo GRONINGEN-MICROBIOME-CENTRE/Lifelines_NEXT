@@ -145,9 +145,9 @@ strainphlan -s ${1}/*.pkl --database /data/umcg-tifn/rgacesa/conda_biobakery4/li
 ### Execution
 
 ```
-for i in $(cat CS_BABY_BIOME_clades_names.txt); do sbatch sp4_runMarkerComparison.sh  /scratch/umcg-tsinha/strainphlan_4_CS_BABY_BIOME $i; done
+for i in $(cat LLNEXT_pilot__sp_clades_names.txt); do sbatch sp4_runMarkerComparison.sh  /scratch/p280306/PILOT_MGS_STRAINPHLAN $i; done
 ```
-Where CS_BABY_BIOME_clades_names.txt contains a list of names of all (sub) species identified in the previous step 
+Where LLNEXT_pilot__sp_clades_names.txt contains a list of names of all (sub) species identified in the previous step 
 This will perform MSA and create .tre files and .aln files for each of the (sub)species you feed it in 
 
 
