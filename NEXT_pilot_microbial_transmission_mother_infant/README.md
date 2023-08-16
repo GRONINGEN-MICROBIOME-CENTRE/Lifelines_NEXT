@@ -16,6 +16,9 @@ Sample information, basic phenotypes, family structure and raw sequences will be
 ## Code availability
 [Virome discovery pipeline:](https://github.com/GRONINGEN-MICROBIOME-CENTRE/Lifelines_NEXT/tree/main/NEXT_pilot_microbial_transmission_mother_infant/Virome_discovery)
 All scripts used to profile human gut virome and microbiome
+![](Virome_discovery/VirusDiscovery_scheme.png)
+
+
 
 [Building virus consensuses:](https://github.com/GRONINGEN-MICROBIOME-CENTRE/Lifelines_NEXT/tree/main/NEXT_pilot_microbial_transmission_mother_infant/Viral_alignments)
 All scripts used to generate consensus sequences for vOTUs shared between mothers and their infants
