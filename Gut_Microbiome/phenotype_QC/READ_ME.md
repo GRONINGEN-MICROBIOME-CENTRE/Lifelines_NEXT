@@ -1,5 +1,5 @@
 
 # READ ME
-#### Scripts for summary statistics for  phenotypic data
+#### Generation of LL-NEXT mother-partner-infant cross-sectional and longitudinal metadata masterfiles 
 #### Authors: Siobhan Brushett and Trishla Sinha 
 
