@@ -1306,24 +1306,98 @@ infant_igsq$infant_igsq_4_amount_spitting_milk_past_week[infant_igsq$infant_igsq
     #does not need recoding, already in a scale of 1-5
 
 #infant_igsq_10_freq_days_restless_past_week
-    #recode similarly to other behavioral aspects of the questionnaire, e.g. crying
-    #thus: 0 --> 1, 1 --> 2, 2 --> 3, 3 --> 4, 4, 5, 6 and 7--> 5 (4 or more times in a week)
+    #recode according to User Guide
+    #thus: 0 --> 1, 1 --> 2, 2 or 3 --> 3, 4 or 5 --> 4, 6+ --> 5 (6 or more days in a week)
 table(infant_igsq$infant_igsq_10_freq_days_restless_past_week, useNA="ifany")
-infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="4"|
-                                                          infant_igsq$infant_igsq_10_freq_days_restless_past_week=="5"|
-                                                          infant_igsq$infant_igsq_10_freq_days_restless_past_week=="6"|
-                                                          infant_igsq$infant_igsq_10_freq_days_restless_past_week=="7"] <- 5
-infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="3"] <- 4
-infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="2"] <- 3
-infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="1"] <- 2
-infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="0"] <- 1
+infant_igsq$infant_igsq_10_freq_days_restless_past_week_updated <- infant_igsq$infant_igsq_10_freq_days_restless_past_week
+infant_igsq$infant_igsq_10_freq_days_restless_past_week_updated[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="6"|
+                                                                infant_igsq$infant_igsq_10_freq_days_restless_past_week=="7"] <- 5
+infant_igsq$infant_igsq_10_freq_days_restless_past_week_updated[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="4" |
+                                                                infant_igsq$infant_igsq_10_freq_days_restless_past_week=="5"] <- 4
+infant_igsq$infant_igsq_10_freq_days_restless_past_week_updated[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="2" |
+                                                                infant_igsq$infant_igsq_10_freq_days_restless_past_week=="3"] <- 3
+infant_igsq$infant_igsq_10_freq_days_restless_past_week_updated[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="1"] <- 2
+infant_igsq$infant_igsq_10_freq_days_restless_past_week_updated[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="0"] <- 1
+
+table(infant_igsq$infant_igsq_10_freq_days_restless_past_week, useNA="ifany")
+table(infant_igsq$infant_igsq_10_freq_days_restless_past_week_updated, useNA="ifany")
+infant_igsq$infant_igsq_10_freq_days_restless_past_week <- infant_igsq$infant_igsq_10_freq_days_restless_past_week_updated
+infant_igsq$infant_igsq_10_freq_days_restless_past_week_updated <- NULL
 
 summary(infant_igsq)
 
-infant_igsq <- infant_igsq %>%
-  mutate(infant_IGSQ_score = rowSums(across(starts_with("infant_"), .names = "infant_{.col}")))
+#due to the nature of the question, if question 3 is == 1, then questions 4-6 were skipped (nested questionnaire)
+#and thus, need to be recoded to 1 if NA
+#the same holds true if question 10 == 1, for question 11, and if question 12 == 1, for question 13 == 1
+str(infant_igsq)
 
-hist(infant_igsq$infant_IGSQ_score)
+#question 3
+table(infant_igsq$infant_igsq_4_amount_spitting_milk_past_week, useNA = "ifany")
+infant_igsq <- infant_igsq %>% 
+        mutate(infant_igsq_4_amount_spitting_milk_past_week = ifelse(is.na(infant_igsq_4_amount_spitting_milk_past_week) &
+                                                                           infant_igsq_3_freq_spitting_milk_normal_day_past_week == 1, 
+                                                                     1, infant_igsq_4_amount_spitting_milk_past_week))
+
+table(infant_igsq$infant_igsq_5_freq_discomfort_spitting_milk_past_week, useNA = "ifany")
+infant_igsq <- infant_igsq %>% 
+        mutate(infant_igsq_5_freq_discomfort_spitting_milk_past_week = ifelse(is.na(infant_igsq_5_freq_discomfort_spitting_milk_past_week) &
+                                                                             infant_igsq_3_freq_spitting_milk_normal_day_past_week == 1, 
+                                                                     1, infant_igsq_5_freq_discomfort_spitting_milk_past_week))
+
+table(infant_igsq$infant_igsq_6_freq_pain_spitting_milk_past_week, useNA = "ifany")
+infant_igsq <- infant_igsq %>% 
+        mutate(infant_igsq_6_freq_pain_spitting_milk_past_week = ifelse(is.na(infant_igsq_6_freq_pain_spitting_milk_past_week) &
+                                                                                      infant_igsq_3_freq_spitting_milk_normal_day_past_week == 1, 
+                                                                              1, infant_igsq_6_freq_pain_spitting_milk_past_week))
+
+#question 10
+table(infant_igsq$infant_igsq_11_freq_unstoppable_restlessness_baby_past_week, useNA = "ifany")
+infant_igsq <- infant_igsq %>% 
+        mutate(infant_igsq_11_freq_unstoppable_restlessness_baby_past_week = ifelse(is.na(infant_igsq_11_freq_unstoppable_restlessness_baby_past_week) &
+                                                                             infant_igsq_10_freq_days_restless_past_week == 1, 
+                                                                     1, infant_igsq_11_freq_unstoppable_restlessness_baby_past_week))
+
+#question 12
+table(infant_igsq$infant_igsq_13_freq_discomfort_gas_past_week, useNA = "ifany")
+infant_igsq <- infant_igsq %>% 
+        mutate(infant_igsq_13_freq_discomfort_gas_past_week = ifelse(is.na(infant_igsq_13_freq_discomfort_gas_past_week) &
+                                                                                            infant_igsq_12_freq_gas_per_day_past_week == 1, 
+                                                                                    1, infant_igsq_13_freq_discomfort_gas_past_week))
+
+#summing of variables were done according to the User Instructions
+#identify number of items missings (cannot be more than 10 items missing to calculate IGSQ score)
+infant_igsq <- infant_igsq %>%
+        mutate(item_n = rowSums(across(starts_with("infant_igsq_"), ~ ifelse(!is.na(.), 1, 0)))) #%>%
+        #relocate(item_n, .after = timepoint)
+table(infant_igsq$item_n, useNA = "ifany")
+#0       8    9   10   11   12   13 
+#1141    1    5    1   11   31  314 
+
+#thus I expect 1147 NAs from the final IGSQ score (as items should be > 9)
+
+#generate IGSQ score
+infant_igsq$infant_IGSQ_score <- rowSums(infant_igsq[, c("infant_igsq_1_freq_hard_stools_past_week",
+                                                            "infant_igsq_2_freq_difficult_stool_past_week",
+                                                            "infant_igsq_3_freq_spitting_milk_normal_day_past_week",
+                                                            "infant_igsq_4_amount_spitting_milk_past_week",
+                                                            "infant_igsq_5_freq_discomfort_spitting_milk_past_week",
+                                                            "infant_igsq_6_freq_pain_spitting_milk_past_week",
+                                                            "infant_igsq_7_crying_duration_per_day_past_week",
+                                                            "infant_igsq_8_freq_unstoppable_crying_past_week",
+                                                            "infant_igsq_9_freq_crying_after_feeding_past_week",
+                                                            "infant_igsq_10_freq_days_restless_past_week",
+                                                            "infant_igsq_11_freq_unstoppable_restlessness_baby_past_week", 
+                                                            "infant_igsq_12_freq_gas_per_day_past_week",
+                                                            "infant_igsq_13_freq_discomfort_gas_past_week")], na.rm = TRUE)
+#make all IGSQ scores with item_n < 10 == NA
+table(infant_igsq$infant_IGSQ_score, useNA="ifany")
+infant_igsq$infant_IGSQ_score[infant_igsq$item_n<10] <- NA #NAs == 1147 as expected
+
+#according to the Guidelines scores should include the difference in item numbers
+infant_igsq$infant_IGSQ_score_updated <- (13/infant_igsq$item_n) * infant_igsq$infant_IGSQ_score
+table(infant_igsq$infant_IGSQ_score_updated, useNA = "ifany")
+
+hist(infant_igsq$infant_IGSQ_score) #right skewed
 
 gghistogram(infant_igsq, x = "infant_IGSQ_score",
             add = "mean", rug = TRUE,
@@ -1336,10 +1410,10 @@ hist(infant_igsq_M12$infant_IGSQ_score)
 #indeed, M12 is not very normal - probably due to less data points
 
 table(infant_igsq_M12$infant_IGSQ_score, useNA="ifany")
-#17   21   23   24   25 <NA> 
-#2    2    1    2    1  744 
+#11   13   14   15   16   17   18   19   20   21   22   23   24   25 <NA> 
+#1   18   28   24   19   17   11    6    2    4    2    3    2    1  614 
 
-#indeed, at M12, scores are only available for 9 infants
+#at M12, scores are available for 138 infants
 
 #investigate data availability for M3
 infant_igsq_M3 <- infant_igsq %>% filter (
@@ -1348,7 +1422,7 @@ hist(infant_igsq_M3$infant_IGSQ_score)
 dev.off()
 
 table(infant_igsq_M3$infant_IGSQ_score, useNA="ifany")
-#score available for 83 infants
+#score available for 219 infants at M3
 
 infant_igsq <- infant_igsq %>% select(c(
   next_id_infant,
@@ -1359,17 +1433,19 @@ str(infant_igsq)
 
 #retrospectively dichotomize infant IGSQ score
 hist(infant_igsq_M3$infant_IGSQ_score, na.rm=T)
-median(infant_igsq_M3$infant_IGSQ_score, na.rm=T)
-#27
-
-median(infant_igsq_M12$infant_IGSQ_score, na.rm=T)
+dev.off()
+median(infant_igsq_M3$infant_IGSQ_score, na.rm = T)
 #22
 
+median(infant_igsq_M12$infant_IGSQ_score, na.rm=T)
+#15
+
+#dichotomize score by time point according to median (give the skewness of the data)
 infant_igsq$infant_IGSQ_score_catg <- as.character(infant_igsq$infant_IGSQ_score) 
-infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M3" & infant_igsq$infant_IGSQ_score<=27] <- "0_no_little_GI_distress"
-infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M3" & infant_igsq$infant_IGSQ_score>27] <- "1_medium_high_GI_distress"
-infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M12" & infant_igsq$infant_IGSQ_score<=22] <- "0_no_little_GI_distress"
-infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M12" & infant_igsq$infant_IGSQ_score>22] <- "1_medium_high_GI_distress"
+infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M3" & infant_igsq$infant_IGSQ_score<=22] <- "0_no_little_GI_distress"
+infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M3" & infant_igsq$infant_IGSQ_score>22] <- "1_medium_high_GI_distress"
+infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M12" & infant_igsq$infant_IGSQ_score<=15] <- "0_no_little_GI_distress"
+infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M12" & infant_igsq$infant_IGSQ_score>15] <- "1_medium_high_GI_distress"
 infant_igsq$infant_IGSQ_score_catg <- as.factor(infant_igsq$infant_IGSQ_score_catg) 
 str(infant_igsq)
 
@@ -1378,7 +1454,6 @@ infant_health_scorad_ffq_cry_growth_rome_igsq <- full_join(infant_health_scorad_
 str(infant_health_scorad_ffq_cry_growth_rome_igsq, list.len=ncol(infant_health_scorad_ffq_cry_growth_rome_igsq))
 
 rm(infant_health_scorad_ffq_cry_growth_rome, infant_igsq, infant_igsq_M3, infant_igsq_M12)
-dev.off()
 
         ##### =========================== 14. INFANT BITSS =========================== ##### 
 infant_bitss <- read.delim("BITSS_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
@@ -1554,9 +1629,9 @@ str(infant_long_linkage_tidy, list.len=ncol(infant_long_linkage_tidy))
 
 setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
 setwd("C:/Users/Siobhan Brushett//OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
-write.table(infant_long_linkage_tidy, "2023_06_12_infant_linked_longitudinal.txt", sep="\t", row.names=F, quote = F)
+write.table(infant_long_linkage_tidy, "2023_08_23_infant_linked_longitudinal.txt", sep="\t", row.names=F, quote = F)
 #7276 190
-#infant_long_linkage_tidy <- read.delim("2023_06_12_infant_linked_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#infant_long_linkage_tidy <- read.delim("2023_08_23_infant_linked_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 
 rm(infant_long, infant_linkage_mismatch, infant_long_linkage, infant_long_linkage_filtered)
 
@@ -1569,7 +1644,7 @@ setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/
 setwd("C:/Users/Siobhan Brushett//OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 write.table(mother_infant_long, "masterfile_longitudinal_2023_06_12.txt", sep="\t", row.names=F, quote = F)
 
-#masterfile_longitudinal <- read.delim("masterfile_longitudinal_2023_06_12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#masterfile_longitudinal <- read.delim("masterfile_longitudinal_2023_08_23.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 
 colnames_longitudinal <- as.data.frame(colnames(masterfile_longitudinal))
 write.table(colnames_longitudinal, "colnames_longitudinal.txt", sep="\t", row.names=F, quote = F)
