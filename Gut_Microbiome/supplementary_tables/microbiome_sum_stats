@@ -1,0 +1,1195 @@
+###     SCRIPT: MICROBIAL TAXA SUMMARY STATISTICS
+###     AUTHOR(S): SIOBHAN BRUSHETT 
+###     DESCRIPTION: SUMMARY STATISTICS CROSS-SECTIONAL AND LONGITUDINAL LL-NEXT MICROBIAL TAXA
+###     PROJECT: LL-NEXT
+###     LAST UPDATED: 23 JULY  2023
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/micro_sum_stats/")
+
+#libraries
+library(tidyverse)
+
+#Contents 
+## 0. LOAD FILES
+## 1. CROSS-SECTIONAL SUBSETS
+## 2. LONGITUDINAL SUBSETS
+
+#functions
+#summary statistics (Author: Siobhan)
+generate_summary_statistics <- function(df) {
+        
+        #subset numeric variables
+        numeric_vars <- df %>%
+                select_if(is.numeric)
+        
+        #generate summary statistics for numeric variables
+        numeric_summary <- numeric_vars %>%
+                pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
+                group_by(variable) %>%
+                summarise(
+                        total_n = sum(!is.na(value)),
+                        percentage_of_total_n = sum(!is.na(value)) / nrow(df) * 100,
+                        total_number_missings = sum(is.na(value)),
+                        percentage_of_total_number_missings = sum(is.na(value)) / nrow(df) * 100,
+                        mean = mean(value, na.rm = TRUE),
+                        sd = sd(value, na.rm = TRUE),
+                        min = min(value, na.rm = TRUE),
+                        Q1 = quantile(value, 0.25, na.rm = TRUE),
+                        median = median(value, na.rm = TRUE),
+                        Q3 = quantile(value, 0.75, na.rm = TRUE),
+                        max = max(value, na.rm = TRUE)
+                        
+                ) %>%
+                ungroup()
+        
+        #subset categorical variables
+        factor_vars <- df %>%
+                select_if(is.factor)
+        
+        #generate summary statistics for categorical variables
+        factor_summary <- factor_vars %>%
+                pivot_longer(cols = everything(),
+                             names_to = "variable",
+                             values_to = "value") %>%
+                group_by(variable) %>%
+                summarise(
+                        n_factor_levels = n_distinct(value, na.rm = TRUE),
+                        total_n = sum(!is.na(value)),
+                        percentage_total_n = sum(!is.na(value)) / nrow(df) * 100,
+                        total_number_missings = sum(is.na(value)),
+                        percentage_of_total_number_missings = sum(is.na(value)) / nrow(df) * 100)
+        factor_summary_levels <- #this script was updated here for factor_summary_levels and how it was defined
+                factor_vars %>%
+                pivot_longer(cols = everything(),
+                             names_to = "variable",
+                             values_to = "value") %>%
+                group_by(variable, value) %>%
+                summarise(
+                        n = n(),
+                        perc = n() / nrow(factor_vars) * 100
+                ) %>%
+                drop_na()
+        factor_summary_levels <- factor_summary_levels %>%
+                mutate(perc=n/sum(n)*100) %>%
+                mutate(
+                        level = paste0("level_", row_number())
+                ) %>%
+                filter(value!="NA") %>%
+                pivot_wider(names_from = level,
+                            values_from = c(value, n, perc),
+                            names_glue = "{level}_{.value}")
+        
+        #determine the maximum number of levels in the factor_summary_levels (for colname reordering)
+        level_cols <- grep("^level_\\d+_value$", names(factor_summary_levels), value = TRUE)
+        n <- max(as.integer(gsub("^level_(\\d+)_value$", "\\1", level_cols)))
+        
+        #define order of colnames for categorical variables
+        colnames_order <- c("variable",
+                            unlist(lapply(1:n, function(i) paste0("level_", i, "_", c("value", "n", "perc")))))
+        
+        #reorder the columns of the dataframe
+        factor_summary_levels <- factor_summary_levels[, colnames_order]
+        
+        #combine summary statistics data for factor summary
+        factor_summary <- left_join(factor_summary,factor_summary_levels, by = "variable") %>%
+                ungroup()
+        
+        #export the new table
+        write.table (numeric_summary, file = "./meta_data_numeric_summary_stats.txt" , quote = F, sep = "\t", row.names = F)
+        write.table (factor_summary, file = "./meta_data_categorical_summary_stats.txt" , quote = F, sep = "\t", row.names = F)
+}
+
+        ##### =========================== 0. LOAD FILES =========================== #####
+
+#metadata associated with microbial data
+metadata <- read.delim("LLNEXT_metadata_CLEAN_10_07_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(metadata, list.len=ncol(metadata))
+#4577 28
+summary(metadata)
+
+#microbial taxa
+taxa <- read.delim("LLNEXT_metaphlan_4_CLEAN_10_07_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(taxa, list.len=ncol(taxa))
+#4603 6560
+
+        ##### =========================== 1. CROSS-SECTIONAL SUBSETS =========================== #####
+        ####1.1 mother cross-sectional summary statistics####
+metadata_mother <- metadata %>% filter (
+        Type == "mother")
+#1638  28
+
+metadata_mother$NEXT_ID <- as.factor(as.character(metadata_mother$NEXT_ID))
+str(metadata_mother) #703 unique mothers with a total of 1638 fecal samples across 6 time points (P12, P28, B, M1, M2 and M3)
+
+table(metadata_mother$Timepoint_categorical, useNA = "ifany")
+#B  M1 M12  M2  M3  M6  M9 P12 P28  W2 
+#268  24   0  27 499   0   0 414 406   0 
+
+taxa_mother <- taxa %>%
+        filter(row.names(.) %in% metadata_mother$NG_ID) #1638 6560
+taxa_mother <- taxa_mother %>%
+        #select(where(~sum(.x) != 0)) %>% #retrospectively omitted this, to be able to compare the presence/absence of these microbes between mothers and infants (original script: remove columns (i.e. taxa) where values for all participants == 0; probably present in infants)
+        mutate(NG_ID = as.factor(rownames(taxa_mother))) %>%
+        relocate(NG_ID, .before=UNCLASSIFIED)
+str(taxa_mother)
+#1638  6561
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/micro_sum_stats/intermediate_files/")
+        
+        #generate summary statistics
+generate_summary_statistics(taxa_mother) #manually removed categorical output as not needed
+
+        #generate prevalence
+taxa_mother_prev <- taxa_mother %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+#load and format summary statistics 
+taxa_mother_sumstats <- read.delim("taxa_mother_cs_num_summary_stats.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(taxa_mother_sumstats, list.len=ncol(taxa_mother_sumstats))
+#6560 12
+
+taxa_mother_sumstats <- taxa_mother_sumstats %>% 
+        #select(-c(total_n, percentage_of_total_n,
+        #          total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  14
+summary(taxa_mother_sumstats)
+
+#join with summary statistics with prevalence data
+taxa_mother_sumstats_prev <- full_join(taxa_mother_sumstats, taxa_mother_prev) #Joining, by = "taxon_full_name"
+#6560 15
+
+taxa_mother_sumstats_prev$type <- "mother"
+taxa_mother_sumstats_prev <- taxa_mother_sumstats_prev %>% 
+        relocate(type, .after=taxonomic_level)
+rm(metadata_mother, taxa_mother, taxa_mother_sumstats, taxa_mother_prev)
+summary(taxa_mother_sumstats_prev)
+
+        ####1.2 infant cross-sectional summary statistics####
+metadata_infant <- metadata %>% filter (
+        Type == "infant")
+#2939  28
+
+metadata_infant$NEXT_ID <- as.factor(as.character(metadata_infant$NEXT_ID))
+str(metadata_infant) #714 unique infants with a total of 2939 fecal samples across 7 time points (W2, M1, M2, M3, M6, M9 and M12)
+
+table(metadata_infant$Timepoint_categorical, useNA = "ifany")
+#B  M1 M12  M2  M3  M6  M9 P12 P28  W2 
+#0 466 409 497 553 346 337   0   0 331 
+
+taxa_infant <- taxa %>%
+        filter(row.names(.) %in% metadata_infant$NG_ID) #2939 6560
+taxa_infant <- taxa_infant %>%
+        #select(where(~sum(.x) != 0)) %>% #remove columns (i.e. taxa) where values for all participants == 0; probably present in mothers
+        mutate(NG_ID = as.factor(rownames(taxa_infant))) %>%
+        relocate(NG_ID, .before=UNCLASSIFIED)
+str(taxa_infant)
+#2939  6561
+
+        #generate summary statistics
+generate_summary_statistics(taxa_infant) #manually removed categorical output as not needed
+
+        #generate prevalence
+taxa_infant_prev <- taxa_infant %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+#load and format summary statistics 
+taxa_infant_sumstats <- read.delim("taxa_infant_cs_num_summary_stats.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(taxa_infant_sumstats, list.len=ncol(taxa_infant_sumstats))
+#6560 12
+
+taxa_infant_sumstats <- taxa_infant_sumstats %>% 
+        #select(-c(total_n, percentage_of_total_n,
+        #          total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  14
+summary(taxa_infant_sumstats)
+
+#join with summary statistics with prevalence data
+taxa_infant_sumstats_prev <- full_join(taxa_infant_sumstats, taxa_infant_prev) #Joining, by = "taxon_full_name"
+#6560 11
+
+taxa_infant_sumstats_prev$type <- "infant"
+taxa_infant_sumstats_prev <- taxa_infant_sumstats_prev %>% 
+        relocate(type, .after=taxonomic_level)
+rm(metadata_infant, taxa_infant, taxa_infant_sumstats, taxa_infant_prev)
+summary(taxa_infant_sumstats_prev)
+
+        ####1.3 merge and write cross-sectional data ####
+taxa_mother_infant_sumstats <- rbind(taxa_mother_sumstats_prev, taxa_infant_sumstats_prev)
+#13120  16
+
+summary(taxa_mother_infant_sumstats)
+
+write.table(taxa_mother_infant_sumstats, "taxa_mother_infant_cs_num_sumstats.txt", sep="\t", row.names=F, quote = F)
+str(taxa_mother_infant_sumstats)
+#13120 16
+
+rm(taxa_mother_sumstats_prev, taxa_infant_sumstats_prev, taxa_mother_infant_sumstats)
+
+        ##### =========================== 2. LONGITUDINAL SUBSETS =========================== #####
+        ####2.1 mother subset and preparation for longitudinal summary statistics####
+metadata_mother <- metadata %>% 
+        filter (Type == "mother") %>% 
+        select (c(NG_ID,
+                  NEXT_ID,
+                  Type,
+                  Timepoint_categorical))
+#1638  4
+
+taxa_mother <- taxa %>%
+        filter(row.names(.) %in% metadata_mother$NG_ID) #1638 6560
+taxa_mother <- taxa_mother %>%
+        #select(where(~sum(.x) != 0)) %>% #remove columns (i.e. taxa) where values for all participants == 0; probably present in infants
+        mutate(NG_ID = as.factor(rownames(taxa_mother))) %>%
+        relocate(NG_ID, .before=UNCLASSIFIED)
+str(taxa_mother)
+#1638  6561
+
+#merge and format files
+taxa_metadata_mother <- full_join(metadata_mother, taxa_mother, by="NG_ID")
+#1638  6561
+
+rm(metadata_mother, taxa_mother)
+
+#filter by timepoint and run summary stats by time point
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/micro_sum_stats/intermediate_files/")
+
+taxa_metadata_mother$Timepoint_categorical <- factor(taxa_metadata_mother$Timepoint_categorical, 
+                                                     levels = c("P12", "P28", "B", "W2", "M1", "M2", "M3", "M6", "M9", "M12"))
+table(taxa_metadata_mother$Timepoint_categorical, useNA="ifany")
+#P12 P28   B  W2  M1  M2  M3  M6  M9 M12 
+#414 406 268   0  24  27 499   0   0   0 
+
+rownames(taxa_metadata_mother) <- taxa_metadata_mother$NG_ID
+
+        #P12
+mother_long_P12 <- taxa_metadata_mother %>% filter (
+        Timepoint_categorical=="P12") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#414  6560
+str(mother_long_P12)
+mother_long_P12$NG_ID <- as.factor(rownames(mother_long_P12))
+
+        #summary statistics
+generate_summary_statistics(mother_long_P12)
+
+        #generate prevalence
+taxa_mother_prev_P12 <- mother_long_P12 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #P28
+mother_long_P28 <- taxa_metadata_mother %>% filter (
+        Timepoint_categorical=="P28") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#406  6560
+str(mother_long_P28)
+mother_long_P28$NG_ID <- as.factor(rownames(mother_long_P28))
+
+        #summary statistics
+generate_summary_statistics(mother_long_P28)
+
+        #generate prevalence
+taxa_mother_prev_P28 <- mother_long_P28 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #B
+mother_long_B <- taxa_metadata_mother %>% filter (
+        Timepoint_categorical=="B") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#268  6560
+str(mother_long_B)
+mother_long_B$NG_ID <- as.factor(rownames(mother_long_B))
+
+        #summary statistics
+generate_summary_statistics(mother_long_B)
+
+        #generate prevalence
+taxa_mother_prev_B <- mother_long_B %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #M1
+mother_long_M1 <- taxa_metadata_mother %>% filter (
+        Timepoint_categorical=="M1") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#24  6560
+str(mother_long_M1)
+mother_long_M1$NG_ID <- as.factor(rownames(mother_long_M1))
+
+        #summary statistics
+generate_summary_statistics(mother_long_M1)
+
+        #generate prevalence
+taxa_mother_prev_M1 <- mother_long_M1 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #M2
+mother_long_M2 <- taxa_metadata_mother %>% filter (
+        Timepoint_categorical=="M2") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#27  6560
+str(mother_long_M2)
+mother_long_M2$NG_ID <- as.factor(rownames(mother_long_M2))
+
+        #summary statistics
+generate_summary_statistics(mother_long_M2)
+
+        #generate prevalence
+taxa_mother_prev_M2 <- mother_long_M2 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #M3
+mother_long_M3 <- taxa_metadata_mother %>% filter (
+        Timepoint_categorical=="M3") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#499  6560
+str(mother_long_M3)
+mother_long_M3$NG_ID <- as.factor(rownames(mother_long_M3))
+
+        #summary statistics
+generate_summary_statistics(mother_long_M3)
+
+        #generate prevalence
+taxa_mother_prev_M3 <- mother_long_M3 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        ####2.2 mother longitudinal summary statistics ####
+#clean RStudio
+rm(mother_long_P12, mother_long_P28, 
+   mother_long_B, mother_long_M1, mother_long_M2, mother_long_M3)
+
+#generate dataframe to order summary statistics data by: 
+timepoints <- c("P12", "P28", "B", "M1", "M2", "M3")
+
+#numeric summary statistics
+numeric_vars <- taxa_metadata_mother %>% 
+        select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical))
+#1638 6560
+
+#repeat column names 6 times (for the 6 time point levels)
+repeated_colnames <- rep(colnames(numeric_vars), each = 6)
+
+#generate the final dataframe to order by
+output_numeric_df <- data.frame(colnames = repeated_colnames)
+output_numeric_df$timepoint <- rep(timepoints, length.out = nrow(output_numeric_df))
+output_numeric_df <- output_numeric_df %>% rename (taxon_full_name=colnames)
+str(output_numeric_df)
+#39360 2
+
+#add time point to summary stats files to merge all time points
+        #P12
+mother_num_P12 <- read.delim("taxa_mother_long_num_summary_stats_P12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_P12 <- mother_num_P12 %>% 
+        mutate(timepoint="P12") %>%
+        relocate(timepoint, .after=variable)
+
+mother_num_P12 <- mother_num_P12 %>% 
+        #select(-c(total_n, percentage_of_total_n,
+        #          total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(mother_num_P12)
+
+mother_num_P12 <- full_join(mother_num_P12, taxa_mother_prev_P12) #Joining, by = "taxon_full_name"
+summary(mother_num_P12)
+
+        #P28
+mother_num_P28 <- read.delim("taxa_mother_long_num_summary_stats_P28.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_P28 <- mother_num_P28 %>% 
+        mutate(timepoint="P28") %>%
+        relocate(timepoint, .after=variable)
+
+mother_num_P28 <- mother_num_P28 %>% 
+        #select(-c(total_n, percentage_of_total_n,
+        #          total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(mother_num_P28)
+
+mother_num_P28 <- full_join(mother_num_P28, taxa_mother_prev_P28) #Joining, by = "taxon_full_name"
+summary(mother_num_P28)
+
+        #B
+mother_num_B <- read.delim("taxa_mother_long_num_summary_stats_B.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_B <- mother_num_B %>% 
+        mutate(timepoint="B") %>%
+        relocate(timepoint, .after=variable)
+
+mother_num_B <- mother_num_B %>% 
+        #select(-c(total_n, percentage_of_total_n,
+        #          total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(mother_num_B)
+
+mother_num_B <- full_join(mother_num_B, taxa_mother_prev_B) #Joining, by = "taxon_full_name"
+summary(mother_num_B)
+
+        #M1
+mother_num_M1 <- read.delim("taxa_mother_long_num_summary_stats_M1.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_M1 <- mother_num_M1 %>% 
+        mutate(timepoint="M1") %>%
+        relocate(timepoint, .after=variable)
+
+mother_num_M1 <- mother_num_M1 %>% 
+        #select(-c(total_n, percentage_of_total_n,
+        #          total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(mother_num_M1)
+
+mother_num_M1 <- full_join(mother_num_M1, taxa_mother_prev_M1) #Joining, by = "taxon_full_name"
+summary(mother_num_M1)
+
+        #M2
+mother_num_M2 <- read.delim("taxa_mother_long_num_summary_stats_M2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_M2 <- mother_num_M2 %>% 
+        mutate(timepoint="M2") %>%
+        relocate(timepoint, .after=variable)
+
+mother_num_M2 <- mother_num_M2 %>% 
+        #select(-c(total_n, percentage_of_total_n,
+        #          total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(mother_num_M2)
+
+mother_num_M2 <- full_join(mother_num_M2, taxa_mother_prev_M2) #Joining, by = "taxon_full_name"
+summary(mother_num_M2)
+
+        #M3
+mother_num_M3 <- read.delim("taxa_mother_long_num_summary_stats_M3.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_M3 <- mother_num_M3 %>% 
+        mutate(timepoint="M3") %>%
+        relocate(timepoint, .after=variable)
+
+mother_num_M3 <- mother_num_M3 %>% 
+        #select(-c(total_n, percentage_of_total_n,
+        #          total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(mother_num_M3)
+
+mother_num_M3 <- full_join(mother_num_M3, taxa_mother_prev_M3) #Joining, by = "taxon_full_name"
+summary(mother_num_M3)
+
+#merge all data frames 
+mother_num_rbind <- bind_rows(mother_num_P12, mother_num_P28,
+                              mother_num_B, mother_num_M1, mother_num_M2, mother_num_M3)
+mother_long_num_final <- left_join(output_numeric_df, mother_num_rbind) #Joining, by = c("taxon_full_name", "timepoint")
+#39360  16
+
+#retrospectively omitted the lines below:
+#remove rows where statistics are NA (after taxonomic_level column)
+#taxa_index <- which(names(mother_long_num_final) == "taxonomic_level")
+#remove rows where all values after "taxonomic_level" are NAs
+#mother_long_num_final <- mother_long_num_final[rowSums(is.na(mother_long_num_final[, (taxa_index + 1):ncol(mother_long_num_final)])) != ncol(mother_long_num_final[, (taxa_index + 1):ncol(mother_long_num_final)]), ]
+#21994 12 (P12: 4464, P28: 4422, B: 4113, M1: 2221, M2: 2266, M3: 4508)
+
+mother_long_num_final <- mother_long_num_final %>%
+        mutate(type = "mother") %>%
+        relocate(type, .after = taxonomic_level)
+#39360 16
+
+summary(mother_long_num_final)
+write.table(mother_long_num_final, "taxa_mother_long_num_summary_stats_all.txt", sep="\t", row.names=F, quote = F)
+
+#clean RStudio
+rm(mother_num_P12, mother_num_P28, mother_num_B, mother_num_M1, mother_num_M2, mother_num_M3,
+   taxa_mother_prev_P12, taxa_mother_prev_P28, taxa_mother_prev_B, taxa_mother_prev_M1, taxa_mother_prev_M2, taxa_mother_prev_M3,
+   taxa_metadata_mother, numeric_vars, output_numeric_df, mother_num_rbind)
+
+        ####2.3 infant subset and preparation for longitudinal summary statistics####
+metadata_infant <- metadata %>% 
+        filter (Type == "infant") %>% 
+        select (c(NG_ID,
+                  NEXT_ID,
+                  Type,
+                  Timepoint_categorical))
+#2939  4
+
+taxa_infant <- taxa %>%
+        filter(row.names(.) %in% metadata_infant$NG_ID) #2939 6560
+taxa_infant <- taxa_infant %>%
+        #select(where(~sum(.x) != 0)) %>% #remove columns (i.e. taxa) where values for all participants == 0; probably present in infants
+        mutate(NG_ID = as.factor(rownames(taxa_infant))) %>%
+        relocate(NG_ID, .before=UNCLASSIFIED)
+str(taxa_infant)
+#2939  6561
+
+#merge and format files
+taxa_metadata_infant <- full_join(metadata_infant, taxa_infant, by="NG_ID")
+#2939  6564
+
+rm(metadata_infant, taxa_infant)
+
+#filter by timepoint and run summary stats by time point
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/micro_sum_stats/intermediate_files/")
+
+taxa_metadata_infant$Timepoint_categorical <- factor(taxa_metadata_infant$Timepoint_categorical, 
+                                                     levels = c("P12", "P28", "B", "W2", "M1", "M2", "M3", "M6", "M9", "M12"))
+table(taxa_metadata_infant$Timepoint_categorical, useNA="ifany")
+#P12 P28 B  W2  M1  M2  M3  M6  M9 M12 
+#0   0   0 331 466 497 553 346 337 409
+
+rownames(taxa_metadata_infant) <- taxa_metadata_infant$NG_ID
+
+        #W2
+infant_long_W2 <- taxa_metadata_infant %>% filter (
+        Timepoint_categorical=="W2") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#331  6560
+str(infant_long_W2)
+infant_long_W2$NG_ID <- as.factor(rownames(infant_long_W2))
+
+        #summary statistics
+generate_summary_statistics(infant_long_W2)
+
+        #generate prevalence
+taxa_infant_prev_W2 <- infant_long_W2 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #M1
+infant_long_M1 <- taxa_metadata_infant %>% filter (
+        Timepoint_categorical=="M1") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#466  6560
+str(infant_long_M1)
+infant_long_M1$NG_ID <- as.factor(rownames(infant_long_M1))
+
+        #summary statistics
+generate_summary_statistics(infant_long_M1)
+
+        #generate prevalence
+taxa_infant_prev_M1 <- infant_long_M1 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #M2
+infant_long_M2 <- taxa_metadata_infant %>% filter (
+        Timepoint_categorical=="M2") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#497  6560
+str(infant_long_M2)
+infant_long_M2$NG_ID <- as.factor(rownames(infant_long_M2))
+
+        #summary statistics
+generate_summary_statistics(infant_long_M2)
+
+        #generate prevalence
+taxa_infant_prev_M2 <- infant_long_M2 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #M3
+infant_long_M3 <- taxa_metadata_infant %>% filter (
+        Timepoint_categorical=="M3") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#553  6560
+str(infant_long_M3)
+infant_long_M3$NG_ID <- as.factor(rownames(infant_long_M3))
+
+        #summary statistics
+generate_summary_statistics(infant_long_M3)
+
+        #generate prevalence
+taxa_infant_prev_M3 <- infant_long_M3 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #M6
+infant_long_M6 <- taxa_metadata_infant %>% filter (
+        Timepoint_categorical=="M6") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#346  6560
+str(infant_long_M6)
+infant_long_M6$NG_ID <- as.factor(rownames(infant_long_M6))
+
+        #summary statistics
+generate_summary_statistics(infant_long_M6)
+
+        #generate prevalence
+taxa_infant_prev_M6 <- infant_long_M6 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #M9
+infant_long_M9 <- taxa_metadata_infant %>% filter (
+        Timepoint_categorical=="M9") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#337  6560
+str(infant_long_M9)
+infant_long_M9$NG_ID <- as.factor(rownames(infant_long_M9))
+
+        #summary statistics
+generate_summary_statistics(infant_long_M9)
+
+        #generate prevalence
+taxa_infant_prev_M9 <- infant_long_M9 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        #M12
+infant_long_M12 <- taxa_metadata_infant %>% filter (
+        Timepoint_categorical=="M12") %>% select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical)) #%>%
+        #select(where(~sum(.x) != 0)) #remove columns (i.e. taxa) where values for all participants == 0
+#409  6560
+str(infant_long_M12)
+infant_long_M12$NG_ID <- as.factor(rownames(infant_long_M12))
+
+        #summary statistics
+generate_summary_statistics(infant_long_M12)
+
+        #generate prevalence
+taxa_infant_prev_M12 <- infant_long_M12 %>%
+        summarise(across(-NG_ID, ~ sum(. > 0) / n())) %>%
+        pivot_longer(cols = everything(),
+                     names_to = "taxon_full_name",
+                     values_to = "prevalence")
+
+        ####2.4 infant longitudinal summary statistics ####
+#clean RStudio
+rm(infant_long_W2, infant_long_M1, infant_long_M2, infant_long_M3,
+   infant_long_M6, infant_long_M9, infant_long_M12)
+
+#generate dataframe to order summary statistics data by: 
+timepoints <- c("W2", "M1", "M2", "M3", "M6", "M9", "M12")
+
+#numeric summary statistics
+numeric_vars <- taxa_metadata_infant %>% 
+        select(-c(
+                NG_ID,
+                NEXT_ID,
+                Type,
+                Timepoint_categorical))
+#2939 6560
+
+#repeat column names 7 times (for the 7 time point levels)
+repeated_colnames <- rep(colnames(numeric_vars), each = 7)
+
+#generate the final dataframe to order by
+output_numeric_df <- data.frame(colnames = repeated_colnames)
+output_numeric_df$timepoint <- rep(timepoints, length.out = nrow(output_numeric_df))
+output_numeric_df <- output_numeric_df %>% rename (taxon_full_name=colnames)
+str(output_numeric_df)
+#45920 2
+
+#add time point to summary stats files to merge all time points
+        #W2
+infant_num_W2 <- read.delim("taxa_infant_long_num_summary_stats_W2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_W2 <- infant_num_W2 %>% 
+        mutate(timepoint="W2") %>%
+        relocate(timepoint, .after=variable)
+
+infant_num_W2 <- infant_num_W2 %>% 
+#        select(-c(total_n, percentage_of_total_n,
+#                  total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(infant_num_W2)
+
+infant_num_W2 <- full_join(infant_num_W2, taxa_infant_prev_W2) #Joining, by = "taxon_full_name"
+summary(infant_num_W2)
+
+        #M1
+infant_num_M1 <- read.delim("taxa_infant_long_num_summary_stats_M1.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M1 <- infant_num_M1 %>% 
+        mutate(timepoint="M1") %>%
+        relocate(timepoint, .after=variable)
+
+infant_num_M1 <- infant_num_M1 %>% 
+#        select(-c(total_n, percentage_of_total_n,
+#                  total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(infant_num_M1)
+
+infant_num_M1 <- full_join(infant_num_M1, taxa_infant_prev_M1) #Joining, by = "taxon_full_name"
+summary(infant_num_M1)
+
+        #M2
+infant_num_M2 <- read.delim("taxa_infant_long_num_summary_stats_M2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M2 <- infant_num_M2 %>% 
+        mutate(timepoint="M2") %>%
+        relocate(timepoint, .after=variable)
+
+infant_num_M2 <- infant_num_M2 %>% 
+#        select(-c(total_n, percentage_of_total_n,
+#                  total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(infant_num_M2)
+
+infant_num_M2 <- full_join(infant_num_M2, taxa_infant_prev_M2) #Joining, by = "taxon_full_name"
+summary(infant_num_M2)
+
+        #M3
+infant_num_M3 <- read.delim("taxa_infant_long_num_summary_stats_M3.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M3 <- infant_num_M3 %>% 
+        mutate(timepoint="M3") %>%
+        relocate(timepoint, .after=variable)
+
+infant_num_M3 <- infant_num_M3 %>% 
+#       select(-c(total_n, percentage_of_total_n,
+#                 total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(infant_num_M3)
+
+infant_num_M3 <- full_join(infant_num_M3, taxa_infant_prev_M3) #Joining, by = "taxon_full_name"
+summary(infant_num_M3)
+
+        #M6
+infant_num_M6 <- read.delim("taxa_infant_long_num_summary_stats_M6.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M6 <- infant_num_M6 %>% 
+        mutate(timepoint="M6") %>%
+        relocate(timepoint, .after=variable)
+
+infant_num_M6 <- infant_num_M6 %>% 
+#        select(-c(total_n, percentage_of_total_n,
+#                  total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(infant_num_M6)
+
+infant_num_M6 <- full_join(infant_num_M6, taxa_infant_prev_M6) #Joining, by = "taxon_full_name"
+summary(infant_num_M6)
+
+        #M9
+infant_num_M9 <- read.delim("taxa_infant_long_num_summary_stats_M9.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M9 <- infant_num_M9 %>% 
+        mutate(timepoint="M9") %>%
+        relocate(timepoint, .after=variable)
+
+infant_num_M9 <- infant_num_M9 %>% 
+#        select(-c(total_n, percentage_of_total_n,
+#                  total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(infant_num_M9)
+
+infant_num_M9 <- full_join(infant_num_M9, taxa_infant_prev_M9) #Joining, by = "taxon_full_name"
+summary(infant_num_M9)
+
+        #M12
+infant_num_M12 <- read.delim("taxa_infant_long_num_summary_stats_M12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M12 <- infant_num_M12 %>% 
+        mutate(timepoint="M12") %>%
+        relocate(timepoint, .after=variable)
+
+infant_num_M12 <- infant_num_M12 %>% 
+#        select(-c(total_n, percentage_of_total_n,
+#                  total_number_missings, percentage_of_total_number_missings)) %>%
+        rename(taxon_full_name=variable) %>%
+        mutate(taxon_full_name = as.character(taxon_full_name))%>%
+        mutate(taxon_short_name = ifelse(grepl("\\.", taxon_full_name),
+                                         str_extract(taxon_full_name, "(?<=\\.)[^.]*$"),
+                                         taxon_full_name)) %>%
+        relocate(taxon_short_name, .after = taxon_full_name) %>%
+        mutate(taxonomic_level = case_when(
+                startsWith(taxon_short_name, "k__") ~ "kingdom",
+                startsWith(taxon_short_name, "p__") ~ "phylum",
+                startsWith(taxon_short_name, "c__") ~ "class",
+                startsWith(taxon_short_name, "o__") ~ "order",
+                startsWith(taxon_short_name, "f__") ~ "family",
+                startsWith(taxon_short_name, "g__") ~ "genus",
+                startsWith(taxon_short_name, "s__") ~ "species",
+                startsWith(taxon_short_name, "t__") ~ "SGB",
+                TRUE ~ "unclassified")) %>%
+        relocate(taxonomic_level, .after=taxon_short_name) %>%
+        mutate_if(is.character, as.factor)
+#6560  15
+summary(infant_num_M12)
+
+infant_num_M12 <- full_join(infant_num_M12, taxa_infant_prev_M12) #Joining, by = "taxon_full_name"
+summary(infant_num_M12)
+
+#merge all data frames 
+infant_num_rbind <- bind_rows(infant_num_W2, infant_num_M1, infant_num_M2, infant_num_M3,
+                              infant_num_M6, infant_num_M9, infant_num_M12)
+infant_long_num_final <- left_join(output_numeric_df, infant_num_rbind) #Joining, by = c("taxon_full_name", "timepoint")
+#45920  16
+
+#retrospectively omitted the lines below
+#remove rows where statistics are NA (after taxonomic_level column)
+#taxa_index <- which(names(infant_long_num_final) == "taxonomic_level")
+#remove rows where all values after "taxonomic_level" are NAs
+#infant_long_num_final <- infant_long_num_final[rowSums(is.na(infant_long_num_final[, (taxa_index + 1):ncol(infant_long_num_final)])) != ncol(infant_long_num_final[, (taxa_index + 1):ncol(infant_long_num_final)]), ]
+#15740 12 (W2: 1349, M1: 1923, M2: 2085, M3: 2302, M6: 2597, M9: 2416, M12: 3068)
+
+infant_long_num_final <- infant_long_num_final %>%
+        mutate(type = "infant") %>%
+        relocate(type, .after = taxonomic_level)
+#45920  17
+
+summary(infant_long_num_final)
+write.table(infant_long_num_final, "taxa_infant_long_num_summary_stats_all.txt", sep="\t", row.names=F, quote = F)
+
+#clean RStudio
+rm(infant_num_W2, infant_num_M1, infant_num_M2, infant_num_M3, infant_num_M6, infant_num_M9,infant_num_M12,
+   taxa_infant_prev_W2, taxa_infant_prev_M1, taxa_infant_prev_M2, taxa_infant_prev_M3,
+   taxa_infant_prev_M6, taxa_infant_prev_M9, taxa_infant_prev_M12,
+   taxa_metadata_infant, numeric_vars, output_numeric_df, infant_num_rbind)
+
+        ####2.5 merge and write longitudinal data ####
+taxa_mother_infant_long_sumstats <- rbind(mother_long_num_final, infant_long_num_final)
+#85280  17
+taxa_mother_infant_long_sumstats <- taxa_mother_infant_long_sumstats %>%
+        relocate(timepoint, .after = type)
+
+summary(taxa_mother_infant_long_sumstats)
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/micro_sum_stats/")
+write.table(taxa_mother_infant_long_sumstats, "taxa_mother_infant_long_num_sumstats.txt", sep="\t", row.names=F, quote = F)
+str(taxa_mother_infant_long_sumstats)
+
+rm(list=ls())
+
+#NOTE: % present, n missing and %n missing were manually calculated 
+
+micro_sumstats_long <- read.delim("taxa_mother_infant_long_num_sumstats.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+micro_sumstats_long <- micro_sumstats_long %>% select(-c(
+        taxon_full_name,
+        taxonomic_level)) 
+str(micro_sumstats_long)
+
+#unpivot the 'mean', 'sd', 'min', 'Q1', 'median', 'Q3', and 'max' columns
+df_long <- micro_sumstats_long %>%
+        pivot_longer(cols = total_n:prevalence, names_to = "sum_stats", values_to = "value")
+
+#pivot the 'taxon_short_name' values to wide format
+df_long <- df_long %>%
+        pivot_wider(names_from = taxon_short_name, values_from = value)
+df_long <- as.data.frame(df_long)
+write.table(df_long, "taxa_mother_infant_long_num_sumstats_wideformat.txt", sep="\t", row.names=F, quote = F)
