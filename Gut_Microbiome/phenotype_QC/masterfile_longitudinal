@@ -1,0 +1,1576 @@
+###     SCRIPT: MASTERFILE OF CLEANED LIFELINES-NEXT LONGITUDINAL QUESTIONNAIRES
+###     AUTHOR(S): SIOBHAN BRUSHETT 
+###     DESCRIPTION: MASTERFILE OF CLEANED LIFELINES-NEXT LONGITUDINAL QUESTIONNAIRES
+###     PROJECT: LL-NEXT
+
+###     LAST UPDATED: 12 JUNE  2023
+
+#save to:
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+#set for MacBook
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+
+#libaries
+library(tidyverse)
+library(stringr)
+library(skimr)
+library(reshape2)
+library(ggpubr)
+
+#NOTE: GIVEN THE LONGITUDINAL DESIGN, THE LINKAGE FILE WAS ADDED LAST 
+## 0. MOTHER PREGNANCY COMPLAINTS
+## 1. MOTHER BRISTOL STOOL SCALE (BSS)
+## 2. MOTHER ROME
+## 3. MOTHER STOOL DIARY
+## 4. MOTHER MEDICATION 
+## 5. MOTHER STRES
+## 6. MERGE MOTHER LONGITUDINAL DATAFRAME WITH LINKAGE FILE
+## 7. INFANT HEALTH
+## 8. INFANT SCORAD 
+## 9. INFANT NUTRITION 
+## 10. INFANT CRYING BEHAVIOUR
+## 11. INFANT GROWTH
+## 12. INFANT ROME
+## 13. INFANT IGSQ
+## 14. INFANT BITSS
+## 15. INFANT MEDICATION
+## 16. INFANT SLEEP
+## 17. INFANT LINKAGE
+## 18. MOTHER-INFANT LINKAGE
+
+        ##### =========================== 0. MOTHER PREGNANCY COMPLAINTS =========================== #####
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+mother_preg <- read.delim("2023_05_03_mother_pregnancy_complaints_RE_FORMATTED.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_preg)
+#4242  7
+
+        ##### =========================== 1. MOTHER BRISTOL STOOL SCALE (BSS) =========================== #####
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+mother_BSS <- read.delim("20230317_BSS_mother_cleaned.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_BSS)
+#1269 29
+
+mother_BSS$NEXT_NR <- as.factor(gsub("llnext", "LLNEXT", mother_BSS$NEXT_NR))
+
+mother_BSS <- mother_BSS %>% select(c(
+  NEXT_NR,
+  M_P12_Bristol_numeric,
+  M_P28_Bristol_numeric,
+  M_B_Bristol_numeric,
+  M_M3_Bristol_numeric)) %>%
+  rename(
+    next_id_mother = NEXT_NR,
+    mother_BSS_P12 = M_P12_Bristol_numeric,
+    mother_BSS_P28 = M_P28_Bristol_numeric,
+    mother_BSS_B = M_B_Bristol_numeric,
+    mother_BSS_M3 = M_M3_Bristol_numeric)
+
+#make into longitudinal design
+#make dataframe long
+mother_BSS_long<-melt(mother_BSS, id.vars=c("next_id_mother")) #5076 3
+mother_BSS_long$timepoint <- mother_BSS_long$variable
+mother_BSS_long$timepoint<-gsub(".*_", "", mother_BSS_long$timepoint)
+mother_BSS_long$variable<-gsub("_P12", "", mother_BSS_long$variable)
+mother_BSS_long$variable<-gsub("_P28", "", mother_BSS_long$variable)
+mother_BSS_long$variable<-gsub("BSS_B", "BSS", mother_BSS_long$variable)
+mother_BSS_long$variable<-gsub("_M3", "", mother_BSS_long$variable)
+mother_BSS_long$SAMPLE_ID<-paste0(mother_BSS_long$next_id_mother, "_", mother_BSS_long$timepoint)
+mother_BSS_long<-mother_BSS_long[,c(1,5,4,2,3)]
+mother_BSS_wide <- dcast(mother_BSS_long, next_id_mother + SAMPLE_ID +timepoint ~ variable, value.var="value")
+#5076 4
+
+str(mother_BSS_wide)
+mother_BSS_wide <- mother_BSS_wide %>% mutate_if(is.character, as.factor)
+
+mother_preg_BSS <- full_join(mother_preg, mother_BSS_wide) #Joining, by = c("next_id_mother", "SAMPLE_ID", "timepoint")
+#5520  8
+summary(mother_preg_BSS)
+
+rm(mother_preg, mother_BSS, mother_BSS_long, mother_BSS_wide)
+
+        ##### =========================== 2. MOTHER ROME  =========================== #####
+#NOTE: Here, controls are pure controls (for more relaxed controls, the ROME script needs to be updated)
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+mother_rome <- read.delim("ROME_MOTHER_RE_FORMATTED_01_12_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_rome)
+#866 11
+
+summary(mother_rome)
+
+rome_freq <- mother_rome %>%
+  select(c(timepoint,
+           mother_rome3_stool_freq_fewer_than_3_times_week_last_3_months,
+           mother_rome3_stool_freq_hard_last_3months,
+           mother_rome3_stool_freq_watery_last_3months))
+#data is available for both time points
+rm(rome_freq)
+
+mother_rome <- mother_rome %>% rename(
+  mother_rome3_FGID_constipation = mother_rome_3_funct_constipation,
+  mother_rome3_FGID_bloating = mother_rome_3_funct_bloating,
+  mother_rome3_FGID_IBS = mother_rome3_IBS,
+  mother_rome3_FGID_IBS_subtype = mother_rome3_Subtype,
+  mother_rome3_stool_freq_less_3_times_week_last_3_months = mother_rome3_stool_freq_fewer_than_3_times_week_last_3_months,
+  mother_rome3_stool_freq_hard_last_3_months = mother_rome3_stool_freq_hard_last_3months,
+  mother_rome3_stool_freq_watery_last_3_months = mother_rome3_stool_freq_watery_last_3months)
+
+mother_rome <- mother_rome %>%
+  relocate(mother_rome3_FGID, .after = timepoint) %>%
+  relocate(mother_rome3_FGID_bloating, .after = mother_rome3_FGID) %>%
+  relocate(mother_rome3_FGID_constipation, .after = mother_rome3_FGID_bloating) %>%
+  relocate(mother_rome3_FGID_IBS, .after = mother_rome3_FGID_constipation) %>%
+  relocate(mother_rome3_FGID_IBS_subtype, .after = mother_rome3_FGID_IBS)
+
+summary(mother_rome)
+
+mother_preg_BSS_rome <- full_join(mother_preg_BSS, mother_rome) #Joining, by = c("next_id_mother", "SAMPLE_ID", "timepoint")
+#5527 16
+
+rm(mother_rome, mother_preg_BSS)
+
+        ##### =========================== 3. MOTHER STOOL DIARY  =========================== #####
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+mother_stool <- read.delim("STOOL_DIARY_MOTHER_RE_FORMATTED_01_12_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_stool)
+#862  11
+
+summary(mother_stool)
+#does not include a time point variable - add timepoint variable retrospectively
+mother_stool$timepoint <- ""
+
+#for each row in 'mother_stool', check if 'SAMPLE_ID' contains either 'P28' or 'M3'
+#if it does, set the value of 'timepoint' to 'P28' or 'M3' accordingly
+
+for (i in 1:nrow(mother_stool)) {
+  if (grepl("P28", mother_stool$SAMPLE_ID[i])) {
+    mother_stool$timepoint[i] <- "P28"
+  } else if (grepl("M3", mother_stool$SAMPLE_ID[i])) {
+    mother_stool$timepoint[i] <- "M3"
+  }
+}
+
+mother_stool$timepoint <- as.factor(mother_stool$timepoint)
+summary(mother_stool)
+mother_stool <- mother_stool %>% relocate(timepoint, .after=SAMPLE_ID)
+
+colnames(mother_stool) <- gsub("dagboek", "stooldiary", colnames(mother_stool))
+colnames(mother_stool) <- gsub("mean", "avg", colnames(mother_stool))
+mother_stool <- mother_stool %>% 
+  rename(mother_stooldiary_stool_freq_avg=mother_stooldiary_freq_avg)
+str(mother_stool)
+
+mother_preg_BSS_rome_stool <- full_join(mother_preg_BSS_rome, mother_stool) #Joining, by = c("next_id_mother", "SAMPLE_ID", "timepoint")
+str(mother_preg_BSS_rome_stool)
+#5529  25
+summary(mother_preg_BSS_rome_stool)
+
+rm(mother_stool, mother_preg_BSS_rome)
+
+        ##### =========================== 4. MOTHER MEDICATION  =========================== #####
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+mother_med <- read.delim("MOTHER_MEDICATION_RE_FORMATTED_01_12_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_med)
+#3021 23
+
+summary(mother_med)
+mother_med <- mother_med %>% rename(
+  mother_med_propulsives_and_antinausea_A03FA_and_A04A = mother_med_propulsives_and_antinausea)
+
+#concordance between mother_med_nitrofurantoin_J01XE01 and mother_med_nitrofurantoïn_J01XE01
+table(mother_med$mother_med_nitrofurantoin_J01XE01, mother_med$mother_med_nitrofurantoïn_J01XE01)
+#    no yes
+#no   0   0
+#yes  0   0
+
+mother_med_P28 <- mother_med %>%
+  filter(timepoint=="P28") %>%
+  select(c(next_id_mother,
+           SAMPLE_ID,
+           timepoint,
+           mother_med_nitrofurantoin_J01XE01,
+           mother_med_nitrofurantoïn_J01XE01))
+
+table(mother_med_P28$mother_med_nitrofurantoin_J01XE01, useNA="ifany")
+#no  yes <NA> 
+#0    0 1007
+table(mother_med_P28$mother_med_nitrofurantoïn_J01XE01, useNA="ifany")
+#no  yes <NA> 
+#702   13  292 
+
+mother_med_M1 <- mother_med %>%
+  filter(timepoint=="M1") %>%
+  select(c(next_id_mother,
+           SAMPLE_ID,
+           timepoint,
+           mother_med_nitrofurantoin_J01XE01,
+           mother_med_nitrofurantoïn_J01XE01))
+
+table(mother_med_M1$mother_med_nitrofurantoin_J01XE01, useNA="ifany")
+#no  yes <NA> 
+#548   12  447 
+table(mother_med_M1$mother_med_nitrofurantoïn_J01XE01, useNA="ifany")
+#no  yes <NA> 
+#0    0 1007 
+
+mother_med_M3 <- mother_med %>%
+  filter(timepoint=="M3") %>%
+  select(c(next_id_mother,
+           SAMPLE_ID,
+           timepoint,
+           mother_med_nitrofurantoin_J01XE01,
+           mother_med_nitrofurantoïn_J01XE01))
+
+table(mother_med_M3$mother_med_nitrofurantoin_J01XE01, useNA="ifany")
+#no  yes <NA> 
+#0    0 1007 
+table(mother_med_M3$mother_med_nitrofurantoïn_J01XE01, useNA="ifany")
+#no  yes <NA> 
+#177    0  830 
+
+mother_med_P28$mother_med_nitrofurantoin_J01XE01 <- NULL
+mother_med_M1$mother_med_nitrofurantoïn_J01XE01 <- NULL
+mother_med_M3$mother_med_nitrofurantoin_J01XE01 <- NULL
+
+summary(mother_med_P28)
+summary(mother_med_M1)
+summary(mother_med_M3)
+
+mother_med_P28 <- mother_med_P28 %>%
+  rename(mother_med_nitrofurantoin_J01XE01 = mother_med_nitrofurantoïn_J01XE01)
+
+mother_med_M3 <- mother_med_M3 %>%
+  rename(mother_med_nitrofurantoin_J01XE01 = mother_med_nitrofurantoïn_J01XE01)
+
+mother_med_P28_M1_M3 <- bind_rows(mother_med_P28, mother_med_M1, mother_med_M3)
+#3201 4
+
+mother_med$mother_med_nitrofurantoin_J01XE01 <- NULL
+mother_med$mother_med_nitrofurantoïn_J01XE01 <- NULL
+
+mother_med <- full_join(mother_med, mother_med_P28_M1_M3) #Joining, by = c("next_id_mother", "SAMPLE_ID", "timepoint")
+#3201 22
+
+str(mother_med)
+mother_med <- mother_med %>% relocate(mother_med_nitrofurantoin_J01XE01, .before=mother_med_iron_preparations_B03A)
+
+#retrospectively update M1 --> B time point
+mother_med$timepoint <- as.character(mother_med$timepoint)
+mother_med$timepoint[mother_med$timepoint=="M1"] <- "B"
+mother_med$timepoint <- as.factor(mother_med$timepoint)
+
+mother_med$SAMPLE_ID <- gsub("_M1", "_B", mother_med$SAMPLE_ID)
+
+#retrospectively add medication information from birthcard/delivery questionnaires
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_birthcard_medication/")
+mother_med_birthcards <- read.delim("2023_05_18_mother_med_birthcards_RE_FORMATTED.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_med_birthcards)
+mother_med_updated <- full_join(mother_med, mother_med_birthcards) #Joining with `by = join_by(next_id_mother, SAMPLE_ID, timepoint)`
+#3839 26
+summary(mother_med_updated)
+
+#retrospectively complement folic acid use from mother health questionnaires with mother med folic acid use
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+mother_health <- read.delim("maternal_health_final_27_09_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#966 49
+str(mother_health)
+
+#mother id
+mother_health$next_id_mother <- str_pad(mother_health$next_id_mother, 6, pad = "0")
+mother_health$next_id_mother<-as.factor(sub("^","LLNEXT",mother_health$next_id_mother)) #966 unique ids
+table(mother_health$next_id_mother, useNA="ifany") #no missings
+length(unique(mother_health$next_id_mother[duplicated(mother_health$next_id_mother)])) #0 duplicated mothers
+
+table(mother_health$mother_folic_acid_use_in_first_trimester_P18, useNA="ifany")
+#no  yes <NA> 
+#11  707  248
+
+#QC that they complement each other over time ("nested)
+mother_med_folic_acid <- mother_med_updated %>%
+  select(c(next_id_mother,
+           timepoint,
+           mother_med_vit_B12_folic_acid_B03B))
+mother_med_folic_acid <- reshape(mother_med_folic_acid, idvar = "next_id_mother", timevar = "timepoint", direction = "wide")
+
+#it seems that the medication use is distinct to its time point, for example, folic acid use at P28 is not reflected in M1. For this reason,
+#I have kept P28 'clean' in the sense that it is not 'compounded' by noise of the first trimester when relating to P28 specific time point.
+#In any case, folic acid before and during pregnancy will be looked at cross-sectionally.
+rm(mother_health, mother_med_folic_acid)
+
+mother_preg_BSS_rome_stool_med <- full_join(mother_preg_BSS_rome_stool, mother_med_updated) #Joining, by = c("next_id_mother", "SAMPLE_ID", "timepoint")
+str(mother_preg_BSS_rome_stool_med)
+#5674 48
+summary(mother_preg_BSS_rome_stool_med)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
+write.table(mother_preg_BSS_rome_stool_med, "2023_05_05_mother_preg_BSS_rome_stool_med.txt", sep="\t", row.names=F, quote = F)
+#5674 48
+#mother_preg_BSS_rome_stool_med <- read.delim("mother_preg_BSS_rome_stool_med", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+rm(mother_med, mother_med_P28, mother_med_M1, mother_med_M3, mother_med_P28_M1_M3,
+   mother_preg_BSS_rome_stool, mother_med_birthcards, mother_med_updated)
+
+        ##### =========================== 5. MOTHER STRESS  =========================== #####
+#retrospectively add mother stress to longitudinal design
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_stress//")
+mother_stress <- read.delim("2023_05_18_mother_ldi_stress_RE_FORMATTED.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#8920 5
+summary(mother_stress)
+
+mother_longitudinal <- full_join(mother_preg_BSS_rome_stool_med, mother_stress) #Joining, by = c("next_id_mother", "SAMPLE_ID", "timepoint")
+str(mother_longitudinal)
+#11026 50
+summary(mother_longitudinal$timepoint)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
+write.table(mother_longitudinal, "2023_05_24_mother_longitudinal.txt", sep="\t", row.names=F, quote = F)
+#11026 50
+#mother_longitudinal <- read.delim("2023_05_24_mother_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+rm(mother_stress, mother_preg_BSS_rome_stool_med)
+
+        ##### =========================== 6. MERGE MOTHER LONGITUDINAL DATAFRAME WITH LINKAGE FILE  =========================== ##### 
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+#linkage file
+linkage <- read.delim("20230414_Linkingfile_fam_longID_formatted_TS_SB.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#1447 7
+
+mother_long_linkage <- full_join(linkage, mother_longitudinal)
+#11284 56
+summary(mother_long_linkage)
+
+#investigate mothers who did not link correctly to the linkage file
+mother_linkage_mismatch <- mother_long_linkage %>%
+  filter(is.na(infant_relations))
+unique(mother_linkage_mismatch$next_id_mother)
+#LLNEXT100566
+#LLNEXT200645
+#LLNEXT306939
+#LLNEXT304268
+#LLNEXT010045_2 
+
+summary(mother_linkage_mismatch)
+
+#we already know from the cross-sectional merge that participant LLNEXT010045_2 should be recoded to LLNEXT010045;
+#confirm that the data for this mother is missing, otherwise coalesce it with LLNEXT010045
+mother_LLNEXT010045_2 <- mother_linkage_mismatch %>%
+  filter(next_id_mother=="LLNEXT010045_2")
+summary(mother_LLNEXT010045_2)
+#indeed, all data for this mother is missing, thus remove
+mother_long_linkage <- mother_long_linkage %>%
+  filter(next_id_mother!= "LLNEXT010045_2")
+#11281  56
+
+#LLNEXT304268: this mother has data for LLNEXT304268_2 in the linkage file; investigate further
+timepoint_order <- c("P12", "P18", "P28","B","M1", "M3")
+
+#second pregnancy
+mother_LLNEXT304268_2 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268_2") %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+summary(mother_LLNEXT304268_2) 
+#only data available from longitudinal data is mother_BSS
+
+#first pregnancy
+mother_LLNEXT304268 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268") %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+summary(mother_LLNEXT304268)
+#mother stool diary and medication data available from longitudinal data; others missing
+#check the entry dates for the stool diary and medication of this participant - does it coincide with the first or second pregnancy?
+rm(mother_LLNEXT304268_2, mother_LLNEXT304268)
+
+#Soesma confirmed that the above participant data should be associated with the second pregnancy (as the first pregnancy was a miscarriage)
+#thus, add data from LLNEXT304268 to LLNEXT304268_2 and remove LLNEXT304268
+#the mother has data at P28 (stool diary and medication use), B (medication) and M3 (medication)
+
+#P28 data
+#confirm that data are complementary
+mother_LLNEXT304268_P28 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268" |
+           next_id_mother=="LLNEXT304268_2") %>%
+  filter(timepoint=="P28")
+#data are complementary
+
+mother_LLNEXT304268_P28 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268") %>%
+  filter(timepoint=="P28")
+
+mother_LLNEXT304268_2_P28 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268_2") %>%
+  filter(timepoint=="P28")
+
+#mother_LLNEXT304268_2_P28_col <- coalesce(mother_LLNEXT304268_2_P28, mother_LLNEXT304268_P28)
+#for some reason the coalesce function is not working correctly
+
+#thus, update manually
+mother_LLNEXT304268_2_P28_col <- mother_LLNEXT304268_P28
+mother_LLNEXT304268_2_P28_col$FAMILY <- "FAM0969"
+mother_LLNEXT304268_2_P28_col$next_id_mother <- "LLNEXT304268_2"
+mother_LLNEXT304268_2_P28_col$next_id_infant <- "LLNEXT110389"
+mother_LLNEXT304268_2_P28_col$next_id_partner <- "LLNEXT120457"
+mother_LLNEXT304268_2_P28_col$infant_relations <- "singleton"
+mother_LLNEXT304268_2_P28_col$sibling_number <- "no"
+mother_LLNEXT304268_2_P28_col$twin_pair <- "no"
+mother_LLNEXT304268_2_P28_col$SAMPLE_ID <- "LLNEXT304268_2_P28"
+mother_LLNEXT304268_2_P28_col$timepoint <- "P28"
+mother_LLNEXT304268_2_P28_col$mother_BSS <- 5 
+mother_LLNEXT304268_2_P28_col
+
+rm(mother_LLNEXT304268_P28, mother_LLNEXT304268_2_P28)
+
+#B data
+mother_LLNEXT304268_B <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268" |
+           next_id_mother=="LLNEXT304268_2") %>%
+  filter(timepoint=="B")
+mother_LLNEXT304268_B
+#second pregnancy only includes BSS (4) data, complement it with data of B incorrectly assigned to the 1st pregnancy
+mother_LLNEXT304268_B <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268") %>%
+  filter(timepoint=="B")
+
+mother_LLNEXT304268_2_B <- mother_LLNEXT304268_B
+mother_LLNEXT304268_2_B$FAMILY <- "FAM0969"
+mother_LLNEXT304268_2_B$next_id_mother <- "LLNEXT304268_2"
+mother_LLNEXT304268_2_B$next_id_infant <- "LLNEXT110389"
+mother_LLNEXT304268_2_B$next_id_partner <- "LLNEXT120457"
+mother_LLNEXT304268_2_B$infant_relations <- "singleton"
+mother_LLNEXT304268_2_B$sibling_number <- "no"
+mother_LLNEXT304268_2_B$twin_pair <- "no"
+mother_LLNEXT304268_2_B$SAMPLE_ID <- "LLNEXT304268_2_B"
+mother_LLNEXT304268_2_B$timepoint <- "B"
+mother_LLNEXT304268_2_B$mother_BSS <- 4
+
+rm(mother_LLNEXT304268_B)
+
+#M3 data
+mother_LLNEXT304268_M3 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268" |
+           next_id_mother=="LLNEXT304268_2") %>% #BSS==4
+  filter(timepoint=="M3")
+
+mother_LLNEXT304268_M3 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268") %>%
+  filter(timepoint=="M3")
+
+mother_LLNEXT304268_2_M3 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT304268_2") %>%
+  filter(timepoint=="M3")
+
+#mother_LLNEXT304268_2_M3_col <- coalesce(mother_LLNEXT304268_2_M3, mother_LLNEXT304268_M3)
+#again the coalesce function did not work for some reason - update manually
+mother_LLNEXT304268_2_M3_col <- mother_LLNEXT304268_M3
+mother_LLNEXT304268_2_M3_col$FAMILY <- "FAM0969"
+mother_LLNEXT304268_2_M3_col$next_id_mother <- "LLNEXT304268_2"
+mother_LLNEXT304268_2_M3_col$next_id_infant <- "LLNEXT110389"
+mother_LLNEXT304268_2_M3_col$next_id_partner <- "LLNEXT120457"
+mother_LLNEXT304268_2_M3_col$infant_relations <- "singleton"
+mother_LLNEXT304268_2_M3_col$sibling_number <- "no"
+mother_LLNEXT304268_2_M3_col$twin_pair <- "no"
+mother_LLNEXT304268_2_M3_col$SAMPLE_ID <- "LLNEXT304268_2_M3"
+mother_LLNEXT304268_2_M3_col$timepoint <- "M3"
+mother_LLNEXT304268_2_M3_col$mother_BSS <- 4 
+mother_LLNEXT304268_2_M3_col
+
+rm(mother_LLNEXT304268_M3, mother_LLNEXT304268_2_M3)
+
+mother_LLNEXT304268_2 <- bind_rows(mother_LLNEXT304268_2_P28_col,
+                                   mother_LLNEXT304268_2_B,
+                                   mother_LLNEXT304268_2_M3_col)
+
+# remove rows with id = "LLNEXT304268" or "LLNEXT304268_2" at timepoint = "P28", "B" and "M3"
+mother_long_linkage <- mother_long_linkage[!(mother_long_linkage$next_id_mother == "LLNEXT304268" & (mother_long_linkage$timepoint == "P28" | mother_long_linkage$timepoint == "B" |
+                                                                                                         mother_long_linkage$timepoint == "M3")), ]
+mother_long_linkage <- mother_long_linkage[!(mother_long_linkage$next_id_mother == "LLNEXT304268_2" & (mother_long_linkage$timepoint == "P28" | mother_long_linkage$timepoint == "B" |
+                                                                                                         mother_long_linkage$timepoint == "M3")), ]
+#11275  56 (removed 6 rows)
+
+mother_long_linkage <- bind_rows(mother_long_linkage,
+                                 mother_LLNEXT304268_2)
+#11278  56
+#manually confirmed in dataframe
+
+#LLNEXT100566 (n=4), LLNEXT200645 (n=4), LLNEXT306939 (n=4) - did they withdraw?
+mother_LLNEXT100566 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT100566")
+summary(mother_LLNEXT100566)
+
+mother_LLNEXT200645 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT200645")
+summary(mother_LLNEXT200645)
+
+mother_LLNEXT306939 <- mother_long_linkage %>%
+  filter(next_id_mother=="LLNEXT306939")
+summary(mother_LLNEXT306939)
+
+#these 3 mothers only had BSS data at P28 and indicated in the NEXT system (according to Soesma) that they withdrew from NEXT,
+#thus they can be removed from the masterfile
+mother_long_linkage <- mother_long_linkage[!(mother_long_linkage$next_id_mother == "LLNEXT100566"), ]
+mother_long_linkage <- mother_long_linkage[!(mother_long_linkage$next_id_mother == "LLNEXT200645"), ]
+mother_long_linkage <- mother_long_linkage[!(mother_long_linkage$next_id_mother == "LLNEXT306939"), ]
+#11266 56
+
+#QC
+mother_linkage_mismatch <- mother_long_linkage %>%
+  filter(is.na(infant_relations))
+unique(mother_linkage_mismatch$next_id_mother)
+#no longer mismatches
+
+#confirm that duplicated mothers are due to siblings and that data has been correctly merged
+length(unique(mother_long_linkage$next_id_mother[duplicated(mother_long_linkage$next_id_mother)])) #1414 - this coincides with the number of unique mothers in our linkage file
+mother_long_linkage$timepoint <- factor(mother_long_linkage$timepoint, levels=c("P12", "P28", "B", 
+                                                                                "W2", "M1", "M2", "M3",
+                                                                                "M6", "M9", "M12"))
+table(mother_long_linkage$timepoint, useNA="ifany")
+#P12  P28    B   W2   M1   M2   M3   M6   M9  M12 
+#1447 1447 1447  913  913  913 1447  913  913  913 
+#we know that in total, we have 1414 unique mothers and 33 siblings, thus the mothers with duplication -> 1447
+
+#confirm this for each time points
+  #P12
+mother_long_linkage_P12 <- mother_long_linkage %>%
+  filter(timepoint=="P12")
+#1447  56
+length(unique(mother_long_linkage_P12$next_id_mother[duplicated(mother_long_linkage_P12$next_id_mother)])) #33 duplicated mothers
+mother_long_linkage_P12$next_id_infant[duplicated(mother_long_linkage_P12$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_P12$next_id_mother[duplicated(mother_long_linkage_P12$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_P12$next_id_mother[duplicated(mother_long_linkage_P12$next_id_mother)]")
+
+duplications <- mother_long_linkage_P12 %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_P12$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#66  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+  #P28
+mother_long_linkage_P28 <- mother_long_linkage %>%
+  filter(timepoint=="P28")
+#1447  56
+length(unique(mother_long_linkage_P28$next_id_mother[duplicated(mother_long_linkage_P28$next_id_mother)])) #33 duplicated mothers
+mother_long_linkage_P28$next_id_infant[duplicated(mother_long_linkage_P28$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_P28$next_id_mother[duplicated(mother_long_linkage_P28$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_P28$next_id_mother[duplicated(mother_long_linkage_P28$next_id_mother)]")
+
+duplications <- mother_long_linkage_P28 %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_P28$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#66  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+  #B
+mother_long_linkage_B <- mother_long_linkage %>%
+  filter(timepoint=="B")
+#1447  56
+length(unique(mother_long_linkage_B$next_id_mother[duplicated(mother_long_linkage_B$next_id_mother)])) #33 duplicated mothers
+mother_long_linkage_B$next_id_infant[duplicated(mother_long_linkage_B$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_B$next_id_mother[duplicated(mother_long_linkage_B$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_B$next_id_mother[duplicated(mother_long_linkage_B$next_id_mother)]")
+
+duplications <- mother_long_linkage_B %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_B$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#66  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+  #W2
+mother_long_linkage_W2 <- mother_long_linkage %>%
+  filter(timepoint=="W2")
+#913  56
+length(unique(mother_long_linkage_W2$next_id_mother[duplicated(mother_long_linkage_W2$next_id_mother)])) #21 duplicated mothers
+mother_long_linkage_W2$next_id_infant[duplicated(mother_long_linkage_W2$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_W2$next_id_mother[duplicated(mother_long_linkage_W2$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_W2$next_id_mother[duplicated(mother_long_linkage_W2$next_id_mother)]")
+
+duplications <- mother_long_linkage_W2 %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_W2$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#42  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+    #M1
+mother_long_linkage_M1 <- mother_long_linkage %>%
+  filter(timepoint=="M1")
+#913  56
+length(unique(mother_long_linkage_M1$next_id_mother[duplicated(mother_long_linkage_M1$next_id_mother)])) #21 duplicated mothers
+mother_long_linkage_M1$next_id_infant[duplicated(mother_long_linkage_M1$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_M1$next_id_mother[duplicated(mother_long_linkage_M1$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_M1$next_id_mother[duplicated(mother_long_linkage_M1$next_id_mother)]")
+
+duplications <- mother_long_linkage_M1 %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_M1$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#42  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+  #M2
+mother_long_linkage_M2 <- mother_long_linkage %>%
+  filter(timepoint=="M2")
+#913  56
+length(unique(mother_long_linkage_M2$next_id_mother[duplicated(mother_long_linkage_M2$next_id_mother)])) #21 duplicated mothers
+mother_long_linkage_M2$next_id_infant[duplicated(mother_long_linkage_M2$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_M2$next_id_mother[duplicated(mother_long_linkage_M2$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_M2$next_id_mother[duplicated(mother_long_linkage_M2$next_id_mother)]")
+
+duplications <- mother_long_linkage_M2 %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_M2$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#42  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+  #M3
+mother_long_linkage_M3 <- mother_long_linkage %>%
+  filter(timepoint=="M3")
+#1447  56
+length(unique(mother_long_linkage_M3$next_id_mother[duplicated(mother_long_linkage_M3$next_id_mother)])) #33 duplicated mothers
+mother_long_linkage_M3$next_id_infant[duplicated(mother_long_linkage_M3$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_M3$next_id_mother[duplicated(mother_long_linkage_M3$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_M3$next_id_mother[duplicated(mother_long_linkage_M3$next_id_mother)]")
+
+duplications <- mother_long_linkage_M3 %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_M3$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#66  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+  #M6
+mother_long_linkage_M6 <- mother_long_linkage %>%
+  filter(timepoint=="M6")
+#913  56
+length(unique(mother_long_linkage_M6$next_id_mother[duplicated(mother_long_linkage_M6$next_id_mother)])) #21 duplicated mothers
+mother_long_linkage_M6$next_id_infant[duplicated(mother_long_linkage_M6$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_M6$next_id_mother[duplicated(mother_long_linkage_M6$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_M6$next_id_mother[duplicated(mother_long_linkage_M6$next_id_mother)]")
+
+duplications <- mother_long_linkage_M6 %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_M6$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#42  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+  #M9
+mother_long_linkage_M9 <- mother_long_linkage %>%
+  filter(timepoint=="M9")
+#913  56
+length(unique(mother_long_linkage_M9$next_id_mother[duplicated(mother_long_linkage_M9$next_id_mother)])) #21 duplicated mothers
+mother_long_linkage_M9$next_id_infant[duplicated(mother_long_linkage_M9$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_M9$next_id_mother[duplicated(mother_long_linkage_M9$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_M9$next_id_mother[duplicated(mother_long_linkage_M9$next_id_mother)]")
+
+duplications <- mother_long_linkage_M9 %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_M9$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#42  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+  #M12
+mother_long_linkage_M12 <- mother_long_linkage %>%
+  filter(timepoint=="M12")
+#913  56
+length(unique(mother_long_linkage_M12$next_id_mother[duplicated(mother_long_linkage_M12$next_id_mother)])) #21 duplicated mothers
+mother_long_linkage_M12$next_id_infant[duplicated(mother_long_linkage_M12$next_id_infant)] #no duplicated infants
+duplications <- as.data.frame(mother_long_linkage_M12$next_id_mother[duplicated(mother_long_linkage_M12$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="mother_long_linkage_M12$next_id_mother[duplicated(mother_long_linkage_M12$next_id_mother)]")
+
+duplications <- mother_long_linkage_M12 %>%
+  mutate(mother_id_duplication = ifelse(mother_long_linkage_M12$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+  filter(mother_id_duplication=="yes")
+#42  57
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+#indeed there are no duplicated infants and all duplicated mothers are due to mothers with twins
+rm(mother_long_linkage_P12, mother_long_linkage_P28, mother_long_linkage_B, 
+   mother_long_linkage_W2, mother_long_linkage_M1, mother_long_linkage_M2, mother_long_linkage_M3,
+   mother_long_linkage_M6, mother_long_linkage_M9, mother_long_linkage_M12)
+
+#due to the longitudinal nature, it could be that for some mothers, aside from the linkage file data, all other data is missing
+#tidy this up: remove rows where all columns after "timepoint" (in 9th position)
+mother_long_linkage_tidy <- mother_long_linkage[rowSums(is.na(mother_long_linkage[, 10:ncol(mother_long_linkage)])) < (ncol(mother_long_linkage) - 9), ]
+#6960 56
+
+#QC:
+#check which SAMPLE_IDs are missing from mother_long_linkage in mother_long_linkage_tidy
+missing_ids <- setdiff(mother_long_linkage$SAMPLE_ID, mother_long_linkage_tidy$SAMPLE_ID)
+
+# Filter df1 to keep only rows with IDs missing from df2
+mother_long_linkage_filtered <- mother_long_linkage[mother_long_linkage$SAMPLE_ID %in% missing_ids, ]
+#4306 (as expected) 56
+summary(mother_long_linkage_filtered)
+#indeed, all other data after the 'timepoint' column is missing
+
+mother_long_linkage_tidy <- mother_long_linkage_tidy %>% mutate_if(is.character, as.factor)
+str(mother_long_linkage_tidy)
+
+mother_long_linkage_tidy$Type <- "mother"
+mother_long_linkage_tidy <- mother_long_linkage_tidy %>% relocate(
+  Type, .before = next_id_mother
+)
+str(mother_long_linkage_tidy)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett//OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
+write.table(mother_long_linkage_tidy, "2023_05_24_mother_linked_longitudinal.txt", sep="\t", row.names=F, quote = F)
+#6960 57
+#mother_long_linkage_tidy <- read.delim("2023_05_24_mother_linked_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+rm(mother_linkage_mismatch, mother_LLNEXT010045_2, mother_LLNEXT100566, mother_LLNEXT200645, 
+   mother_LLNEXT304268_2, mother_LLNEXT304268_2_B, mother_LLNEXT304268_2_P28_col, mother_LLNEXT304268_2_M3_col,
+   mother_LLNEXT306939, mother_long_linkage, mother_long_linkage_filtered, mother_longitudinal)
+
+        ##### =========================== 7. INFANT HEALTH  =========================== ##### 
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+infant_health <- read.delim("INFANT_HEALTH_DYN_RE_FORMATTED_10_04_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_health)
+#3008 15
+
+summary(infant_health)
+
+#remove infant LLNEXT00000?
+infant_health <- infant_health %>% 
+  filter(next_id_infant!="LLNEXT00000?")
+#3004  15
+
+#investigate which variables are applicable to which time points
+infant_health_timepoints <-infant_health %>% 
+  group_by(timepoint) %>% 
+  summarize_all(~ sum(is.na(.)))
+rm(infant_health_timepoints)
+
+#retrospectively change time point M4 to M3
+infant_health$timepoint <- as.character(infant_health$timepoint)
+infant_health$timepoint[infant_health$timepoint=="M4"] <- "M3"
+infant_health$timepoint <- as.factor(infant_health$timepoint)
+
+infant_health$SAMPLE_ID <- gsub("_M4", "_M3", infant_health$SAMPLE_ID)
+infant_health$SAMPLE_ID <- as.factor(infant_health$SAMPLE_ID)
+summary(infant_health)
+
+#retrospectively update known health problem with data from ROME and IGSQ where applicable
+str(infant_health)
+infant_health_wide <- infant_health
+infant_health_wide$SAMPLE_ID <- NULL
+
+#make dataframe wide
+infant_health_wide <- infant_health_wide %>%
+  pivot_wider(
+    names_from = timepoint,
+    values_from = c(
+      starts_with("infant_health_")))
+#751 49
+str(infant_health_wide)
+
+  #ROME
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+infant_rome <- read.delim("ROME_INFANT_RE_FORMATTED_27_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_rome)
+summary(infant_rome)
+#4512 9
+
+infant_rome <- infant_rome %>% select(c(
+  next_id_infant,
+  timepoint,
+  infant_colic,
+  #infant_rome_e1_regurgitation, #common in infants
+  infant_rome_e25_mucus_stool_last_week))
+
+table(infant_rome$infant_rome_e25_mucus_stool_last_week, useNA="ifany")
+infant_rome$infant_rome_e25_mucus_stool_last_week <- as.factor(ifelse(infant_rome$infant_rome_e25_mucus_stool_last_week>0, "yes", "no"))
+str(infant_rome)
+
+#for formating, update colnames
+infant_rome <- infant_rome %>% rename(
+  infant_rome_colic=infant_colic
+)
+#remove infant LLNEXT00000?
+infant_rome <- infant_rome %>% 
+  filter(next_id_infant!="LLNEXT00000?")
+#4506  4
+
+#make dataframe wide
+infant_rome_wide <- infant_rome %>%
+  filter(timepoint=="M3" |
+           timepoint=="M6" |
+           timepoint=="M9" |
+           timepoint=="M12" ) %>% #select time points coinciding with infant health
+  pivot_wider(
+    names_from = timepoint,
+    values_from = c(
+      starts_with("infant_rome_")))
+#751 9
+str(infant_rome_wide)
+
+  #IGSQ
+infant_igsq <- read.delim("IGSQ_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_igsq)
+#1504  16
+summary(infant_igsq)
+
+infant_igsq <- infant_igsq %>% select(-c(
+  #timepoint,
+  #SAMPLE_ID,
+  infant_igsq_4_amount_spitting_milk_past_week, #nested
+  infant_igsq_7_crying_duration_per_day_past_week)) #nested
+str(infant_igsq)
+
+infant_igsq$SAMPLE_ID <- NULL
+
+#remove infant LLNEXT00000?
+infant_igsq <- infant_igsq %>% 
+  filter(next_id_infant!="LLNEXT00000?")
+#1502  13
+
+recode <- c("infant_igsq_1_freq_hard_stools_past_week",
+            "infant_igsq_10_freq_days_restless_past_week",
+            "infant_igsq_11_freq_unstoppable_restlessness_baby_past_week",
+            "infant_igsq_12_freq_gas_per_day_past_week",
+            "infant_igsq_13_freq_discomfort_gas_past_week",
+            "infant_igsq_2_freq_difficult_stool_past_week",
+            "infant_igsq_3_freq_spitting_milk_normal_day_past_week",
+            "infant_igsq_5_freq_discomfort_spitting_milk_past_week",
+            "infant_igsq_6_freq_pain_spitting_milk_past_week",
+            "infant_igsq_8_freq_unstoppable_crying_past_week",
+            "infant_igsq_9_freq_crying_after_feeding_past_week")
+
+for(i in recode) {
+  print(table(infant_igsq[,i], useNA="ifany"))
+  infant_igsq[,i] <- ifelse(infant_igsq[,i]>0, "yes", "no")
+  infant_igsq[,i] <- as.factor(infant_igsq[,i])
+  print(table(infant_igsq[,i], useNA="ifany"))}
+
+str(infant_igsq)
+summary(infant_igsq)
+
+#make dataframe wide
+infant_igsq_wide <- infant_igsq %>%
+  filter(timepoint=="M3" |
+           timepoint=="M6" |
+           timepoint=="M9" |
+           timepoint=="M12" ) %>% #select time points coinciding with infant health
+  pivot_wider(
+    names_from = timepoint,
+    values_from = c(
+      starts_with("infant_igsq_")))
+#751 9
+str(infant_rome_wide)
+
+#join infant health, infant ROME and infant IGSQ
+infant_health_rome_igsq <- list(infant_health_wide,
+                                infant_rome_wide,
+                                infant_igsq_wide)
+infant_health_rome_igsq <- infant_health_rome_igsq %>% reduce(full_join, by="next_id_infant")
+#751  79
+str(infant_health_rome_igsq)
+
+#update infant_health_known_health_problem by time point complementing it with data from ROME and IGSQ
+
+  #M3
+table(infant_health_rome_igsq$infant_health_known_health_problem_M3, useNA="ifany")
+#no  yes <NA> 
+#34  407  310 
+
+#get the columns containing '_M3' except 'problem_M3'
+target_cols <- grep("_M3", names(infant_health_rome_igsq), value = TRUE) %>%
+  setdiff("infant_health_known_health_problem_M3")
+target_cols
+
+#update infant_health_known_health_problem_M3 according to rome and igsq
+for(i in target_cols) {
+  infant_health_rome_igsq$infant_health_known_health_problem_M3[infant_health_rome_igsq[,i]=="yes"] <- "yes"
+  infant_health_rome_igsq$infant_health_known_health_problem_M3[is.na(infant_health_rome_igsq$infant_health_known_health_problem_M3) &
+                                                      infant_health_rome_igsq[,i]=="no"] <- "no"}
+
+table(infant_health_rome_igsq$infant_health_known_health_problem_M3, useNA="ifany")
+#no  yes <NA> 
+#64  476  211
+
+    #M6
+table(infant_health_rome_igsq$infant_health_known_health_problem_M6, useNA="ifany")
+#no  yes <NA> 
+#313   53  385
+
+#get the columns containing '_M6' except 'problem_M6'
+target_cols <- grep("_M6", names(infant_health_rome_igsq), value = TRUE) %>%
+  setdiff("infant_health_known_health_problem_M6")
+target_cols
+
+#update infant_health_known_health_problem_M6 according to rome and igsq
+for(i in target_cols) {
+  infant_health_rome_igsq$infant_health_known_health_problem_M6[infant_health_rome_igsq[,i]=="yes"] <- "yes"
+  infant_health_rome_igsq$infant_health_known_health_problem_M6[is.na(infant_health_rome_igsq$infant_health_known_health_problem_M6) &
+                                                                  infant_health_rome_igsq[,i]=="no"] <- "no"}
+
+table(infant_health_rome_igsq$infant_health_known_health_problem_M6, useNA="ifany")
+#no  yes <NA> 
+# 280   87  384
+
+  #M9
+table(infant_health_rome_igsq$infant_health_known_health_problem_M9, useNA="ifany")
+#no  yes <NA> 
+#319   17  415
+
+#get the columns containing '_M9' except 'problem_M9'
+target_cols <- grep("_M9", names(infant_health_rome_igsq), value = TRUE) %>%
+  setdiff("infant_health_known_health_problem_M9")
+target_cols
+
+#update infant_health_known_health_problem_M9 according to rome and igsq
+for(i in target_cols) {
+  infant_health_rome_igsq$infant_health_known_health_problem_M9[infant_health_rome_igsq[,i]=="yes"] <- "yes"
+  infant_health_rome_igsq$infant_health_known_health_problem_M9[is.na(infant_health_rome_igsq$infant_health_known_health_problem_M9) &
+                                                                  infant_health_rome_igsq[,i]=="no"] <- "no"}
+
+table(infant_health_rome_igsq$infant_health_known_health_problem_M9, useNA="ifany")
+#no  yes <NA> 
+#298   38  415
+
+  #M12
+table(infant_health_rome_igsq$infant_health_known_health_problem_M12, useNA="ifany")
+#  no  yes <NA> 
+#19  227  505 
+
+#get the columns containing '_M12' except 'problem_M12'
+target_cols <- grep("_M12", names(infant_health_rome_igsq), value = TRUE) %>%
+  setdiff("infant_health_known_health_problem_M12")
+target_cols
+
+#update infant_health_known_health_problem_M12 according to rome and igsq
+for(i in target_cols) {
+  infant_health_rome_igsq$infant_health_known_health_problem_M12[infant_health_rome_igsq[,i]=="yes"] <- "yes"
+  infant_health_rome_igsq$infant_health_known_health_problem_M12[is.na(infant_health_rome_igsq$infant_health_known_health_problem_M12) &
+                                                                  infant_health_rome_igsq[,i]=="no"] <- "no"}
+
+table(infant_health_rome_igsq$infant_health_known_health_problem_M12, useNA="ifany")
+#no  yes <NA> 
+#11   235  415
+
+#remove ROME and IGSQ data
+infant_health_updated <- infant_health_rome_igsq %>%
+  select(-starts_with("infant_rome"), -starts_with("infant_igsq"))
+str(infant_health_updated)
+summary(infant_health_updated)
+
+#make infant_health dataframe long
+#make dataframe long
+infant_health_updated_long<-melt(infant_health_updated, id.vars=c("next_id_infant")) #36048 3
+infant_health_updated_long$timepoint <- infant_health_updated_long$variable
+infant_health_updated_long$timepoint<-gsub(".*_", "", infant_health_updated_long$timepoint)
+infant_health_updated_long$variable<-gsub("_M3", "", infant_health_updated_long$variable)
+infant_health_updated_long$variable<-gsub("_M6", "", infant_health_updated_long$variable)
+infant_health_updated_long$variable<-gsub("_M9", "", infant_health_updated_long$variable)
+infant_health_updated_long$variable<-gsub("_M12", "", infant_health_updated_long$variable)
+infant_health_updated_long$SAMPLE_ID<-paste0(infant_health_updated_long$next_id_infant, "_", infant_health_updated_long$timepoint)
+infant_health_updated_long<-infant_health_updated_long[,c(1,5,4,2,3)]
+infant_health_updated_wide <- dcast(infant_health_updated_long, next_id_infant + SAMPLE_ID +timepoint ~ variable, value.var="value")
+#3004 15
+
+str(infant_health_updated_wide)
+infant_health_updated_wide <- infant_health_updated_wide %>% mutate_if(is.character, as.factor)
+
+rm(infant_health, infant_health_wide, infant_health_rome_igsq, infant_health_updated, infant_health_updated_long, 
+   infant_igsq, infant_igsq_wide, infant_rome, infant_rome_wide)
+
+        ##### =========================== 8. INFANT SCORAD  =========================== ##### 
+##NOTE: Although the scorad was previously cleaned (November 2021 freeze), Soesma recently provided us with an updated file for eczema cases,
+#which included more recent scorad data: '20230227_Eczema cases and controls_longID.txt'; this file can be found in the Static folder on TEAMS
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+infant_scorad <- read.delim("20230227_Eczema cases and controls_longID.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#1167 17
+str(infant_scorad)
+
+infant_scorad <- infant_scorad %>% select(c(
+  NEXT_ID,
+  M3_SCORAD,
+  M12_SCORAD)) %>%
+  rename(
+    next_id_infant=NEXT_ID,
+    infant_scorad_measurement_M3=M3_SCORAD,
+    infant_scorad_measurement_M12=M12_SCORAD)
+summary(infant_scorad)
+
+#make dataframe long
+infant_scorad_long<-melt(infant_scorad, id.vars=c("next_id_infant")) #2334 3
+infant_scorad_long$timepoint <- infant_scorad_long$variable
+infant_scorad_long$timepoint<-gsub(".*_", "", infant_scorad_long$timepoint)
+infant_scorad_long$variable<-gsub("_M3", "", infant_scorad_long$variable)
+infant_scorad_long$variable<-gsub("_M12", "", infant_scorad_long$variable)
+infant_scorad_long$SAMPLE_ID<-paste0(infant_scorad_long$next_id_infant, "_", infant_scorad_long$timepoint)
+infant_scorad_long<-infant_scorad_long[,c(1,5,4,2,3)]
+infant_scorad_wide <- dcast(infant_scorad_long, next_id_infant + SAMPLE_ID +timepoint ~ variable, value.var="value")
+#2334 5
+
+#remove LLNEXT00000?
+infant_scorad_wide <- infant_scorad_wide %>% 
+  filter(next_id_infant!="LLNEXT00000?")
+#2332 5
+
+infant_health_scorad <- full_join(infant_health_updated_wide, infant_scorad_wide) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#3836 16
+str(infant_health_scorad)
+infant_health_scorad <- infant_health_scorad %>% mutate_if(is.character, as.factor)
+rm(infant_health_updated_wide, infant_scorad, infant_scorad_long, infant_scorad_wide)
+
+        ##### =========================== 9. INFANT NUTRITION  =========================== ##### 
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+infant_ffq <- read.delim("INFANT_FFQ_RE_FORMATTED_30_11_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_ffq)
+summary(infant_ffq)
+
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/infant_nutrition/")
+#ffq_colnames <- colnames(infant_ffq)
+#write.table(ffq_colnames, "infant_ffq_colnames.txt", sep="\t", row.names=F, quote = F)
+#rm(ffq_colnames)
+
+#investigate which variables are applicable to which time points
+timepoint_order <- c("W2", "M1", "M2", "M3", "M6", "M9", "M12")
+infant_ffq_timepoints <-infant_ffq %>% 
+  group_by(timepoint) %>% 
+  summarize_all(~ sum(is.na(.))) %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+rm(infant_ffq_timepoints)
+
+#rename to be consistent with mother FFQ nomeculature
+infant_ffq <- infant_ffq %>% rename(
+  infant_ffq_energy_kcalday_item_sum_recal = infant_ffq_kcal_per_day_item_sum_recal,
+  infant_ffq_gday_item_sum_recal = infant_ffq_grams_day_item_sum_recal,
+  infant_ffq_group_breads_gday = infant_ffq_group_breads_g,#did these manually to avoid _g in all colanmes being replaced with gday, for example _grains --> _gdayrains
+  infant_ffq_group_cheese_gday = infant_ffq_group_cheese_g,
+  infant_ffq_group_dairy_gday = infant_ffq_group_dairy_g,
+  infant_ffq_group_egg_gday = infant_ffq_group_egg_g,
+  infant_ffq_group_fats_and_oils_gday = infant_ffq_group_fats_and_oils_g,
+  infant_ffq_group_fish_gday = infant_ffq_group_fish_g,
+  infant_ffq_group_fruits_gday = infant_ffq_group_fruits_g,
+  infant_ffq_group_grain_products_and_rice_gday = infant_ffq_group_grain_products_and_rice_g,
+  infant_ffq_group_legumes_gday = infant_ffq_group_legumes_g,
+  infant_ffq_group_meat_gday = infant_ffq_group_meat_g,
+  infant_ffq_group_meat_substitute_gday = infant_ffq_group_meat_substitute_g,
+  infant_ffq_group_nuts_gday = infant_ffq_group_nuts_g,
+  infant_ffq_group_pancake_gday = infant_ffq_group_pancake_g,
+  infant_ffq_group_pasta_gday = infant_ffq_group_pasta_g,
+  infant_ffq_group_pastry_gday = infant_ffq_group_pastry_g,
+  infant_ffq_group_potatoes_gday = infant_ffq_group_potatoes_g,
+  infant_ffq_group_savoury_snacks_gday = infant_ffq_group_savoury_snacks_g,
+  infant_ffq_group_sugar_sweets_gday = infant_ffq_group_sugar_sweets_g,
+  infant_ffq_group_sweet_drinks_gday = infant_ffq_group_sweet_drinks_g,
+  infant_ffq_group_tea_gday = infant_ffq_group_tea_g,
+  infant_ffq_group_vegetables_gday = infant_ffq_group_vegetables_g,
+  infant_ffq_group_water_gday = infant_ffq_group_water_g)
+
+colnames(infant_ffq) <- gsub("g_per_day", "gday", colnames(infant_ffq))
+colnames(infant_ffq)
+str(infant_ffq)
+#6335 136
+
+#retrospectively remove variety score as factor analysis was already performed to derive dietary patterns (better approach)
+#and variety score should not be used longitudinally due to the fact that the items that make up the variety score are not consistent,
+#e.g. dairy products are not asked about in M6, but are in M9 and M12.
+infant_ffq$infant_ffq_variety_sum <- NULL
+#6335 135
+
+#retrospectively update certain FFQ variables with data acquired from matching BabyBiome data
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+babybiome <- read.delim("metadata_LLNEXT_replication_UPDATED_CS_Baby_Biome_phenotypes_06_05_2023_early_tp_W2_M1_M2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#37  58
+str(babybiome)
+#already filtered on infants
+
+babybiome_feeding_mode <- babybiome %>% select(c(
+  NEXT_ID,
+  Timepoint_categorical,
+  feeding_mode)) %>%
+  rename(next_id_infant=NEXT_ID,
+         infant_ffq_feeding_mode_complex=feeding_mode) 
+summary(babybiome_feeding_mode)
+babybiome_feeding_mode$infant_ffq_feeding_mode_complex <- as.character(babybiome_feeding_mode$infant_ffq_feeding_mode_complex)
+babybiome_feeding_mode$infant_ffq_feeding_mode_complex[babybiome_feeding_mode$infant_ffq_feeding_mode_complex=="breast_feeding"] <- "BF"
+babybiome_feeding_mode$infant_ffq_feeding_mode_complex[babybiome_feeding_mode$infant_ffq_feeding_mode_complex=="formula_feeding"] <- "FF"
+babybiome_feeding_mode$infant_ffq_feeding_mode_complex[babybiome_feeding_mode$infant_ffq_feeding_mode_complex=="mixed_feeding"] <- "MF"
+babybiome_feeding_mode$infant_ffq_feeding_mode_complex <- as.factor(babybiome_feeding_mode$infant_ffq_feeding_mode_complex)
+
+babybiome_feeding_mode <- babybiome_feeding_mode %>%
+  pivot_wider(
+    names_from = Timepoint_categorical,
+    values_from = infant_ffq_feeding_mode_complex)
+str(babybiome_feeding_mode)
+
+infant_ffq_feeding_mode <- infant_ffq %>% select (c(
+  next_id_infant,
+  timepoint,
+  infant_ffq_feeding_mode_complex))
+infant_ffq_feeding_mode <- infant_ffq_feeding_mode %>%
+  pivot_wider(
+    names_from = timepoint,
+    values_from = infant_ffq_feeding_mode_complex) %>%
+  select(c(
+    next_id_infant,
+    W2,
+    M1,
+    M2)) %>%
+  rename(W2_ffq=W2,
+         M1_ffq=M1,
+         M2_ffq=M2)
+#905  4
+
+ffq_babybiome_feeding_mode <- left_join(babybiome_feeding_mode, infant_ffq_feeding_mode) #Joining with `by = join_by(next_id_infant)`
+#17  7
+str(ffq_babybiome_feeding_mode)
+ffq_babybiome_feeding_mode <- ffq_babybiome_feeding_mode %>%
+  relocate(W2, .after=next_id_infant) %>%
+  relocate(W2_ffq, .after=W2) %>%
+  relocate(M1_ffq, .after = M1)
+
+  #W2 updates
+#LLNEXT012025: FF
+
+  #M1 updates
+#LLNEXT012025: FF
+#LLNEXT002486: BF
+#LLNEXT005807: MF
+#LLNEXT005915: FF
+
+  #M2 updates
+#LLNEXT006996: FF
+#LLNEXT012025: FF
+#LLNEXT002486: BF
+#LLNEXT005807: FF
+#LLNEXT008877: BF
+
+#manually update these infants in the infant_ffq file
+infant_ffq_updated <- infant_ffq %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT012025" & timepoint == "W2", "FF", infant_ffq_feeding_mode_complex)) %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT012025" & timepoint == "M1", "FF", infant_ffq_feeding_mode_complex)) %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT002486" & timepoint == "M1", "BF", infant_ffq_feeding_mode_complex)) %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT005807" & timepoint == "M1", "MF", infant_ffq_feeding_mode_complex)) %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT005915" & timepoint == "M1", "FF", infant_ffq_feeding_mode_complex)) %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT006996" & timepoint == "M2", "FF", infant_ffq_feeding_mode_complex)) %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT012025" & timepoint == "M2", "FF", infant_ffq_feeding_mode_complex)) %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT002486" & timepoint == "M2", "BF", infant_ffq_feeding_mode_complex)) %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT005807" & timepoint == "M2", "FF", infant_ffq_feeding_mode_complex)) %>%
+  mutate(infant_ffq_feeding_mode_complex = ifelse(next_id_infant == "LLNEXT008877" & timepoint == "M2", "BF", infant_ffq_feeding_mode_complex))
+table(infant_ffq$infant_ffq_feeding_mode_complex)
+table(infant_ffq_updated$infant_ffq_feeding_mode_complex)
+infant_ffq_updated$infant_ffq_feeding_mode_complex[infant_ffq_updated$infant_ffq_feeding_mode_complex==1] <- "BF"
+infant_ffq_updated$infant_ffq_feeding_mode_complex[infant_ffq_updated$infant_ffq_feeding_mode_complex==2] <- "FF"
+infant_ffq_updated$infant_ffq_feeding_mode_complex[infant_ffq_updated$infant_ffq_feeding_mode_complex==3] <- "MF"
+#manually confirmed updates
+infant_ffq_updated$infant_ffq_feeding_mode_complex <- as.factor(infant_ffq_updated$infant_ffq_feeding_mode_complex)
+
+rm(babybiome, babybiome_feeding_mode, infant_ffq, infant_ffq_feeding_mode, ffq_babybiome_feeding_mode)
+
+infant_health_scorad_ffq <- full_join(infant_health_scorad, infant_ffq_updated) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#6887 148
+str(infant_health_scorad_ffq, list.len=ncol(infant_health_scorad_ffq))
+
+rm(infant_health_scorad, infant_ffq_updated)
+
+        ##### =========================== 10. INFANT CRYING BEHAVIOUR  =========================== ##### 
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+infant_cry <- read.delim("cry_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_cry)
+#5264  5
+summary(infant_cry)
+
+timepoint_order <- c("W2", "M1", "M2", "M3", "M6", "M9", "M12")
+infant_cry_timepoints <-infant_cry %>% 
+  group_by(timepoint) %>% 
+  summarize_all(~ sum(is.na(.))) %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+#indeed asked at all time points
+
+infant_cry <- infant_cry %>% rename(
+  infant_cry_prev_week_cry_more_3h_per_day = infant_cry_crying_more_than_3h_per_day,
+  infant_cry_prev_week_avg_cry_time_per_day_min = infant_cry_prev_week_average_crying_time_per_day_min)
+
+infant_health_scorad_ffq_cry <- full_join(infant_health_scorad_ffq, infant_cry) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#6887 150
+str(infant_health_scorad_ffq_cry, list.len=ncol(infant_health_scorad_ffq_cry))
+
+rm(infant_cry, infant_cry_timepoints, infant_health_scorad_ffq)
+
+        ##### =========================== 11. INFANT GROWTH =========================== ##### 
+infant_growth <- read.delim("INFANT_GROWTH_RE_FORMATTED_12_06_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_growth)
+#6536 9
+summary(infant_growth)
+
+timepoint_order <- c("B", "W2", "M1", "M2", "M3", "M6", "M9", "M12")
+infant_growth_timepoints <-infant_growth %>% 
+  group_by(timepoint) %>% 
+  summarize_all(~ sum(is.na(.))) %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+#indeed asked at all time points
+
+infant_health_scorad_ffq_cry_growth <- full_join(infant_health_scorad_ffq_cry, infant_growth) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#7709  156
+str(infant_health_scorad_ffq_cry_growth, list.len=ncol(infant_health_scorad_ffq_cry_growth))
+
+rm(infant_growth, infant_growth_timepoints, infant_health_scorad_ffq_cry)
+
+        ##### =========================== 12. INFANT ROME =========================== ##### 
+infant_rome <- read.delim("ROME_INFANT_RE_FORMATTED_27_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_rome)
+#4512 9
+summary(infant_rome)
+
+infant_rome_timepoints <-infant_rome %>% 
+  group_by(timepoint) %>% 
+  summarize_all(~ sum(is.na(.))) %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+
+infant_rome <- infant_rome %>% rename(
+  infant_rome_colic=infant_colic,
+  infant_rome_regurgitation=infant_rome_e1_regurgitation,
+  infant_rome_stool_freq_last_month = infant_rome_e13_stool_freq_last_month,
+  infant_rome_stool_structure = infant_rome_e14_stool_structure,
+  infant_rome_mucus_stool_last_week = infant_rome_e25_mucus_stool_last_week,
+  infant_rome_sudden_inconsolable_crying_fits = infant_rome_e32_sudden_inconsolable_crying_fits)
+
+infant_health_scorad_ffq_cry_growth_rome <- full_join(infant_health_scorad_ffq_cry_growth, infant_rome) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#7709  162
+str(infant_health_scorad_ffq_cry_growth_rome, list.len=ncol(infant_health_scorad_ffq_cry_growth_rome))
+
+rm(infant_health_scorad_ffq_cry_growth, infant_rome, infant_rome_timepoints)
+
+        ##### =========================== 13. INFANT IGSQ =========================== ##### 
+infant_igsq <- read.delim("IGSQ_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_igsq)
+#1504 16
+summary(infant_igsq)
+
+infant_igsq_timepoints <-infant_igsq %>% 
+  group_by(timepoint) %>% 
+  summarize_all(~ sum(is.na(.))) %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+rm(infant_igsq_timepoints)
+
+#generate the IGSQ score (a score of gastrointestinal distress) which has a range of 13-65
+#resource: https://journals.sagepub.com/doi/10.1177/0009922815574075
+
+#The following columns will be re-coded from a scale of 0-4 to a scale of 1-5
+columns_to_change <- c("infant_igsq_1_freq_hard_stools_past_week", 
+                       "infant_igsq_2_freq_difficult_stool_past_week", 
+                       "infant_igsq_3_freq_spitting_milk_normal_day_past_week", 
+                       "infant_igsq_5_freq_discomfort_spitting_milk_past_week",
+                       "infant_igsq_6_freq_pain_spitting_milk_past_week",
+                       "infant_igsq_8_freq_unstoppable_crying_past_week",
+                       "infant_igsq_9_freq_crying_after_feeding_past_week",
+                       "infant_igsq_11_freq_unstoppable_restlessness_baby_past_week",
+                       "infant_igsq_12_freq_gas_per_day_past_week",
+                       "infant_igsq_13_freq_discomfort_gas_past_week")
+
+#mapping of values
+value_mapping <- c(0, 1, 2, 3, 4)
+new_value_mapping <- c(1, 2, 3, 4, 5)
+
+# Loop through columns and change values
+summary(infant_igsq)
+for (col in columns_to_change) {
+  infant_igsq[[col]] <- new_value_mapping[match(infant_igsq[[col]], value_mapping)]
+}
+summary(infant_igsq)
+
+#infant_igsq_4_amount_spitting_milk_past_week
+    #original answers included: 5ml, 15ml, 30ml, 'approx half of the feeding', 'more than half of the feeding'
+    #thus recode: 5ml --> 1, 15ml --> 2, 30ml --> 3, approx_half --> 4 and >_half --> 5
+table(infant_igsq$infant_igsq_4_amount_spitting_milk_past_week, useNA="ifany")
+infant_igsq$infant_igsq_4_amount_spitting_milk_past_week[infant_igsq$infant_igsq_4_amount_spitting_milk_past_week=="5"] <- 1
+infant_igsq$infant_igsq_4_amount_spitting_milk_past_week[infant_igsq$infant_igsq_4_amount_spitting_milk_past_week=="15"] <- 2
+infant_igsq$infant_igsq_4_amount_spitting_milk_past_week[infant_igsq$infant_igsq_4_amount_spitting_milk_past_week=="30"] <- 3
+infant_igsq$infant_igsq_4_amount_spitting_milk_past_week[infant_igsq$infant_igsq_4_amount_spitting_milk_past_week=="200"] <- 4
+
+#infant_igsq_7_crying_duration_per_day_past_week
+    #does not need recoding, already in a scale of 1-5
+
+#infant_igsq_10_freq_days_restless_past_week
+    #recode similarly to other behavioral aspects of the questionnaire, e.g. crying
+    #thus: 0 --> 1, 1 --> 2, 2 --> 3, 3 --> 4, 4, 5, 6 and 7--> 5 (4 or more times in a week)
+table(infant_igsq$infant_igsq_10_freq_days_restless_past_week, useNA="ifany")
+infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="4"|
+                                                          infant_igsq$infant_igsq_10_freq_days_restless_past_week=="5"|
+                                                          infant_igsq$infant_igsq_10_freq_days_restless_past_week=="6"|
+                                                          infant_igsq$infant_igsq_10_freq_days_restless_past_week=="7"] <- 5
+infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="3"] <- 4
+infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="2"] <- 3
+infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="1"] <- 2
+infant_igsq$infant_igsq_10_freq_days_restless_past_week[infant_igsq$infant_igsq_10_freq_days_restless_past_week=="0"] <- 1
+
+summary(infant_igsq)
+
+infant_igsq <- infant_igsq %>%
+  mutate(infant_IGSQ_score = rowSums(across(starts_with("infant_"), .names = "infant_{.col}")))
+
+hist(infant_igsq$infant_IGSQ_score)
+
+gghistogram(infant_igsq, x = "infant_IGSQ_score",
+            add = "mean", rug = TRUE,
+            color = "timepoint", fill = "timepoint",
+            palette = c("#00AFBB", "#E7B800"))
+
+infant_igsq_M12 <- infant_igsq %>% filter (
+  timepoint=="M12")
+hist(infant_igsq_M12$infant_IGSQ_score)
+#indeed, M12 is not very normal - probably due to less data points
+
+table(infant_igsq_M12$infant_IGSQ_score, useNA="ifany")
+#17   21   23   24   25 <NA> 
+#2    2    1    2    1  744 
+
+#indeed, at M12, scores are only available for 9 infants
+
+#investigate data availability for M3
+infant_igsq_M3 <- infant_igsq %>% filter (
+  timepoint=="M3")
+hist(infant_igsq_M3$infant_IGSQ_score)
+dev.off()
+
+table(infant_igsq_M3$infant_IGSQ_score, useNA="ifany")
+#score available for 83 infants
+
+infant_igsq <- infant_igsq %>% select(c(
+  next_id_infant,
+  SAMPLE_ID,
+  timepoint,
+  infant_IGSQ_score))
+str(infant_igsq)
+
+#retrospectively dichotomize infant IGSQ score
+hist(infant_igsq_M3$infant_IGSQ_score, na.rm=T)
+median(infant_igsq_M3$infant_IGSQ_score, na.rm=T)
+#27
+
+median(infant_igsq_M12$infant_IGSQ_score, na.rm=T)
+#22
+
+infant_igsq$infant_IGSQ_score_catg <- as.character(infant_igsq$infant_IGSQ_score) 
+infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M3" & infant_igsq$infant_IGSQ_score<=27] <- "0_no_little_GI_distress"
+infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M3" & infant_igsq$infant_IGSQ_score>27] <- "1_medium_high_GI_distress"
+infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M12" & infant_igsq$infant_IGSQ_score<=22] <- "0_no_little_GI_distress"
+infant_igsq$infant_IGSQ_score_catg[infant_igsq$timepoint=="M12" & infant_igsq$infant_IGSQ_score>22] <- "1_medium_high_GI_distress"
+infant_igsq$infant_IGSQ_score_catg <- as.factor(infant_igsq$infant_IGSQ_score_catg) 
+str(infant_igsq)
+
+infant_health_scorad_ffq_cry_growth_rome_igsq <- full_join(infant_health_scorad_ffq_cry_growth_rome, infant_igsq) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#7709  162
+str(infant_health_scorad_ffq_cry_growth_rome_igsq, list.len=ncol(infant_health_scorad_ffq_cry_growth_rome_igsq))
+
+rm(infant_health_scorad_ffq_cry_growth_rome, infant_igsq, infant_igsq_M3, infant_igsq_M12)
+dev.off()
+
+        ##### =========================== 14. INFANT BITSS =========================== ##### 
+infant_bitss <- read.delim("BITSS_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_bitss)
+#4200 4
+summary(infant_bitss)
+
+infant_bitss_timepoints <-infant_bitss %>% 
+  group_by(timepoint) %>% 
+  summarize_all(~ sum(is.na(.))) %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+rm(infant_bitss_timepoints)
+
+infant_health_scorad_ffq_cry_growth_rome_igsq_bitss <- full_join(infant_health_scorad_ffq_cry_growth_rome_igsq, infant_bitss) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#7748  165
+str(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss, list.len=ncol(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss))
+
+rm(infant_health_scorad_ffq_cry_growth_rome_igsq, infant_bitss)
+
+        ##### =========================== 15. INFANT MEDICATION =========================== ##### 
+infant_med <- read.delim("INFANT_MEDICATION_RE_FORMATTED_01_12_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_med)
+#5264 17
+
+summary(infant_med)
+
+infant_med_timepoints <-infant_med %>% 
+  group_by(timepoint) %>% 
+  summarize_all(~ sum(is.na(.))) %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+rm(infant_med_timepoints)
+
+infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med <- full_join(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss, infant_med) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#7748  179
+str(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med, list.len=ncol(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med))
+
+rm(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss, infant_med)
+
+        ##### =========================== 16. INFANT SLEEP =========================== ##### 
+infant_sleep <- read.delim("SLEEP_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_sleep)
+#2256 7
+
+summary(infant_sleep)
+
+infant_sleep_timepoints <-infant_sleep %>% 
+  group_by(timepoint) %>% 
+  summarize_all(~ sum(is.na(.))) %>%
+  arrange(factor(timepoint, levels = timepoint_order))
+rm(infant_sleep_timepoints)
+
+infant_long <- full_join(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med, infant_sleep) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#7748  183
+str(infant_long, list.len=ncol(infant_long))
+
+rm(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med, infant_sleep)
+
+        ##### =========================== 17. INFANT LINKAGE =========================== ##### 
+infant_long <- infant_long %>% 
+  filter(next_id_infant!="LLNEXT00000?") 
+#7741 183
+
+infant_long_linkage <- full_join(linkage, infant_long) #Joining with `by = join_by(next_id_infant)`
+#8008 189
+summary(infant_long_linkage)
+
+table(infant_long_linkage$infant_relations, useNA="ifany") #9 NAs
+
+#investigate infants who did not link correctly to the linkage file
+infant_linkage_mismatch <- infant_long_linkage %>%
+  filter(is.na(infant_relations))
+unique(infant_linkage_mismatch$next_id_infant)
+#LLNEXT120779 and LLNEXT569999
+summary(infant_linkage_mismatch)
+#there is no data associated with these infants. Identify in previous files where this ID originates from
+#LLNEXT120779 originate from the SCORAD data and LLNEXT569999 originates from the BITSS data frame, however, no (relevant) data was associated with them,
+#thus it can be removed
+
+infant_long_linkage <- infant_long_linkage %>% 
+  filter(!is.na(infant_relations)) 
+#7999  189
+
+#make sure that there are no duplications of the infant id's by time point
+infant_long_linkage$timepoint <- factor(infant_long_linkage$timepoint, levels=c("B", "W2", "M1", "M2", "M3", "M6", "M9", "M12"))
+table(infant_long_linkage$timepoint, useNA="ifany")
+#B   W2   M1   M2   M3   M6   M9  M12 <NA> 
+#817  911  911  911 1180  911  911 1180  267 
+
+#NA's are indicative of infants for which we do not have longitudinal questionnaire data for.
+
+  #B
+infant_long_linkage_B <- infant_long_linkage %>%
+  filter(timepoint=="B")
+#817  189
+length(unique(infant_long_linkage_B$next_id_infant[duplicated(infant_long_linkage_B$next_id_infant)])) #0 duplicated infants
+rm(infant_long_linkage_B)
+
+  #W2
+infant_long_linkage_W2 <- infant_long_linkage %>%
+  filter(timepoint=="W2")
+#911  189
+length(unique(infant_long_linkage_W2$next_id_infant[duplicated(infant_long_linkage_W2$next_id_infant)])) #0 duplicated infants
+rm(infant_long_linkage_W2)
+
+  #M1
+infant_long_linkage_M1 <- infant_long_linkage %>%
+  filter(timepoint=="M1")
+#911  189
+length(unique(infant_long_linkage_M1$next_id_infant[duplicated(infant_long_linkage_M1$next_id_infant)])) #0 duplicated infants
+rm(infant_long_linkage_M1)
+
+  #M2
+infant_long_linkage_M2 <- infant_long_linkage %>%
+  filter(timepoint=="M2")
+#911  189
+length(unique(infant_long_linkage_M2$next_id_infant[duplicated(infant_long_linkage_M2$next_id_infant)])) #0 duplicated infants
+rm(infant_long_linkage_M2)
+
+  #M3
+infant_long_linkage_M3 <- infant_long_linkage %>%
+  filter(timepoint=="M3")
+#1189  189
+length(unique(infant_long_linkage_M3$next_id_infant[duplicated(infant_long_linkage_M3$next_id_infant)])) #0 duplicated infants
+rm(infant_long_linkage_M3)
+
+  #M6
+infant_long_linkage_M6 <- infant_long_linkage %>%
+  filter(timepoint=="M6")
+#911  189
+length(unique(infant_long_linkage_M6$next_id_infant[duplicated(infant_long_linkage_M6$next_id_infant)])) #0 duplicated infants
+rm(infant_long_linkage_M6)
+
+  #M9
+infant_long_linkage_M9 <- infant_long_linkage %>%
+  filter(timepoint=="M9")
+#911  189
+length(unique(infant_long_linkage_M9$next_id_infant[duplicated(infant_long_linkage_M9$next_id_infant)])) #0 duplicated infants
+rm(infant_long_linkage_M9)
+
+  #M12
+infant_long_linkage_M12 <- infant_long_linkage %>%
+  filter(timepoint=="M12")
+#1180  189
+length(unique(infant_long_linkage_M12$next_id_infant[duplicated(infant_long_linkage_M12$next_id_infant)])) #0 duplicated infants
+rm(infant_long_linkage_M12)
+
+#indeed, there are no infant id duplications by time point
+
+str(infant_long_linkage, list.len=ncol(infant_long_linkage))
+#7999 189
+
+#due to the longitudinal nature, it could be that for some infants, aside from the linkage file data, all other data is missing
+#tidy this up: remove rows where all columns after "timepoint" (in 9th position)
+infant_long_linkage_tidy <- infant_long_linkage[rowSums(is.na(infant_long_linkage[, 10:ncol(infant_long_linkage)])) < (ncol(infant_long_linkage) - 9), ]
+#7276 189
+
+#QC:
+#check which SAMPLE_IDs are missing from infant_long_linkage in infant_long_linkage_tidy
+missing_ids <- setdiff(infant_long_linkage$SAMPLE_ID, infant_long_linkage_tidy$SAMPLE_ID)
+
+# Filter df1 to keep only rows with IDs missing from df2
+infant_long_linkage_filtered <- infant_long_linkage[infant_long_linkage$SAMPLE_ID %in% missing_ids, ]
+#723 (as expected)
+summary(infant_long_linkage_filtered)
+#indeed, all other data after the 'timepoint' column is missing
+
+infant_long_linkage_tidy$Type <- "infant"
+infant_long_linkage_tidy <- infant_long_linkage_tidy %>% relocate(
+  Type, .before = next_id_mother
+)
+infant_long_linkage_tidy <- infant_long_linkage_tidy %>% mutate_if(is.character, as.factor)
+str(infant_long_linkage_tidy, list.len=ncol(infant_long_linkage_tidy))
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett//OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
+write.table(infant_long_linkage_tidy, "2023_06_12_infant_linked_longitudinal.txt", sep="\t", row.names=F, quote = F)
+#7276 190
+#infant_long_linkage_tidy <- read.delim("2023_06_12_infant_linked_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+rm(infant_long, infant_linkage_mismatch, infant_long_linkage, infant_long_linkage_filtered)
+
+        ##### =========================== 18. MOTHER-INFANT LINKAGE =========================== ##### 
+mother_infant_long <- full_join(mother_long_linkage_tidy, infant_long_linkage_tidy) #Joining with `by = join_by(FAMILY, Type, next_id_mother, next_id_infant, next_id_partner, infant_relations, sibling_number, twin_pair, SAMPLE_ID, timepoint)`
+#14236 237
+str(mother_infant_long, list.len=ncol(mother_infant_long))
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+setwd("C:/Users/Siobhan Brushett//OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+write.table(mother_infant_long, "masterfile_longitudinal_2023_06_12.txt", sep="\t", row.names=F, quote = F)
+
+#masterfile_longitudinal <- read.delim("masterfile_longitudinal_2023_06_12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+colnames_longitudinal <- as.data.frame(colnames(masterfile_longitudinal))
+write.table(colnames_longitudinal, "colnames_longitudinal.txt", sep="\t", row.names=F, quote = F)
+#manually confirmed that all colnames coincided with the codebook
