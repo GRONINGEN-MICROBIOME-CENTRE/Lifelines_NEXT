@@ -1,0 +1,2466 @@
+###     SCRIPT: MASTERFILE OF CLEANED LIFELINES-NEXT CROSS-SECTIONAL QUESTIONNAIRES
+###     AUTHOR(S): SIOBHAN BRUSHETT 
+###     DESCRIPTION: MASTERFILE OF CLEANED LIFELINES-NEXT CROSS-SECTIONAL QUESTIONNAIRES
+###     PROJECT: LL-NEXT
+###     LAST UPDATED: 12 JUNE  2023
+
+#save to:
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+#set for MacBook
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+
+#libaries
+library(tidyverse)
+library(stringr)
+library(skimr)
+library(reshape2)
+
+## 0. LOAD LINKAGE FILE
+## 1. MOTHER PRE-PREGNANCY PHENOTYPES (LIFELINES)
+## 2. TIDY BIRTHCARDS
+## 3. MOTHER EDUCATION
+## 4. MOTHER HEALTH
+## 5. MOTHER FOOD PREFERENCES AND AVOIDENCES
+## 6. MOTHER STRESS
+## 7. MOTHER M2 FFQ
+## 8. PARTNER SMOKING AND STRESS
+## 9. FAMILY EXPOSURES
+## 10. INFANT HEALTH
+## 11. INFANT NUTRITION
+## 12. INFANT GROWTH
+## 13. ORDER DATAFRAME BY TIME POINT AND WRITE FILE
+## 14. SUMMARY STATISTICS
+
+#functions
+#spearman correlation (Alex and Trishla)
+spearman <- function(x,y) {
+  matchID <- intersect(rownames(x), rownames(y))
+  x1 <- x[matchID,]
+  y1 <- y[matchID,]
+  result_cor <- matrix(nrow=ncol(x1), ncol=ncol(y1))
+  rownames(result_cor) <- colnames(x1)
+  colnames(result_cor) <- colnames(y1)
+  result_pvalue <- matrix(nrow=ncol(x1), ncol=ncol(y1))
+  for (i in 1:ncol(y1)) {
+    for (j in 1:ncol(x1)) {
+      cor1<-try(cor.test(x1[,j], y1[,i], method = "spearman"))
+      if(class(cor1)[1] != "try-error") {
+        result_cor[j,i]= cor1$estimate
+        result_pvalue[j,i]= cor1$p.value
+      } else {
+        result_cor[j,i]= NA
+        result_pvalue[j,i]= NA
+      }
+    }}
+  result = list()
+  result$p.val= result_pvalue
+  result$cor= result_cor
+  return(result)
+}
+result <- function(x,y){
+  correlation <- spearman(x,y)
+  a<- melt(correlation$cor)
+  a<- cbind(a, melt(correlation$p.val)[,"value"])
+  result= a[order(a[,4]),]
+  colnames(result)=c("factor1", "factor2", "CorCoefficient","pvalue")
+  return(result)
+}
+
+#summary stats (Authors: Paula and Arnau)
+summary_statistics_metadata <- function (metadata_input, category_table) {
+  # Packages needed
+  library (psych)  #describe r function
+  # Create other functions to calculate the different parameters
+  ## Categorical values - create function to calculate the counts and the percentage for categorical variables
+  tblFun <- function(x) {
+    # Create a table
+    tbl <- table(x)
+    # Combine columnes/rows to get the counts and percentage (creates new table -> res)
+    res <- cbind(tbl,round(prop.table(tbl)*100,2))
+    # Give names to the columns
+    colnames(res) <- c('Count','Percentage')
+    res
+  }
+  ## NA sum function - counts the number of NA
+  nzsum <- function(x) {
+    sum (is.na(x))
+  }
+  if (missing(category_table)) {
+    ## Calculate table1 with the whole data:
+    my_results = matrix(ncol = 9, nrow = ncol(metadata_input))
+    for (k in 1:ncol(metadata_input)){
+      if (is.numeric(metadata_input[,k])) {
+        # Keep in "x" the result from describe function (done in the columns) - for each factor
+        x = describe(metadata_input[,k])
+        z = nzsum(metadata_input[,k])
+        # In the new table ("x"): keep different values in the different columns
+        my_results[k,1] = "numerical"
+        my_results[k,2] = x$median
+        my_results[k,3] = x$mean
+        my_results[k,4] = x$sd
+        my_results[k,5] = x$n
+        my_results[k,6] = z
+        my_results[k,7] = x$min
+        my_results[k,8] = x$max
+        my_results[k,9] = x$range
+      }
+      # Condition: if the column values are categorical
+      else {
+        # Keep in "x" the result from tblFun function (done in the columns) - for each factor
+        x = tblFun(metadata_input[,k])
+        z = nzsum(metadata_input[,k])
+        # In the new table ("x"): keep different values in the different columns
+        my_results[k,1]="categorical"
+        # toString to keep the possible different values/categories in the same vector/column
+        my_results[k,2]=toString(rownames(x))
+        # First column table x = 'Count'
+        my_results[k,3]=toString(x[,1])
+        # Second column table x = 'Percentage'
+        my_results[k,4]=toString(x[,2])
+        # Sum of the values on column1 ("x")
+        my_results[k,5]=sum(x[,1])
+        my_results[k,6]= z
+        my_results[k,7] = NA
+        my_results[k,8] = NA
+        my_results[k,9] = NA
+      }
+    }
+    # The column names from the original table = row names from the new table
+    rownames(my_results) = colnames(metadata_input)
+    # Give names to the columns of the new table
+    colnames(my_results) = c("Type", "Categories/Median", "Counts/Mean", "%/SD", "Number_non_zeros", "Number_NA",
+                             "Min", "Max", "Range")
+    # Export the new table
+    write.table (my_results, file = "./meta_data_summary_stats.txt" , quote = F, sep = "\t")
+  }
+}
+
+        ##### =========================== 0. LOAD LINKAGE FILE =========================== #####
+#linkage file
+linkage <- read.delim("20230414_Linkingfile_fam_longID_formatted_TS_SB.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(linkage)
+#1447 7
+
+#NOTE that in the linkage file there are 33 twins, thus 33 mothers are duplicated 
+
+        ##### =========================== 1. MOTHER PRE-PREGNANCY PHENOTYPES (LIFELINES) =========================== #####
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/lifelines_baseline/")
+setwd("~/OneDrive - UMCG/NEXT_clean_up/lifelines_baseline/")
+
+preBMI <- read.delim("2023_04_18_lifelines_baseline_pre_preg_bmi_cleaned_SB.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#420  9
+str(preBMI)
+
+preBMI <- preBMI[,c("next_id_mother", "mother_prepregn_bmi_kg_m2")]
+str(preBMI)
+
+#originally added a column for later filtering of the masterfile, but because of combining different questionnaires, this
+#was not efficient - thus I removed this approach
+#preBMI <- preBMI %>%
+#  mutate(mother_pre_preg_anthro_fil = ifelse(!is.na(mother_prepregn_bmi_kg_m2), 1, 0))
+#preBMI <- preBMI %>%
+#  relocate(mother_pre_preg_anthro_fil, .before = mother_prepregn_bmi_kg_m2)
+#str(preBMI)
+
+linkage_preBMI <- left_join(linkage, preBMI)
+#1447 8
+summary(linkage_preBMI)
+#linkage_preBMI$mother_pre_preg_anthro_fil[is.na(linkage_preBMI$mother_prepregn_bmi_kg_m2)] <- 0
+
+#pre-pregnancy BMI values were available for 412 mothers (420 - 8 missings), however, after the merge with the linkage file
+#there is data for 421 mothers, thus, make sure that this is due to duplicated mothers in the linkage file.
+
+test <- distinct(linkage_preBMI, next_id_mother, .keep_all = TRUE)
+summary(test)
+#here, for unique mothers, 412 pre-pregnancy values were assigned (1414-1002 missings), indicating that previously it was indeed increased due to duplicated mothers
+rm(test,preBMI)
+
+hist(linkage_preBMI$mother_prepregn_bmi_kg_m2) 
+#decided together with Trishla that this looks good and that potential 'outliers' do not need to be removed as these values have been seen before in our
+#and the CS-BabyBiome studies
+dev.off()
+
+        ##### =========================== 2. TIDY BIRTHCARDS =========================== #####
+#birth cards
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#MacBook location:
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+birthcards <- read.delim("birth_phenotypes_all_final_selection_26_09_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#1021  100
+
+str(birthcards, list.len=ncol(birthcards))
+
+#mother id
+birthcards$next_id_mother <- str_pad(birthcards$next_id_mother, 6, pad = "0")
+birthcards$next_id_mother<-as.factor(sub("^","LLNEXT",birthcards$next_id_mother)) #1004 unique ids
+
+table(birthcards$next_id_mother, useNA="ifany") #no missings
+length(unique(birthcards$next_id_mother[duplicated(birthcards$next_id_mother)])) #17 duplicated mothers
+duplications <- as.data.frame(birthcards$next_id_mother[duplicated(birthcards$next_id_mother)])
+duplications <- duplications %>% rename ("mother_id_dup" ="birthcards$next_id_mother[duplicated(birthcards$next_id_mother)]")
+
+duplications <- birthcards %>%
+        mutate(mother_id_duplication = ifelse(birthcards$next_id_mother %in% duplications$mother_id_dup, "yes", "no")) %>%
+        filter(mother_id_duplication=="yes")
+#34  101
+length(unique(duplications$next_id_infant[duplicated(duplications$next_id_infant)])) #0
+#all duplicated mothers have unique infants associated with them, i.e. these infants are twins
+rm(duplications)
+
+#infant id
+birthcards$next_id_infant <- str_pad(birthcards$next_id_infant, 6, pad = "0")
+birthcards$next_id_infant<-as.factor(sub("^","LLNEXT",birthcards$next_id_infant))#1021 unique ids
+length(unique(birthcards$next_id_infant[duplicated(birthcards$next_id_infant)])) #0
+
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+#rename_vars <- colnames(birthcards)
+#write.table(rename_vars, "2023_04_10_birthcards_rename.txt", sep="\t", row.names=F, quote = F)
+
+        #update variables: delivery_within_month
+del_within <- birthcards %>% 
+  select(c(next_id_mother, del_within_month_hosp_M1, del_within_month_hosp_baby_problem_M1, del_bloodtransfusion)) %>%
+           filter(del_within_month_hosp_M1 == "no" & del_within_month_hosp_baby_problem_M1 == "yes" |
+                   del_within_month_hosp_M1 == "no" & del_bloodtransfusion == "yes")
+#10 4
+#for 10 participants, the mother indicated that she was admitted to hospital again within one month after birth due to
+#blood loss, however, the main question of whether the mother was admitted or not, indicates otherwise, thus update
+#del_within_hosp_M1 accordingly
+table(birthcards$del_within_month_hosp_M1, useNA="ifany")
+birthcards$del_within_month_hosp_M1[birthcards$next_id_mother %in% del_within$next_id_mother] <- "yes"
+table(birthcards$del_within_month_hosp_M1, useNA="ifany")
+
+del_within <- birthcards %>% 
+  select(c(next_id_mother, del_within_month_hosp_M1, del_within_month_hosp_baby_problem_M1, del_bloodtransfusion)) %>%
+  filter(is.na(del_within_month_hosp_M1) & !is.na(del_within_month_hosp_baby_problem_M1)|
+           is.na(del_within_month_hosp_M1) & !is.na(del_bloodtransfusion))
+#1  4
+#there is only one participant where the main question is NA but the nested question of bloodloss was "no"
+table(birthcards$del_within_month_hosp_M1, useNA="ifany")
+birthcards$del_within_month_hosp_M1[birthcards$next_id_mother %in% del_within$next_id_mother] <- "no"
+table(birthcards$del_within_month_hosp_M1, useNA="ifany")
+
+rm(del_within)
+
+        #update variables: infectious diseases
+table(birthcards$mother_HSV_BC, useNA = "ifany")
+birthcards$mother_HSV_BC[birthcards$mother_HSV_BC=="rubella"] <- "no"
+table(birthcards$mother_HSV_BC, useNA = "ifany")
+birthcards$mother_HSV_BC <- as.factor(as.character(birthcards$mother_HSV_BC))
+
+table(birthcards$mother_GBS_BC, useNA = "ifany")
+birthcards$mother_GBS_BC[birthcards$mother_GBS_BC=="rubella"] <- "no"
+table(birthcards$mother_GBS_BC, useNA = "ifany")
+birthcards$mother_GBS_BC <- as.factor(as.character(birthcards$mother_GBS_BC))
+
+        #update variables: place of delivery
+table(birthcards$place_delivery_all_binary, birthcards$place_delivery_BC)
+#          home hospital hospitalPK
+#home      153        0          0
+#hospital   15      489         81
+
+#for 15 participants who were indicated as having home deliveries by the birthcards (for variable 'place_delivery_BC'),
+#questionnaire data (place_delivery_all_binary) indicated that these participants had deliveries at the hospital
+
+del_mismatch <- birthcards %>% filter(
+        place_delivery_all_binary == "hospital" &
+                place_delivery_BC == "home") %>%
+        select(next_id_mother, next_id_infant, place_delivery_all_binary, place_delivery_BC, hospital_BC)
+#15 5
+length(unique(del_mismatch$next_id_mother)) #15 (only singleton births)
+table(del_mismatch$hospital_BC) #5 of the 15 mothers have a hospital indicated and can be changed to hospital deliveries
+
+#go back to original data and establish which types of hospitals these data originated from in the questionnaires
+
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/pregnancy_birthcards_delivery/")
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/pregnancy_birthcards_delivery/")
+del_questionnaires <- read.delim("del_phenotypes_final.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#966 33
+del_questionnaires <- del_questionnaires %>% rename(next_id_mother=next_nr)
+del_questionnaires$next_id_mother <- str_pad(del_questionnaires$next_id_mother, 6, pad = "0")
+del_questionnaires$next_id_mother<-as.factor(sub("^","LLNEXT",del_questionnaires$next_id_mother))
+
+del_questionnaires <- subset(del_questionnaires, next_id_mother %in% del_mismatch$next_id_mother)
+del_questionnaires <- del_questionnaires[,c("next_id_mother", "del_place")]
+table(del_questionnaires$del_place, useNA="ifany")
+#home   home_baby_taken_hosp home_mother_taken_hosp   home_start_end_hosp      hosp_clinic_choice hosp_medical 
+#0                      1                     10                      2                      0          2 
+
+#recode all these 15 participants to 'hosptial' for place_delivery_BC (as it is unlikely that these participants would have been admitted to a polyclinic hospital)
+table(birthcards$place_delivery_BC, useNA="ifany")
+birthcards$place_delivery_BC[birthcards$next_id_mother %in% del_questionnaires$next_id_mother] <- "hospital"
+table(birthcards$place_delivery_all_binary, birthcards$place_delivery_BC)
+        #home hospital hospitalPK
+#home      153        0         0
+#hospital    0      504         81
+
+rm(del_mismatch, del_questionnaires)
+
+        #update variables: type of hospital at delivery (hospital_BC)
+table(birthcards$hospital_BC, useNA="ifany")
+birthcards$hospital_BC <- as.character(birthcards$hospital_BC)
+birthcards$hospital_BC[birthcards$hospital_BC=="UMCG"] <- "groningen_academic"
+birthcards$hospital_BC[birthcards$hospital_BC=="Marti"] <- "groningen_peripheral"
+birthcards$hospital_BC[birthcards$hospital_BC=="Wilhe"] <- "assen"
+birthcards$hospital_BC[birthcards$hospital_BC!="groningen_academic"&
+                               birthcards$hospital_BC!="groningen_peripheral"&
+                               birthcards$hospital_BC!="assen"] <- "other"
+birthcards$hospital_BC <- as.factor(birthcards$hospital_BC)
+
+        #update variables: oxytocin use
+        
+        #during pregnancy
+table(birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC, birthcards$mother_oxytocin_during_birth)
+#plot(birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC, birthcards$mother_oxytocin_during_birth)
+#13 mothers indicated having oxytocin during birth, which was not identified from text options (now: mother_med_oxytocin_ana_H01BB_during_birth_BC)
+#thus, update mother_med_oxytocin_ana_H01BB_during_birth_BC according to the main column, mother_oxytocin_during_birth
+
+oxy_mismatch <- birthcards %>% filter(
+        mother_med_oxytocin_ana_H01BB_during_birth_BC == "no" &
+                mother_oxytocin_during_birth == "yes") %>%
+        select(next_id_mother, next_id_infant, 
+               mother_med_oxytocin_ana_H01BB_during_birth_BC, mother_oxytocin_during_birth)
+length(unique(oxy_mismatch$next_id_mother)) #13 (all mothers are distinct)
+
+birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC[birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC=="no" &
+                                                                 birthcards$mother_oxytocin_during_birth=="yes"] <- "yes"
+table(birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC, birthcards$mother_oxytocin_during_birth)
+#the values now coincide - these values can now be coalesced
+
+test <- birthcards[,c("mother_med_oxytocin_ana_H01BB_during_birth_BC", "mother_oxytocin_during_birth")]
+test <- test %>% mutate(coalesced = coalesce(mother_med_oxytocin_ana_H01BB_during_birth_BC, mother_oxytocin_during_birth))
+summary(test)
+birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC <- test$coalesced
+table(birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC,useNA="ifany")
+birthcards$mother_oxytocin_during_birth <- NULL
+rm(test, oxy_mismatch)
+
+        #after pregnancy
+table(birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC, birthcards$mother_oxytocin_after_birth)
+plot(birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC, birthcards$mother_oxytocin_after_birth)
+dev.off()
+        #no yes
+#no     76  13
+#yes    9 465
+#thus, update mother_med_oxytocin_ana_H01BB_after_birth_BC according to the main column, mother_oxytocin_after_birth
+
+oxy_mismatch_1 <- birthcards %>% filter(
+        mother_med_oxytocin_ana_H01BB_after_birth_BC == "no" &
+                mother_oxytocin_after_birth == "yes") %>%
+        select(next_id_mother, next_id_infant, 
+               mother_med_oxytocin_ana_H01BB_after_birth_BC, mother_oxytocin_after_birth)
+#13  4
+length(unique(oxy_mismatch_1$next_id_mother)) #12 (one duplicated mother of twins)
+
+birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC[birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC=="no" &
+                                                                 birthcards$mother_oxytocin_after_birth=="yes"] <- "yes"
+table(birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC, birthcards$mother_oxytocin_after_birth)
+#the values now coincide
+
+oxy_mismatch_2 <- birthcards %>% filter(
+        mother_med_oxytocin_ana_H01BB_after_birth_BC == "yes" &
+                mother_oxytocin_after_birth == "no") %>%
+        select(next_id_mother, next_id_infant, 
+               mother_med_oxytocin_ana_H01BB_after_birth_BC, mother_oxytocin_after_birth)
+#9  4
+length(unique(oxy_mismatch_2$next_id_mother)) #8 (one duplicated mother of twins)
+
+birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC[birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC=="yes" &
+                                                                birthcards$mother_oxytocin_after_birth=="no"] <- "no"
+table(birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC, birthcards$mother_oxytocin_after_birth)
+#the values now coincide completely - variables can be coalesced
+
+test <- birthcards[,c("mother_med_oxytocin_ana_H01BB_after_birth_BC", "mother_oxytocin_after_birth")]
+test <- test %>% mutate(coalesced = coalesce(mother_med_oxytocin_ana_H01BB_after_birth_BC, mother_oxytocin_after_birth))
+summary(test)
+birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC <- test$coalesced
+table(birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC,useNA="ifany")
+birthcards$mother_oxytocin_after_birth <- NULL
+rm(test, oxy_mismatch_1, oxy_mismatch_2)
+
+        #make one oxytocin variable [RETROSPECTIVELY OMITTED THIS STEP, AS WE WANT TO KNOW THIS DISTINCTION]
+#oxy_use <- birthcards %>%
+#  select(c(next_id_mother, mother_med_oxytocin_ana_H01BB_during_birth_BC, mother_med_oxytocin_ana_H01BB_after_birth_BC))
+
+#table(birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC, useNA="ifany")
+#birthcards$mother_birthcard_med_del_oxytocin_ana_H01BB <-  birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC
+#table(birthcards$mother_birthcard_med_del_oxytocin_ana_H01BB, useNA="ifany")
+#birthcards$mother_birthcard_med_del_oxytocin_ana_H01BB[birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC=="yes"] <- "yes"
+#birthcards$mother_birthcard_med_del_oxytocin_ana_H01BB[is.na(birthcards$mother_birthcard_med_del_oxytocin_ana_H01BB) &
+#                                                         birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC=="no"] <- "no"
+
+#QC
+#oxy_use <- birthcards %>%
+#  select(c(next_id_mother, mother_birthcard_med_del_oxytocin_ana_H01BB, mother_med_oxytocin_ana_H01BB_during_birth_BC, 
+#           mother_med_oxytocin_ana_H01BB_after_birth_BC))
+#recoded correctly
+#rm(oxy_use)
+
+#birthcards <- birthcards %>%
+#  relocate(mother_birthcard_med_del_oxytocin_ana_H01BB, .before = mother_med_oxytocin_ana_H01BB_during_birth_BC)
+#birthcards$mother_med_oxytocin_ana_H01BB_during_birth_BC <- NULL
+#birthcards$mother_med_oxytocin_ana_H01BB_after_birth_BC <- NULL
+
+        #update variables: remove infant_birthweight as this was incorporated into the growth questionnaire
+birthcards$infant_birthweight <- NULL
+
+        #update variables: update infant_feeding_type_delivery to coincide with feeding mode variables of FFQ (where applicable)
+table(birthcards$infant_feeding_type_delivery, useNA="ifany")
+birthcards$infant_feeding_type_delivery <- as.character(birthcards$infant_feeding_type_delivery)
+birthcards$infant_feeding_type_delivery[birthcards$infant_feeding_type_delivery=="breastfeeding"] <- "BF"
+birthcards$infant_feeding_type_delivery[birthcards$infant_feeding_type_delivery=="breast_milk_via_bottle"] <- "BF" #only 5 participants
+birthcards$infant_feeding_type_delivery[birthcards$infant_feeding_type_delivery=="formula"] <- "FF" #only 5 participants
+birthcards$infant_feeding_type_delivery[birthcards$infant_feeding_type_delivery=="mixed"] <- "MF" #only 5 participants
+birthcards$infant_feeding_type_delivery <- as.factor(birthcards$infant_feeding_type_delivery)
+
+        #update variable: infant_position_birth
+table(birthcards$infant_position_birth, useNA="ifany")
+birthcards$infant_position_birth <- as.character(birthcards$infant_position_birth)
+birthcards$infant_position_birth[birthcards$infant_position_birth=="Na" |
+                                         birthcards$infant_position_birth=="Aalv" | #only 1 participant
+                                         birthcards$infant_position_birth=="K" ] <- NA #only 3 participants
+
+birthcards$infant_position_birth[birthcards$infant_position_birth=="Aaa"] <- "occiput_posterior"
+birthcards$infant_position_birth[birthcards$infant_position_birth=="Aav"] <- "occiput_anterior"
+
+birthcards$infant_position_birth <- as.factor(birthcards$infant_position_birth)
+
+        #update variables: the following variables had 'Na' as a variable option, which was recoded to actual NAs
+
+var_update <- c("infant_length_hospital_stay_after_birth",
+                "infant_paediatrician_called",
+                "infant_warmth_therapy",
+                "infant_light_therapy",
+                "infant_med_antibiotics_T195_J01CA_birth_BC",
+                "infant_birth_comp_umblicial_cord_problems_O69_BC",
+                "infant_birth_comp_fetal_acid_base_problems_O68_BC",
+                "infant_birth_comp_large_gestation_age_P08.1_BC")
+
+var_update <- which(colnames(birthcards) %in% var_update) 
+for (i in var_update){
+        print(table(birthcards[,i], useNA="ifany"))
+        birthcards[,i] <- as.character(birthcards[,i])
+        birthcards[,i][birthcards[,i]=="Na"] <- NA
+        birthcards[,i] <- as.factor(birthcards[,i])
+        print(table(birthcards[,i], useNA="ifany"))}
+
+summary(birthcards)
+#1021   97
+
+        #update variables: rename variables according to standard nomeculature 
+birthcards_final <- birthcards %>% rename(mother_delivery_within_month_hosp=del_within_month_hosp_M1,
+                                          infant_delivery_within_month_hosp=del_within_month_hosp_baby_problem_M1,
+                                          mother_delivery_within_month_hosp_bloodloss=del_within_month_hosp_bloodloss_M1,
+                                          birth_delivery_mode_complex=del_mode_pheno_complex,
+                                          birth_delivery_mode_simple=del_mode_pheno_simple,
+                                          mother_deliverybirthcard_del_induced_balloon=del_induc_balloon_all,
+                                          mother_deliverybirthcard_del_induced_IV_drip=del_induc_IV_drip_all,
+                                          mother_deliverybirthcard_del_induced_breaking_membrane=del_induc_breaking_membranes_all,
+                                          mother_deliverybirthcard_del_induced_labour_IV_contraction_inducers=del_labor_IV_contraction_inducers_all,
+                                          mother_delivery_del_pain_IV_pump_remifentanyl=del_pain_IV_pump_remifentanyl,
+                                          mother_delivery_del_placenta_spontaneous=del_placenta_spontaneous,
+                                          mother_delivery_del_blood_transfusion=del_bloodtransfusion,
+                                          mother_birthcard_blood_group=mother_blood_group,
+                                          mother_birthcard_rhesus_d_factor=mother_rhesus_d_factor,
+                                          mother_birthcard_rhesus_c_factor=mother_rhesus_c_factor,
+                                          mother_birthcard_preexis_disease_crohns=mother_preexis_disease_crohns_BC,
+                                          mother_birthcard_preexis_disease_ulcerative_colitis=mother_preexis_disease_ulcerative_colitis_BC,
+                                          mother_birthcard_smoking_during_pregnancy=mother_smoking_during_pregnancy_BC,
+                                          mother_birthcard_type_pregnancy=type_pregnancy,
+                                          mother_birthcard_type_twin=type_twin,
+                                          mother_birthcard_preg_complication_past_c_section=mother_preg_complication_past_c_section_BC,
+                                          mother_birthcard_earliest_mentioned_bmi_kg_m2=mother_bmi_earliest_mentioned_BC,
+                                          mother_birthcard_earliest_mentioned_weight_kg=mother_weight_earliest_mentioned_BC,
+                                          mother_birthcard_earliest_mentioned_height_m=mother_length_BC,
+                                          mother_birthcard_preg_weight_gain_kg=mother_weight_gain_pregnancy_BC,
+                                          mother_birthcard_med_preg_antemetics_antinausea_R06A=mother_med_antemetics_antinausea_R06A_pregnancy_BC,
+                                          mother_birthcard_infectious_disease_preg_HSV=mother_HSV_BC,
+                                          mother_birthcard_infectious_disease_preg_GBS=mother_GBS_BC,
+                                          mother_birthcard_del_placenta_complications=placenta_birth_complications_BC,
+                                          mother_birthcard_gestational_age_days=gestational_age_numeric_days_BC,
+                                          mother_birthcard_gestational_age_weeks=gestational_age_numeric_weeks_BC,
+                                          mother_birthcard_gestational_age_catg=gestational_age_categorical_BC,
+                                          mother_birthcard_parity=para_BC,
+                                          mother_birthcard_gravidity=gravida_BC,
+                                          mother_birthcard_water_spontaneously_broken=water_spontaneously_broken_BC,
+                                          mother_birthcard_duration_water_broken_min=duration_broken_water_cont_numeric_min_BC,
+                                          mother_birthcard_duration_water_broken_hrs=duration_broken_water_cont_numeric_hours_BC,
+                                          mother_birthcard_del_bloodloss_ml=bloodloss_delivery_BC,
+                                          mother_deliverybirthcard_med_del_epidural=mother_epidural_all,
+                                          mother_birthcard_med_del_spinal=mother_med_spinal_during_birth_BC,
+                                          mother_birthcard_med_del_oxytocin_ana_H01BB=mother_med_oxytocin_ana_H01BB_during_birth_BC,
+                                          mother_birthcard_med_afterdel_oxytocin_ana_H01BB=mother_med_oxytocin_ana_H01BB_after_birth_BC,
+                                          mother_birthcard_med_del_anaesthetic_opioid_N01AH=mother_med_anaesthetic_opioid_N01AH_during_birth_BC,
+                                          mother_birthcard_med_afterdel_paracetamol_N02BE01=mother_med_paracetamol_N02BE01_after_birth_BC,
+                                          mother_birthcard_med_afterdel_iron_preparations_B03A=mother_med_iron_preparations_B03A_after_birth_BC,
+                                          mother_birthcard_med_afterdel_uterotonics_G02A=mother_med_uterotonics_G02A_after_birth_BC,
+                                          mother_birthcard_del_vacuum_pump=vaccum_pump_used_BC,
+                                          mother_birthcard_del_rupture=mother_rupture_BC,
+                                          mother_birthcard_del_rupture_grade=mother_rupture_grade,
+                                          mother_deliverybirthcard_del_episiotomy=mother_episiotomy_all,
+                                          mother_birthcard_del_complications_postpartum_hemorrhage_O72=mother_birth_comp_post_partum_hemorrhage_O72_BC,
+                                          mother_birthcard_del_complications_long_labor_O63=mother_birth_comp_long_labor_O63_BC,
+                                          birth_birthcard_place_delivery_complex=place_delivery_BC,
+                                          birth_birthcard_place_delivery_hospital=hospital_BC,
+                                          infant_birthcard_rhesus_factor=infant_rhesus_factor,
+                                          infant_birthcard_apgar_score_1min=infant_apgar_1,
+                                          infant_birthcard_apgar_score_5min=infant_apgar_5,
+                                          infant_birthcard_apgar_score_10min=infant_apgar_10,
+                                          birth_birthcard_total_duration_delivery_min=infant_total_duration_delivery_min,
+                                          birth_birthcard_duration_active_deliberate_pushing_min=infant_duration_active_deliberate_pushing_min,
+                                          infant_birthcard_feeding_mode_after_birth=infant_feeding_type_delivery,
+                                          infant_birthcard_breastfeeding_behaviour_after_birth=infant_breastfeeding_behaviour_after_birth,
+                                          infant_birthcard_breech=infant_breech,
+                                          infant_birthcard_position_birth=infant_position_birth,
+                                          infant_birthcard_hospital_stay_after_birth_hrs=infant_length_hospital_stay_after_birth,
+                                          infant_birthcard_paediatrician_called=infant_paediatrician_called,
+                                          infant_birthcard_warmth_therapy=infant_warmth_therapy,
+                                          infant_birthcard_light_therapy=infant_light_therapy,
+                                          infant_birthcard_med_antibiotics_T195_J01CA_B=infant_med_antibiotics_T195_J01CA_birth_BC,
+                                          infant_birthcard_comp_umbilical_cord_problems_O69=infant_birth_comp_umblicial_cord_problems_O69_BC,
+                                          infant_birthcard_comp_fetal_acid_base_problems_O68=infant_birth_comp_fetal_acid_base_problems_O68_BC,
+                                          infant_birthcard_comp_large_gestational_age_P08.1=infant_birth_comp_large_gestation_age_P08.1_BC,
+                                          infant_birthcard_comp_pre_term_O60=infant_birth_comp_pre_term_O60_BC,
+                                          birth_deliverybirthcard_place_delivery_simple=place_delivery_all_binary,
+                                          birth_deliverybirthcard_mode_delivery=mode_delivery_all_infant,
+                                          mother_delivery_preg_comp_flu_respiratory_tract_infection=mother_preg_comp_pheno_flu_respiratory_tract_infection_m1,
+                                          mother_delivery_preg_comp_GI_infection=mother_preg_comp_pheno_GI_infection_m1,
+                                          mother_delivery_preg_comp_urinary_tract_infection=mother_preg_comp_pheno_urinary_tract_infection_m1,
+                                          mother_delivery_preg_comp_vaginal_fungal_infection=mother_preg_comp_pheno_vaginal_fungal_infection_m1,
+                                          mother_delivery_preg_comp_vaginal_bleeding=mother_preg_comp_pheno_vaginal_bleeding_m1,
+                                          mother_delivery_preg_comp_itching=mother_preg_comp_pheno_itching_m1,
+                                          mother_delivery_preg_comp_GDM_week=mother_preg_comp_pheno_GDM_week_m1,
+                                          mother_delivery_hospital_during_pregnancy=mother_hospital_during_pregnancy_m1,
+                                          mother_delivery_weight_just_before_delivery_kg=mother_weight_just_before_delivery_m1,
+                                          mother_deliverybirthcard_preg_comp_preeclampsia=mother_preg_comp_preeclampsia_all,
+                                          mother_deliverybirthcard_preg_comp_hypertension=mother_preg_comp_hypertention_all,
+                                          mother_deliverybirthcard_preg_comp_GDM=mother_preg_comp_GDM_all,
+                                          mother_deliverybirthcard_preg_comp_hyperemesis_gravidarum=mother_preg_comp_hyperemesis_gravidarum_all,
+                                          mother_deliverybirthcard_preg_comp_cholestasis=mother_preg_comp_cholestatis_all,
+                                          infant_deliverybirthcard_preg_comp_growth_restriction=infant_preg_comp_growth_restriction_all,
+                                          infant_deliverybirthcard_meconium_amniotic_fluid=infant_preg_meconium_amniotic_fluid_all,
+                                          mother_deliverybirthcard_prolonged_rupture_membranes=mother_preg_comp_prolonged_rupture_membranes_all,
+                                          mother_deliverybirthcard_preg_comp_breech=mother_preg_comp_breech_all,
+                                          mother_birthcard_age_at_delivery=mother_age_birth,
+                                          infant_misc_sex=infant_sex_all)
+
+summary(birthcards_final)
+#1021  97
+
+birthcards_final <- birthcards_final %>% 
+  relocate(birth_deliverybirthcard_place_delivery_simple, .before = birth_birthcard_place_delivery_complex) %>%
+  relocate(birth_deliverybirthcard_mode_delivery, .before=birth_delivery_mode_complex) %>%
+  relocate(birth_delivery_mode_simple, .before=birth_delivery_mode_complex)
+
+delivery_mode <- birthcards_final%>% select(c(
+  birth_deliverybirthcard_mode_delivery,
+  birth_delivery_mode_simple,
+  birth_delivery_mode_complex))
+
+birthcards_final <- birthcards_final %>% rename(
+  birth_deliverybirthcard_mode_binary = birth_deliverybirthcard_mode_delivery)
+
+rm(delivery_mode)
+str(birthcards_final)
+
+linkage_preBMI_birthcards <- left_join(linkage_preBMI, birthcards_final) #joined by next_id_mother and next_id_infant
+#1447 103 (6+97 variables)
+summary(linkage_preBMI_birthcards)
+
+        #investigate correlation between mother_prepregn_bmi_kg_m2 (from Lifelines) and mother_birthcard_earliest_mentioned_bmi_kg_m2
+bmi_corr <- cor(linkage_preBMI_birthcards$mother_prepregn_bmi_kg_m2, 
+    linkage_preBMI_birthcards$mother_birthcard_earliest_mentioned_bmi_kg_m2, use="complete.obs")
+#0.7627033
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/pregnancy_birthcards_delivery/")
+pdf(file = "2023_04_18_correlation_pre_preg_lifelines_and_birthcard_bmi.pdf", useDingbats = F, onefile = T, width = 20)
+linkage_preBMI_birthcards %>%
+        filter(!is.na(mother_prepregn_bmi_kg_m2) & !is.na(mother_birthcard_earliest_mentioned_bmi_kg_m2)) %>%
+        ggplot(aes(x = mother_prepregn_bmi_kg_m2, y = mother_birthcard_earliest_mentioned_bmi_kg_m2)) + 
+        geom_point() +
+        geom_smooth(method = "lm", se = FALSE) +
+        labs(title = "Correlation between mother_prepregn_bmi_kg_m2 and mother_birthcard_earliest_mentioned_bmi_kg_m2") +
+        ggtitle(paste0("Correlation: ", round(bmi_corr, 2)))
+dev.off()
+#there is one outlier where the BMI at pre-pregnancy is much higher than in the birthcards (39.91871 vs 25.70)
+preBMI_outlier <- linkage_preBMI_birthcards %>% select(
+        next_id_mother, mother_prepregn_bmi_kg_m2, mother_birthcard_earliest_mentioned_bmi_kg_m2)
+preBMI_outlier <- preBMI_outlier[complete.cases(preBMI_outlier), ]
+#there is overlap of 67 BMI values
+#the mother with the higher BMI at pre-pregnancy than in the birthcards is participant: LLNEXT012377 - take the birthcard value instead
+linkage_preBMI_birthcards$mother_prepregn_bmi_kg_m2[linkage_preBMI_birthcards$next_id_mother=="LLNEXT012377"] <- NA
+
+#rerun correlation
+bmi_corr <- cor(linkage_preBMI_birthcards$mother_prepregn_bmi_kg_m2, 
+                linkage_preBMI_birthcards$mother_birthcard_earliest_mentioned_bmi_kg_m2, use="complete.obs")
+#0.879 - highly correlated
+pdf(file = "2023_04_18_correlation_pre_preg_lifelines_and_birthcard_bmi_outlier_removed.pdf", useDingbats = F, onefile = T, width = 20)
+linkage_preBMI_birthcards %>%
+        filter(!is.na(mother_prepregn_bmi_kg_m2) & !is.na(mother_birthcard_earliest_mentioned_bmi_kg_m2)) %>%
+        ggplot(aes(x = mother_prepregn_bmi_kg_m2, y = mother_birthcard_earliest_mentioned_bmi_kg_m2)) + 
+        geom_point() +
+        geom_smooth(method = "lm", se = FALSE) +
+        labs(title = "Correlation between mother_prepregn_bmi_kg_m2 and mother_birthcard_earliest_mentioned_bmi_kg_m2") +
+        ggtitle(paste0("Correlation: ", round(bmi_corr, 2)))
+
+dev.off()
+
+#as the mother_prepregn_bmi_kg_m2 included measurement dates, these values will be complemented with the birthcard values
+linkage_preBMI_birthcards <- linkage_preBMI_birthcards %>% 
+        mutate(mother_prepregbirthcards_bmi_kg_m2 = ifelse(!is.na(mother_prepregn_bmi_kg_m2), mother_prepregn_bmi_kg_m2,
+                                                           ifelse(is.na(mother_prepregn_bmi_kg_m2), mother_birthcard_earliest_mentioned_bmi_kg_m2, NA)))
+linkage_preBMI_birthcards$mother_prepregbirthcards_bmi_kg_m2 <- round(linkage_preBMI_birthcards$mother_prepregbirthcards_bmi_kg_m2, digits = 2)
+
+#QC:
+test <- linkage_preBMI_birthcards %>% select(
+        next_id_mother, mother_prepregn_bmi_kg_m2, mother_birthcard_earliest_mentioned_bmi_kg_m2, mother_prepregbirthcards_bmi_kg_m2)  
+rm(test, preBMI_outlier)
+
+linkage_preBMI_birthcards$mother_prepregn_bmi_kg_m2 <- NULL
+linkage_preBMI_birthcards$mother_birthcard_earliest_mentioned_bmi_kg_m2 <- NULL
+
+linkage_preBMI_birthcards <- linkage_preBMI_birthcards %>%
+        relocate(mother_prepregbirthcards_bmi_kg_m2, .before = mother_delivery_within_month_hosp)
+
+str(linkage_preBMI_birthcards, list.len=ncol(linkage_preBMI_birthcards)) #1447 102
+
+#retrospectively rename this variable
+linkage_preBMI_birthcards <- linkage_preBMI_birthcards %>% rename(
+  mother_lifelinesbirthcards_prepreg_bmi_kg_m2=mother_prepregbirthcards_bmi_kg_m2
+)
+
+#mother_birthcard_type_pregnancy and twin_pair
+preg_type <- linkage_preBMI_birthcards %>% select(
+        FAMILY, next_id_mother,sibling_number, twin_pair, mother_birthcard_type_pregnancy) %>% 
+        filter(!is.na(mother_birthcard_type_pregnancy)) %>%
+        filter(twin_pair != "no" & mother_birthcard_type_pregnancy == "single")
+#5 5
+#there are 5 mismatches - they originate from text of questionnaires and can be ignored as the main linkage file variables
+#regarding singleton and twin pregnancies will be used.
+
+preg_type <- linkage_preBMI_birthcards %>% select(
+        next_id_mother, sibling_number, twin_pair, mother_birthcard_type_pregnancy) %>% 
+        filter(!is.na(mother_birthcard_type_pregnancy)) %>%
+        filter(twin_pair == "no" & mother_birthcard_type_pregnancy == "twin")
+#0 4
+
+#thus, the linkage file is sufficient and mother_birthcard_type_pregnancy can be removed from the birthcards
+linkage_preBMI_birthcards$mother_birthcard_type_pregnancy <- NULL
+rm(preg_type)
+
+#NOTE: These filters were retrospectively removed as it wasn't efficient to maintain them given the merging of variables from different questionnaires
+#generate the filter for delivery and birth phenotypes
+#select phenotypes of interest
+#check_df <- linkage_preBMI_birthcards %>% select(mother_delivery_within_month_hosp:infant_misc_sex)
+#identify rows where all values are missing
+#check_df$complete_row <- ifelse(rowSums(is.na(check_df))==ncol(check_df), 0, 1)
+#table(check_df$complete_row, useNA='ifany')
+#0   1 
+#448 999 
+#run a QC
+#test <- check_df %>% filter (
+#  complete_row==0
+#)
+#summary(test)#all variables have 448 NAs
+
+#linkage_preBMI_birthcards$mother_infant_preg_del_fil <- check_df$complete_row
+#QC after merge
+#test <- linkage_preBMI_birthcards %>% filter (
+#  mother_infant_preg_del_fil==0
+#)
+#summary(test)
+#all birth and delivery related variables have 448 NAs
+#rm(test, check_df)
+
+#linkage_preBMI_birthcards <- linkage_preBMI_birthcards %>%
+#  relocate(mother_infant_preg_del_fil, .before = mother_delivery_within_month_hosp)
+
+str(linkage_preBMI_birthcards, list.len=ncol(linkage_preBMI_birthcards))
+summary(linkage_preBMI_birthcards)
+
+#retrospectively add blood group data to birthcards
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+mother_bloodgroup <- read.delim("NEXT_ABO_blood_groups_cleaned_detailed_genotypes_n658.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_bloodgroup)
+#658 3
+
+mother_bloodgroup <- mother_bloodgroup %>% rename(
+  next_id_mother = NEXT_ID,
+  mother_genetics_blood_group = genetics_blood_group,
+  mother_genetics_blood_group_genotype = genetics_blood_group_genotype)
+
+#as blood groups only need to be generated once for a person, mothers with second pregnancies should have duplicated data
+mother_bloodgroup_secondpreg <- mother_bloodgroup %>%
+  mutate(next_id_mother = paste0(next_id_mother, "_2"))
+mother_bloodgroup_secondpreg_linked <- mother_bloodgroup_secondpreg[mother_bloodgroup_secondpreg$next_id_mother %in% linkage$next_id_mother, ]
+#40 3
+
+mother_bloodgroup_all <- rbind(mother_bloodgroup, mother_bloodgroup_secondpreg_linked)
+#698  3
+
+#linkage_preBMI_birthcards <- left(linkage_preBMI_birthcards, mother_bloodgroup_all)
+#1641 103
+
+#194 (1641-1447) mothers were not assigned to the linkage file
+#investigate further
+#mismatch <- linkage_preBMI_birthcards %>% 
+#  filter(is.na(infant_relations))
+#194  103
+#summary(mismatch)
+#it seems as if these 194 participants are infant ids
+#match_result <- mismatch %>%
+#  mutate(match = mismatch$next_id_mother %in% linkage$next_id_infant)
+#table(match_result$match)
+#FALSE  TRUE 
+#34   160
+
+#34 ids could not be matched to infants
+#match_result <- match_result %>%
+#  filter(match=="FALSE")
+#match_result$next_id_mother
+#these seem to be the next_ids of the partner
+
+#match_result <- match_result %>%
+#  mutate(match_other = match_result$next_id_mother %in% linkage$next_id_partner)
+#table(match_result$match_other)
+#all 34 next_ids belong to the father
+
+#thus, redo the joining of the data, but do a left join of the genetics data to the questionnaire data
+linkage_preBMI_birthcards <- left_join(linkage_preBMI_birthcards, mother_bloodgroup_all) #Joining with `by = join_by(next_id_mother)
+#1447 103
+
+#investigate correlation between the blood groups of the birth cards and the blood groups of the genetics data
+table(linkage_preBMI_birthcards$mother_birthcard_blood_group,
+      linkage_preBMI_birthcards$mother_genetics_blood_group)
+#    A  AB   B   O [genetics]
+#A  119   0   0   2
+#AB   0   6   1   0
+#B    0   0  26   1
+#O    2   0   1 122
+
+#blood groups are very well correlated
+#complement the genetics data with the birthcard data where missing
+table(linkage_preBMI_birthcards$mother_genetics_blood_group, useNA="ifany")
+table(linkage_preBMI_birthcards$mother_birthcard_blood_group, useNA="ifany")
+
+linkage_preBMI_birthcards$mother_genetics_blood_group[is.na(linkage_preBMI_birthcards$mother_genetics_blood_group) &
+                                                        linkage_preBMI_birthcards$mother_birthcard_blood_group=="A"] <- "A"
+linkage_preBMI_birthcards$mother_genetics_blood_group[is.na(linkage_preBMI_birthcards$mother_genetics_blood_group) &
+                                                        linkage_preBMI_birthcards$mother_birthcard_blood_group=="AB"] <- "AB"
+linkage_preBMI_birthcards$mother_genetics_blood_group[is.na(linkage_preBMI_birthcards$mother_genetics_blood_group) &
+                                                        linkage_preBMI_birthcards$mother_birthcard_blood_group=="B"] <- "B"
+linkage_preBMI_birthcards$mother_genetics_blood_group[is.na(linkage_preBMI_birthcards$mother_genetics_blood_group) &
+                                                        linkage_preBMI_birthcards$mother_birthcard_blood_group=="O"] <- "O"
+
+linkage_preBMI_birthcards <- linkage_preBMI_birthcards %>% rename(mother_geneticsbirthcard_blood_group=mother_genetics_blood_group)
+linkage_preBMI_birthcards$mother_birthcard_blood_group <- NULL
+
+linkage_preBMI_birthcards <- linkage_preBMI_birthcards %>% relocate(mother_geneticsbirthcard_blood_group, .before = mother_birthcard_rhesus_d_factor)
+linkage_preBMI_birthcards <- linkage_preBMI_birthcards %>% relocate(mother_genetics_blood_group_genotype, .after = mother_geneticsbirthcard_blood_group)
+
+str(linkage_preBMI_birthcards, list.len=ncol(linkage_preBMI_birthcards))
+
+#retrospectively update the birthcard medications
+#NOTE: infant_birthcard_med_antibiotics_T195_J01CA_B was not made longitudinal as we are interested in looking at it cross-sectionally,
+#i.e. if antibiotics at birth are associated with microbiome composition changes throughout the first year of life
+
+#update the following birthcard medications and format longitudinally for M1 and M3 time points (to coincide with mother medication questionnaire)
+mother_med <- linkage_preBMI_birthcards %>%
+  select(c(next_id_mother, 
+           mother_birthcard_med_afterdel_oxytocin_ana_H01BB,
+           mother_birthcard_med_afterdel_paracetamol_N02BE01,
+           mother_birthcard_med_afterdel_iron_preparations_B03A,
+           mother_birthcard_med_afterdel_uterotonics_G02A)) %>%
+  rename(mother_birthcard_med_oxytocin_ana_H01BB_B=mother_birthcard_med_afterdel_oxytocin_ana_H01BB,
+         mother_birthcard_med_paracetamol_N02BE01_B=mother_birthcard_med_afterdel_paracetamol_N02BE01,
+         mother_birthcard_med_iron_preparations_B03A_B=mother_birthcard_med_afterdel_iron_preparations_B03A,
+         mother_birthcard_med_uterotonics_G02A_B=mother_birthcard_med_afterdel_uterotonics_G02A)
+str(mother_med)
+
+mother_med$mother_birthcard_med_oxytocin_ana_H01BB_M3 <- mother_med$mother_birthcard_med_oxytocin_ana_H01BB_B
+mother_med$mother_birthcard_med_paracetamol_N02BE01_M3 <- mother_med$mother_birthcard_med_paracetamol_N02BE01_B
+mother_med$mother_birthcard_med_iron_preparations_B03A_M3 <- mother_med$mother_birthcard_med_iron_preparations_B03A_B
+mother_med$mother_birthcard_med_uterotonics_G02A_M3 <- mother_med$mother_birthcard_med_uterotonics_G02A_B
+
+summary(mother_med)
+
+mother_med <- distinct(mother_med, next_id_mother, .keep_all = TRUE) #as data for mothers with twins get duplicated when merging to the linkage file
+#1414 9
+str(mother_med)
+
+#make into longitudinal design
+#make dataframe long
+mother_med_long<-melt(mother_med, id.vars=c("next_id_mother")) #11312 3
+mother_med_long$timepoint <- mother_med_long$variable
+mother_med_long$timepoint<-gsub(".*_", "", mother_med_long$timepoint)
+mother_med_long$variable<-gsub("_B", "", mother_med_long$variable)
+mother_med_long$variable<-gsub("_M3", "", mother_med_long$variable)
+mother_med_long$SAMPLE_ID<-paste0(mother_med_long$next_id_mother, "_", mother_med_long$timepoint)
+mother_med_long<-mother_med_long[,c(1,5,4,2,3)]
+mother_med_wide <- dcast(mother_med_long, next_id_mother + SAMPLE_ID +timepoint ~ variable, value.var="value")
+#2828 7
+
+str(mother_med_wide)
+mother_med_wide <- mother_med_wide %>% mutate_if(is.character, as.factor)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_birthcard_medication/")
+write.table(mother_med_wide, "2023_05_18_mother_med_birthcards_RE_FORMATTED.txt", sep="\t", row.names=F, quote = F)
+
+linkage_preBMI_birthcards$mother_birthcard_med_afterdel_oxytocin_ana_H01BB <- NULL
+linkage_preBMI_birthcards$mother_birthcard_med_afterdel_paracetamol_N02BE01 <- NULL
+linkage_preBMI_birthcards$mother_birthcard_med_afterdel_iron_preparations_B03A <- NULL
+linkage_preBMI_birthcards$mother_birthcard_med_afterdel_uterotonics_G02A <- NULL
+
+str(linkage_preBMI_birthcards, list.len=ncol(linkage_preBMI_birthcards))
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+write.table(linkage_preBMI_birthcards, "2023_04_25_linkage_preBMI_birthcards.txt", sep="\t", row.names=F, quote = F)
+#1447 98 
+#linkage_preBMI_birthcards <- read.delim("2023_04_25_linkage_preBMI_birthcards.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+rm(birthcards, birthcards_final, linkage_preBMI,
+   mother_bloodgroup, mother_bloodgroup_secondpreg, mother_bloodgroup_secondpreg_linked, mother_bloodgroup_all,
+   mother_med, mother_med_long, mother_med_wide)
+
+        ##### =========================== 3. MOTHER EDUCATION =========================== #####
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+mother_edu <- read.delim("mother_edu_income_p18.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#966 5
+str(mother_edu)
+
+mother_edu <- mother_edu %>% 
+        select("next_id_mother", "mother_education_numeric_p18", "mother_net_income_numeric_p18") %>%
+        rename(mother_education_p18=mother_education_numeric_p18,
+               mother_income_net_p18=mother_net_income_numeric_p18)
+str(mother_edu)  
+summary(mother_edu)
+#of 966 mothers, education and income data is available for 717 and 669 mothers, respectively
+
+linkage_preBMI_BC_edu <- full_join(linkage_preBMI_birthcards, mother_edu, by="next_id_mother")
+#1448 100
+#an additional mother with no linkage file information was added?
+
+add_mother <- linkage_preBMI_BC_edu %>% filter(
+        is.na(sibling_number)
+)
+#LLNEXT010045_2: after contact with Soesma, we established that this NEXT_ID was incorrectly assigned
+#and should not have an _2; Soesma has corrected it on the Molgenis system.
+#This NEXT_ID comes from a M11 questionnaire of the mother, and thus, for all mother questionnaires
+#will need to be removed after each merge, however, data, if available should be concatenated with
+#the LLNEXT010045 data first.
+
+linkage_preBMI_BC_edu <- linkage_preBMI_BC_edu %>% filter (
+  next_id_mother != "LLNEXT010045_2")
+#1447 100
+
+rm(add_mother)
+str(linkage_preBMI_BC_edu, list.len=ncol(linkage_preBMI_BC_edu))
+#1447 100
+
+rm(linkage_preBMI_birthcards, mother_edu)
+
+        ##### =========================== 4. MOTHER HEALTH =========================== #####
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+mother_health <- read.delim("maternal_health_final_27_09_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#966 49
+str(mother_health)
+
+#mother id
+mother_health$next_id_mother <- str_pad(mother_health$next_id_mother, 6, pad = "0")
+mother_health$next_id_mother<-as.factor(sub("^","LLNEXT",mother_health$next_id_mother)) #966 unique ids
+table(mother_health$next_id_mother, useNA="ifany") #no missings
+length(unique(mother_health$next_id_mother[duplicated(mother_health$next_id_mother)])) #0 duplicated mothers
+
+#update the column names to indicate the origin of the questionnaires
+colnames(mother_health)[-1] <- gsub("^mother_", "mother_health_", colnames(mother_health)[-1])
+
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_pregnancy_health/")
+#colnames_mother_health <- colnames(mother_health)
+#write.table(colnames_mother_health, "2023_04_26_mother_health_colnames.txt", sep="\t", row.names=F, quote = F)
+#rm(colnames_mother_health)
+
+summary(mother_health)
+
+  #update variable: mother STDs
+mother_std <- mother_health %>%
+  select(c(mother_health_prior_pregnancy_std_P18,
+           mother_health_chlam_P18,
+           mother_health_herpes_P18)) %>%
+  filter(is.na(mother_health_prior_pregnancy_std_P18) & !is.na(mother_health_chlam_P18) | 
+           is.na(mother_health_prior_pregnancy_std_P18) & !is.na(mother_health_herpes_P18))
+#0  3
+#mother_health_prior_pregnancy_std_P18 included answers from both chlam and herpes
+
+mother_std <- mother_health %>%
+  select(c(mother_health_prior_pregnancy_std_P18,
+           mother_health_chlam_P18,
+           mother_health_herpes_P18)) %>%
+  filter(mother_health_prior_pregnancy_std_P18=="no" & is.na(mother_health_chlam_P18) | 
+          mother_health_prior_pregnancy_std_P18=="no" & is.na(mother_health_herpes_P18))
+#chlam and herpes NAs are already inclusive of 'no' answers from mother_health_prior_pregnancy_std_P18 variable
+rm(mother_std)
+
+#rename variables to indicate that they are nested
+mother_health <- mother_health %>% rename(mother_health_prior_pregnancy_std_chlam_P18=mother_health_chlam_P18,
+                                          mother_health_prior_pregnancy_std_herpes_P18=mother_health_herpes_P18)
+
+    #update variable: generate a main question for the pregnancy complaints
+mother_health <- mother_health %>%
+  mutate(mother_health_preg_complaint_P18 = ifelse(!is.na(mother_health_preg_hyperemesis_gravidarum_P18), "yes",
+                                                           ifelse(!is.na(mother_health_preg_influenza_resp_inf_P18), "yes",
+                                                                  ifelse(!is.na(mother_health_preg_gastroenteritis_P18), "yes",
+                                                                         ifelse(!is.na(mother_health_preg_uti_P18), "yes",
+                                                                                ifelse(!is.na(mother_health_preg_vaginal_yeast_inf_P18), "yes", "no")
+                                                                                )
+                                                                         )
+                                                                  )
+                                                           )
+)
+
+#QC of mother complaints
+mother_complaints <- mother_health %>% 
+  select(c(mother_health_preg_complaint_P18,
+           mother_health_preg_hyperemesis_gravidarum_P18,
+           mother_health_preg_influenza_resp_inf_P18,
+           mother_health_preg_gastroenteritis_P18,
+           mother_health_preg_uti_P18,
+           mother_health_preg_vaginal_yeast_inf_P18))
+#recoded correctly
+rm(mother_complaints)
+
+mother_health <- mother_health %>%
+  relocate(mother_health_preg_complaint_P18, .before = mother_health_preg_hyperemesis_gravidarum_P18)
+
+#rename variables to indicate that they are nested
+mother_health <- mother_health %>% 
+  rename(mother_health_preg_complaint_hyperemesis_gravidarum_P18=mother_health_preg_hyperemesis_gravidarum_P18,
+         mother_health_preg_complaint_influenza_resp_inf_P18=mother_health_preg_influenza_resp_inf_P18,
+         mother_health_preg_complaint_gastroenteritis_P18=mother_health_preg_gastroenteritis_P18,
+         mother_health_preg_complaint_uti_P18=mother_health_preg_uti_P18,
+         mother_health_preg_complant_vaginal_yeast_inf_P18=mother_health_preg_vaginal_yeast_inf_P18)
+str(mother_health)
+
+    #update variable: weight related variables rename to include unit of kg
+mother_health <- mother_health %>%
+  rename(mother_health_weight_prior_preg_kg_P18=mother_health_weight_prior_preg_P18,
+         mother_health_weight_current_kg_P18=mother_health_weight_current_P18,)
+str(mother_health)
+
+    #update variable: mother drug use one year before pregnancy
+mother_drug_use <- mother_health %>%
+  select(c(mother_health_drug_use_one_year_before_pregnancy_P18,
+           mother_health_drug_use_one_year_before_pregnancy_weed_cannabis_hash_P18,
+           mother_health_drug_use_one_year_before_pregnancy_xtc_P18)) %>%
+  filter(is.na(mother_health_drug_use_one_year_before_pregnancy_P18) & !is.na(mother_health_drug_use_one_year_before_pregnancy_weed_cannabis_hash_P18) | 
+           is.na(mother_health_drug_use_one_year_before_pregnancy_P18) & !is.na(mother_health_drug_use_one_year_before_pregnancy_xtc_P18))
+#0  3
+#mother_health_drug_use_one_year_before_pregnancy_P18 included answers from both weed and xtc use
+
+mother_drug_use <- mother_health %>%
+  select(c(mother_health_drug_use_one_year_before_pregnancy_P18,
+           mother_health_drug_use_one_year_before_pregnancy_weed_cannabis_hash_P18,
+           mother_health_drug_use_one_year_before_pregnancy_xtc_P18)) %>%
+  filter(mother_health_drug_use_one_year_before_pregnancy_P18=="no" & is.na(mother_health_drug_use_one_year_before_pregnancy_weed_cannabis_hash_P18) | 
+           mother_health_drug_use_one_year_before_pregnancy_P18=="no" & is.na(mother_health_drug_use_one_year_before_pregnancy_xtc_P18))
+#679  3
+
+#update weed and xtc NA's to "no" based on mother_health_drug_use_one_year_before_pregnancy_P18
+table(mother_health$mother_health_drug_use_one_year_before_pregnancy_weed_cannabis_hash_P18, useNA = "ifany")
+#no  yes <NA> 
+# 16   22  928 
+
+mother_health$mother_health_drug_use_one_year_before_pregnancy_weed_cannabis_hash_P18[
+  is.na(mother_health$mother_health_drug_use_one_year_before_pregnancy_weed_cannabis_hash_P18) &
+  mother_health$mother_health_drug_use_one_year_before_pregnancy_P18=="no"] <- "no"
+table(mother_health$mother_health_drug_use_one_year_before_pregnancy_weed_cannabis_hash_P18, useNA = "ifany")
+#no  yes <NA> 
+#695   22  249
+
+table(mother_health$mother_health_drug_use_one_year_before_pregnancy_xtc_P18, useNA = "ifany")
+#no  yes <NA> 
+# 16   22  928 
+
+mother_health$mother_health_drug_use_one_year_before_pregnancy_xtc_P18[
+  is.na(mother_health$mother_health_drug_use_one_year_before_pregnancy_xtc_P18) &
+    mother_health$mother_health_drug_use_one_year_before_pregnancy_P18=="no"] <- "no"
+table(mother_health$mother_health_drug_use_one_year_before_pregnancy_xtc_P18, useNA = "ifany")
+#no  yes <NA> 
+#705   12  249
+
+rm(mother_drug_use)
+
+    #update variable: mother dental health
+table(mother_health$mother_health_dental_health_P18, useNA="ifany")
+mother_health$mother_health_dental_health_P18[mother_health$mother_health_dental_health_P18=="6_do_not_know"] <- NA #2 participants
+mother_health$mother_health_dental_health_P18 <- as.factor(as.character(mother_health$mother_health_dental_health_P18))
+
+  #make headings lower case for consistency (time points are a mixture of lower and upper)
+colnames(mother_health) <- tolower(colnames(mother_health))
+colnames(mother_health)
+
+str(mother_health)
+#966  50
+
+    #merge with linkage file and clean gravida and smoking related phenotypes
+linkage_preBMI_BC_edu_mhealth <- full_join(linkage_preBMI_BC_edu, mother_health) #joined by next_id_mother
+#1448 151
+
+add_mother <- linkage_preBMI_BC_edu_mhealth %>% filter(
+  is.na(sibling_number)
+)
+summary(add_mother)
+#again, LLNEXT010045_2 was added - remove as discussed above (all data are missing for mother health questionnaire (as expected))
+
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>% filter (
+  next_id_mother != "LLNEXT010045_2")
+#1447 151
+
+rm(add_mother)
+linkage_preBMI_BC_edu_mhealth$next_id_mother <- as.factor(as.character(linkage_preBMI_BC_edu_mhealth$next_id_mother))
+
+  #investigate concordance between birthcard/delivery phenotypes of mother_birthcard_smoking_during_pregnancy and mother_health
+  #mother_health_smoking_now_or_during_first_trimester_p18
+table(linkage_preBMI_BC_edu_mhealth$mother_birthcard_smoking_during_pregnancy, linkage_preBMI_BC_edu_mhealth$mother_health_smoking_now_or_during_first_trimester_p18)
+#        no yes
+#no      206   3
+#stopped  11   1
+#yes       0   3
+
+mother_smoking <- linkage_preBMI_BC_edu_mhealth %>% select(c(
+  mother_birthcard_smoking_during_pregnancy,
+  mother_health_smoking_now_or_during_first_trimester_p18
+))
+rm(mother_smoking)
+
+#update mother_birthcard_smoking_during_pregnancy with mother_health_smoking_now_or_during_first_trimester_p18, where
+#in the birthcards, 3 mothers said that they were not smoking but in the questionnaire, they indicated that they were
+table(linkage_preBMI_BC_edu_mhealth$mother_birthcard_smoking_during_pregnancy, useNA = "ifany")
+#no stopped     yes    <NA> 
+#292      17       5    1133
+
+linkage_preBMI_BC_edu_mhealth$mother_birthcard_smoking_during_pregnancy[
+  linkage_preBMI_BC_edu_mhealth$mother_birthcard_smoking_during_pregnancy=="no" &
+    linkage_preBMI_BC_edu_mhealth$mother_health_smoking_now_or_during_first_trimester_p18=="yes"] <- "yes"
+
+linkage_preBMI_BC_edu_mhealth$mother_birthcard_smoking_during_pregnancy[
+  is.na(linkage_preBMI_BC_edu_mhealth$mother_birthcard_smoking_during_pregnancy) &
+    linkage_preBMI_BC_edu_mhealth$mother_health_smoking_now_or_during_first_trimester_p18=="yes"] <- "yes"
+
+linkage_preBMI_BC_edu_mhealth$mother_birthcard_smoking_during_pregnancy[
+  is.na(linkage_preBMI_BC_edu_mhealth$mother_birthcard_smoking_during_pregnancy) &
+    linkage_preBMI_BC_edu_mhealth$mother_health_smoking_now_or_during_first_trimester_p18=="no"] <- "no"
+
+table(linkage_preBMI_BC_edu_mhealth$mother_birthcard_smoking_during_pregnancy, useNA = "ifany")
+#no stopped     yes    <NA> 
+#789      17      22     619
+
+#rename birthcard variable and remove questionnaire variable
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>%
+  rename(mother_birthcardhealth_smoking_during_pregnancy=mother_birthcard_smoking_during_pregnancy)
+
+linkage_preBMI_BC_edu_mhealth$mother_health_smoking_now_or_during_first_trimester_p18 <- NULL
+
+    #investigate correlation between birthcard/delivery phenotypes of mother_birthcard_gravidity and mother_health
+    #mother_health_previous_preg_p18 and mother_health_previous_preg_yes_freq_p18
+table(linkage_preBMI_BC_edu_mhealth$mother_birthcard_gravidity, useNA="ifany")
+table(linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_p18, useNA="ifany")
+table(linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_yes_freq_p18, useNA="ifany")
+
+grav_corr <- cor(linkage_preBMI_BC_edu_mhealth$mother_birthcard_gravidity, 
+                 linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_yes_freq_p18, use="complete.obs")
+#0.8997458
+
+linkage_preBMI_BC_edu_mhealth %>%
+  filter(!is.na(mother_birthcard_gravidity) & !is.na(mother_health_previous_preg_yes_freq_p18)) %>%
+  ggplot(aes(x = mother_birthcard_gravidity, y = mother_health_previous_preg_yes_freq_p18)) + 
+  geom_point() +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Correlation between mother_birthcard_gravidity and mother_health_previous_preg_yes_freq_p18") +
+  ggtitle(paste0("Correlation: ", round(grav_corr, 2)))
+dev.off()
+
+mother_grav <- linkage_preBMI_BC_edu_mhealth %>%
+  select(c(mother_birthcard_gravidity,mother_health_previous_preg_yes_freq_p18)) %>%
+  filter(!is.na(mother_birthcard_gravidity) & !is.na(mother_health_previous_preg_yes_freq_p18))
+#289 overlapping observations
+
+#the question from the questionnaire asked the following: If you have ever been pregnant before, how often were you pregnant?
+#thus, add 1 to every value to include the current pregnancy and investigate the correlation again
+linkage_preBMI_BC_edu_mhealth$test <- linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_yes_freq_p18 + 1
+table(linkage_preBMI_BC_edu_mhealth$test)
+
+grav_corr <- cor(linkage_preBMI_BC_edu_mhealth$mother_birthcard_gravidity, 
+                 linkage_preBMI_BC_edu_mhealth$test, use="complete.obs")
+#0.8997458
+#correlations are exactly the same
+
+mother_grav <- linkage_preBMI_BC_edu_mhealth %>%
+  select(c(mother_birthcard_gravidity,mother_health_previous_preg_yes_freq_p18, test)) %>%
+  filter(!is.na(mother_birthcard_gravidity) & !is.na(mother_health_previous_preg_yes_freq_p18))
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_pregnancy_health/")
+pdf(file = "2023_04_26_correlation_gravidity_birthcards_mother_health_bmi.pdf", useDingbats = F, onefile = T, width = 20)
+mother_grav %>%
+  ggplot(aes(x = mother_birthcard_gravidity, y = mother_health_previous_preg_yes_freq_p18)) + 
+  geom_point() +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Correlation between mother_birthcard_gravidity and mother_health_previous_preg_yes_freq_p18") +
+  ggtitle(paste0("Correlation: ", round(grav_corr, 2)))
+
+mother_grav %>%
+  ggplot(aes(x = mother_birthcard_gravidity, y = test)) + 
+  geom_point() +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Correlation between mother_birthcard_gravidity and addition of 1 to previous variable") +
+  ggtitle(paste0("Correlation: ", round(grav_corr, 2)))
+dev.off()
+
+cor_test_original <- cor.test(mother_grav$mother_birthcard_gravidity, mother_grav$mother_health_previous_preg_yes_freq_p18)
+cor_test_original$p.value #2.339726e-105
+cor_test_update <- cor.test(mother_grav$mother_birthcard_gravidity, mother_grav$test)
+cor_test_update$p.value #2.339726e-105
+table(linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_yes_freq_p18, linkage_preBMI_BC_edu_mhealth$test)
+
+table(linkage_preBMI_BC_edu_mhealth$mother_birthcard_gravidity, linkage_preBMI_BC_edu_mhealth$test)
+table(linkage_preBMI_BC_edu_mhealth$mother_birthcard_gravidity, linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_yes_freq_p18)
+
+#by observation, it is clear that the test version is indeed better correlated to the birthcards than the raw values (which is expected given 
+#how the question was framed), thus, the test version will be used and will be complemented by the birthcard data
+
+#complement the questionnaire data with the birthcard data
+table(linkage_preBMI_BC_edu_mhealth$test, useNA="ifany")
+#2    3    4    5    6    7    8   11 <NA> 
+#226  116   56   21    9    3    4    1 1011 
+linkage_preBMI_BC_edu_mhealth$test[is.na(linkage_preBMI_BC_edu_mhealth$test)] <- linkage_preBMI_BC_edu_mhealth$mother_birthcard_gravidity[is.na(linkage_preBMI_BC_edu_mhealth$test)]
+table(linkage_preBMI_BC_edu_mhealth$test, useNA="ifany")
+#0    1    2    3    4    5    6    7    8    9   11 <NA> 
+#1  252  297  160   73   27   11    3    4    2    1  616
+
+#recode 0 to 1 as the mother is currently pregnant
+linkage_preBMI_BC_edu_mhealth$test[linkage_preBMI_BC_edu_mhealth$test==0] <- 1
+
+#update mother_health_previous_preg_p18
+table(linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_p18, useNA="ifany")
+#no  yes <NA> 
+#301  437  709
+linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_p18[linkage_preBMI_BC_edu_mhealth$test>1] <- "yes"
+linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_p18[
+  is.na(linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_p18) &
+    linkage_preBMI_BC_edu_mhealth$test==1] <- "no"
+#no  yes <NA> 
+#365  578  504
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>%
+  rename(mother_birthcardhealth_previous_preg_p18=mother_health_previous_preg_p18)
+
+#rename variable and relocate it in the dataframe accordingly, and remove variables no longer required
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>% 
+  rename(mother_birthcardhealth_gravidity=test) %>%
+  relocate(mother_birthcardhealth_gravidity, .before = mother_birthcard_water_spontaneously_broken)
+
+linkage_preBMI_BC_edu_mhealth$mother_birthcard_gravidity <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_yes_freq_p18 <- NULL
+#1447  149
+
+str(linkage_preBMI_BC_edu_mhealth, list.len=ncol(linkage_preBMI_BC_edu_mhealth))
+
+#retrospectively update the maternal complaints and smoking variables
+linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_p18 <- NULL #not necessary and too broad
+
+#investigate P18 and birthcard pregnancy complaints
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>%
+  rename(mother_health_preg_complaint_vaginal_yeast_inf_p18=mother_health_preg_complant_vaginal_yeast_inf_p18)
+
+preg_complaints <- linkage_preBMI_BC_edu_mhealth %>% select(
+  c(next_id_mother,
+    mother_health_preg_complaint_hyperemesis_gravidarum_p18,
+    mother_deliverybirthcard_preg_comp_hyperemesis_gravidarum,
+    mother_health_preg_complaint_influenza_resp_inf_p18,
+    mother_delivery_preg_comp_flu_respiratory_tract_infection,
+    mother_health_preg_complaint_gastroenteritis_p18,
+    mother_delivery_preg_comp_GI_infection,
+    mother_health_preg_complaint_uti_p18,
+    mother_delivery_preg_comp_urinary_tract_infection,
+    mother_health_preg_complaint_vaginal_yeast_inf_p18,
+    mother_delivery_preg_comp_vaginal_fungal_infection))
+
+for (i in 1:ncol(preg_complaints)) {
+  preg_complaints[,i] <- as.numeric(preg_complaints[,i])
+}
+str(preg_complaints)
+
+hyp_grav_corr <- cor(preg_complaints$mother_health_preg_complaint_hyperemesis_gravidarum_p18,
+                     preg_complaints$mother_deliverybirthcard_preg_comp_hyperemesis_gravidarum, use="complete.obs")
+#0.01244152
+
+table(linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_hyperemesis_gravidarum_p18,
+      linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcard_preg_comp_hyperemesis_gravidarum)
+#    no yes
+#no  473  11
+#yes 143   4
+#variation in severe morning sickness
+
+flu_corr <- cor(preg_complaints$mother_health_preg_complaint_influenza_resp_inf_p18,
+                     preg_complaints$mother_delivery_preg_comp_flu_respiratory_tract_infection, use="complete.obs")
+#0.01619101
+
+table(linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_influenza_resp_inf_p18,
+      linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_flu_respiratory_tract_infection)
+#    no yes
+#no  341  19
+#yes 107   7
+#variation in when flu occurs
+
+gi_corr <- cor(preg_complaints$mother_health_preg_complaint_gastroenteritis_p18,
+                preg_complaints$mother_delivery_preg_comp_GI_infection, use="complete.obs")
+#0.1583231
+
+table(linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_gastroenteritis_p18,
+      linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_GI_infection)
+#    no yes
+#no  346  6
+#yes 111   10
+#variation in GI infections
+
+uti_corr <- cor(preg_complaints$mother_health_preg_complaint_uti_p18,
+               preg_complaints$mother_delivery_preg_comp_urinary_tract_infection, use="complete.obs")
+#-0.01596665
+
+table(linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_uti_p18,
+      linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_urinary_tract_infection)
+#    no yes
+#no  327  19
+#yes 122   6
+#variation in UTIs (even a negative correlation)
+
+vag_yeast_corr <- cor(preg_complaints$mother_health_preg_complaint_vaginal_yeast_inf_p18,
+                preg_complaints$mother_delivery_preg_comp_vaginal_fungal_infection, use="complete.obs")
+#0.07834184
+
+table(linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_vaginal_yeast_inf_p18,
+      linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_vaginal_fungal_infection)
+    #no yes
+#no  303  30
+#yes 120  20
+#variation in UTIs (even a negative correlation)
+
+#generate cross-sectional (any complaint) and longitudinal variables
+  #longitudinal variables
+#NOTE: mother_deliverybirthcard_preg_comp_hyperemesis_gravidarum already includes cases throughout pregnancy as the M1 delivery questionnaire
+#was merged with birthcard information during cleaning. Thus, only a cross-sectional variable can be made
+
+#P18 questionnaire phrased as follows: During your current pregnancy, did you have the following complaints? 
+#M1 delivery questionnaire phrased as follows:from the 20th week of pregnancy until delivery did you have the following complaints?
+
+preg_complaints <- linkage_preBMI_BC_edu_mhealth %>% select(c(
+  next_id_mother,
+  mother_health_preg_complaint_influenza_resp_inf_p18,
+  mother_delivery_preg_comp_flu_respiratory_tract_infection,
+  mother_health_preg_complaint_gastroenteritis_p18,
+  mother_delivery_preg_comp_GI_infection,
+  mother_health_preg_complaint_uti_p18,
+  mother_delivery_preg_comp_urinary_tract_infection,
+  mother_health_preg_complaint_vaginal_yeast_inf_p18,
+  mother_delivery_preg_comp_vaginal_fungal_infection)) %>%
+  rename(
+    mother_health_preg_complaint_flu_rti_P12 = mother_health_preg_complaint_influenza_resp_inf_p18,
+    mother_health_preg_complaint_flu_rti_P28 = mother_delivery_preg_comp_flu_respiratory_tract_infection,
+    mother_health_preg_complaint_gastroenteritis_P12 = mother_health_preg_complaint_gastroenteritis_p18,
+    mother_health_preg_complaint_gastroenteritis_P28 = mother_delivery_preg_comp_GI_infection,
+    mother_health_preg_complaint_uti_P12 = mother_health_preg_complaint_uti_p18,
+    mother_health_preg_complaint_uti_P28 = mother_delivery_preg_comp_urinary_tract_infection,
+    mother_health_preg_complaint_vaginal_fungal_inf_P12 = mother_health_preg_complaint_vaginal_yeast_inf_p18,
+    mother_health_preg_complaint_vaginal_fungal_inf_P28 = mother_delivery_preg_comp_vaginal_fungal_infection) %>%
+  mutate(mother_health_preg_complaint_flu_rti_B = mother_health_preg_complaint_flu_rti_P28,
+         mother_health_preg_complaint_gastroenteritis_B = mother_health_preg_complaint_gastroenteritis_P28,
+         mother_health_preg_complaint_uti_B = mother_health_preg_complaint_uti_P28,
+         mother_health_preg_complaint_vaginal_fungal_inf_B = mother_health_preg_complaint_vaginal_fungal_inf_P28) %>%
+  relocate(mother_health_preg_complaint_flu_rti_B, .after = mother_health_preg_complaint_flu_rti_P28) %>%
+  relocate(mother_health_preg_complaint_gastroenteritis_B, .after = mother_health_preg_complaint_gastroenteritis_P28) %>%
+  relocate(mother_health_preg_complaint_uti_B, .after = mother_health_preg_complaint_uti_P28) %>%
+  relocate(mother_health_preg_complaint_vaginal_fungal_inf_B, .after = mother_health_preg_complaint_vaginal_fungal_inf_P28)
+str(preg_complaints)
+summary(preg_complaints)
+
+preg_complaints <- distinct(preg_complaints, next_id_mother, .keep_all = TRUE) #as data for mothers with twins get duplicated when merging to the linkage file
+#1414 13
+str(preg_complaints)
+
+#make into longitudinal design
+#make dataframe long
+preg_complaints_long<-melt(preg_complaints, id.vars=c("next_id_mother")) #16968 3
+preg_complaints_long$timepoint <- preg_complaints_long$variable
+preg_complaints_long$timepoint<-gsub(".*_", "", preg_complaints_long$timepoint)
+preg_complaints_long$variable<-gsub("_P12", "", preg_complaints_long$variable)
+preg_complaints_long$variable<-gsub("_P28", "", preg_complaints_long$variable)
+preg_complaints_long$variable<-gsub("_B", "", preg_complaints_long$variable)
+preg_complaints_long$SAMPLE_ID<-paste0(preg_complaints_long$next_id_mother, "_", preg_complaints_long$timepoint)
+preg_complaints_long<-preg_complaints_long[,c(1,5,4,2,3)]
+preg_complaints_wide <- dcast(preg_complaints_long, next_id_mother + SAMPLE_ID +timepoint ~ variable, value.var="value")
+#4242 7
+
+str(preg_complaints_wide)
+preg_complaints_wide <- preg_complaints_wide %>% mutate_if(is.character, as.factor)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_pregnancy_health/")
+write.table(preg_complaints_wide, "2023_05_03_mother_pregnancy_complaints_RE_FORMATTED.txt", sep="\t", row.names=F, quote = F)
+rm(preg_complaints, preg_complaints_long, preg_complaints_wide)
+
+#make cross-sectional pregnancy complaint variables
+#mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum
+linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum <- NA
+
+linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum[
+  linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_hyperemesis_gravidarum_p18=="yes" |
+    linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcard_preg_comp_hyperemesis_gravidarum=="yes"] <- "yes"
+
+linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum[
+  is.na(linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum) &
+    linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_hyperemesis_gravidarum_p18=="no" |
+    is.na(linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum) &
+    linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcard_preg_comp_hyperemesis_gravidarum=="no"] <- "no"
+
+linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum <- as.factor(linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum)
+table(linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum)
+#no yes 
+#800 190 
+
+#mother_deliveryhealth_preg_complaint_flu_rti
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_flu_rti <- NA
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_flu_rti[
+  linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_influenza_resp_inf_p18=="yes" |
+    linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_flu_respiratory_tract_infection=="yes"] <- "yes"
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_flu_rti[
+  is.na(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_flu_rti) &
+    linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_influenza_resp_inf_p18=="no" |
+    is.na(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_flu_rti) &
+    linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_flu_respiratory_tract_infection=="no"] <- "no"
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_flu_rti <- as.factor(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_flu_rti)
+table(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_flu_rti)
+#no yes 
+#675 199 
+
+#mother_deliveryhealth_preg_complaint_gastroenteritis
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_gastroenteritis <- NA
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_gastroenteritis[
+  linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_gastroenteritis_p18=="yes" |
+    linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_GI_infection=="yes"] <- "yes" #theoretically according to the questionnaires this is also gastro-enteritis
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_gastroenteritis[
+  is.na(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_gastroenteritis) &
+    linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_gastroenteritis_p18=="no" |
+    is.na(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_gastroenteritis) &
+    linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_GI_infection=="no"] <- "no"
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_gastroenteritis <- as.factor(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_gastroenteritis)
+table(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_gastroenteritis)
+#no yes 
+#689 185 
+
+#mother_deliveryhealth_preg_complaint_uti
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_uti <- NA
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_uti[
+  linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_uti_p18=="yes" |
+    linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_urinary_tract_infection=="yes"] <- "yes"
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_uti[
+  is.na(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_uti) &
+    linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_uti_p18=="no" |
+    is.na(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_uti) &
+    linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_urinary_tract_infection=="no"] <- "no"
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_uti <- as.factor(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_uti)
+table(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_uti)
+# no yes 
+#679 196 
+
+#mother_deliveryhealth_preg_complaint_vaginal_fungal_inf
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_vaginal_fungal_inf <- NA
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_vaginal_fungal_inf[
+  linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_vaginal_yeast_inf_p18=="yes" |
+    linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_vaginal_fungal_infection=="yes"] <- "yes"
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_vaginal_fungal_inf[
+  is.na(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_vaginal_fungal_inf) &
+    linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_vaginal_yeast_inf_p18=="no" |
+    is.na(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_vaginal_fungal_inf) &
+    linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_vaginal_fungal_infection=="no"] <- "no"
+
+linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_vaginal_fungal_inf <- as.factor(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_vaginal_fungal_inf)
+table(linkage_preBMI_BC_edu_mhealth$mother_deliveryhealth_preg_complaint_vaginal_fungal_inf)
+#no yes 
+#644 231
+
+str(linkage_preBMI_BC_edu_mhealth, list.len=ncol(linkage_preBMI_BC_edu_mhealth))
+#1447 151
+
+#tidy dataframe
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>%
+  relocate(mother_deliverybirthcardhealth_preg_complaint_hyperemesis_gravidarum, .before = mother_deliverybirthcard_preg_comp_hyperemesis_gravidarum) %>%
+  relocate(mother_deliveryhealth_preg_complaint_flu_rti, .before = mother_delivery_preg_comp_flu_respiratory_tract_infection) %>%
+  relocate(mother_deliveryhealth_preg_complaint_gastroenteritis, .before = mother_delivery_preg_comp_GI_infection) %>%
+  relocate(mother_deliveryhealth_preg_complaint_uti, .before = mother_delivery_preg_comp_urinary_tract_infection) %>%
+  relocate(mother_deliveryhealth_preg_complaint_vaginal_fungal_inf, .before = mother_delivery_preg_comp_vaginal_fungal_infection)
+
+#remove pregnancy complication variables no longer required
+linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_hyperemesis_gravidarum_p18 <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_deliverybirthcard_preg_comp_hyperemesis_gravidarum <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_influenza_resp_inf_p18 <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_flu_respiratory_tract_infection <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_gastroenteritis_p18 <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_GI_infection <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_uti_p18 <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_urinary_tract_infection <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_health_preg_complaint_vaginal_yeast_inf_p18 <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_delivery_preg_comp_vaginal_fungal_infection <- NULL
+
+str(linkage_preBMI_BC_edu_mhealth, list.len=ncol(linkage_preBMI_BC_edu_mhealth))
+#1447 141
+
+#retrospectively update smoking variables to get an estimate of smoking duration
+mother_smoking <- linkage_preBMI_BC_edu_mhealth %>% select(c(
+  next_id_mother,
+  next_id_infant,
+  mother_birthcard_age_at_delivery,
+  mother_health_age_start_smoking_p18,
+  mother_health_stopped_smoking_age_p18,
+  mother_health_stopped_smoking_p18))
+
+mother_smoking_fil <- mother_smoking %>% filter(
+  is.na(mother_birthcard_age_at_delivery) &
+    mother_health_stopped_smoking_p18=="no")
+#for all mothers that did not stop, except one, the mother's age at delivery is available
+#LLNEXT111557; thus continue to derive smoking duration
+rm(mother_smoking_fil)
+
+summary(mother_smoking)
+linkage_preBMI_BC_edu_mhealth$mother_health_smoking_duration_p18 <- ifelse(linkage_preBMI_BC_edu_mhealth$mother_health_stopped_smoking_p18=="yes", linkage_preBMI_BC_edu_mhealth$mother_health_stopped_smoking_age_p18-linkage_preBMI_BC_edu_mhealth$mother_health_age_start_smoking_p18,
+                                                            ifelse(linkage_preBMI_BC_edu_mhealth$mother_health_stopped_smoking_p18=="no", linkage_preBMI_BC_edu_mhealth$mother_birthcard_age_at_delivery-linkage_preBMI_BC_edu_mhealth$mother_health_age_start_smoking_p18, NA))
+
+linkage_preBMI_BC_edu_mhealth$mother_health_smoking_duration_catg_p18 <- 
+  as.factor(ifelse(linkage_preBMI_BC_edu_mhealth$mother_health_smoking_duration_p18<6, "0_1_to_5_yrs",
+         ifelse(linkage_preBMI_BC_edu_mhealth$mother_health_smoking_duration_p18<11, "1_more_than_5_to_10_yrs",
+         ifelse(linkage_preBMI_BC_edu_mhealth$mother_health_smoking_duration_p18>10, "2_more_than_10_yrs", NA))))
+table(linkage_preBMI_BC_edu_mhealth$mother_health_smoking_duration_catg_p18, useNA="ifany")
+
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>%
+  rename(mother_health_started_smoking_age_p18=mother_health_age_start_smoking_p18)
+
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>%
+  relocate(mother_health_smoking_duration_p18, .after = mother_health_stopped_smoking_age_p18)%>%
+  relocate(mother_health_smoking_duration_catg_p18, .after = mother_health_smoking_duration_p18)
+
+#retrospectively combine mother_health_folic_acid_use_before_pregnancy_p18 and mother_health_folic_acid_use_in_first_trimester_p18
+#also retrospectivly check that mother_med folic acid use complements mother_health_folic_acid_use_in_first_trimester_p18
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/") #NOTE: this file is stored in the Dynamic phenotypes folder on TEAMS
+mother_med_folic_acid <- read.delim("MOTHER_MEDICATION_RE_FORMATTED_01_12_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_med_folic_acid)
+mother_med_folic_acid <- mother_med_folic_acid %>% select(c(
+  next_id_mother,
+  timepoint,
+  mother_med_vit_B12_folic_acid_B03B)) %>% filter(
+    timepoint=="P28" & !is.na(mother_med_vit_B12_folic_acid_B03B)) %>%
+  select(-timepoint)
+#715  2
+
+mother_health_folic_acid <- linkage_preBMI_BC_edu_mhealth %>% select(
+  c(next_id_mother,
+    mother_health_folic_acid_use_in_first_trimester_p18))
+
+mother_med_health_folic_acid <- left_join(mother_health_folic_acid, mother_med_folic_acid)
+#mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18 <- as.numeric(mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18)
+#mother_med_health_folic_acid$mother_med_vit_B12_folic_acid_B03B <- as.numeric(mother_med_health_folic_acid$mother_med_vit_B12_folic_acid_B03B)
+#cor(mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18 ,
+#    mother_med_health_folic_acid$mother_med_vit_B12_folic_acid_B03B, use="complete.obs")
+#0.03 --> very poor correlation which can also be observed when looking at the mother_med_health_folic_acid dataframe
+
+#complement mother_health with mother_med folic acid and rename to P28
+table(mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18, useNA = "ifany")
+#no  yes <NA> 
+#11  759  677
+mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18[is.na(mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18) &
+                                                                                   mother_med_health_folic_acid$mother_med_vit_B12_folic_acid_B03B=="yes"] <- "yes"
+#mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18[is.na(mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18) &
+#                                                                                    mother_med_health_folic_acid$mother_med_vit_B12_folic_acid_B03B=="no"] <- "no"
+
+#I cannot complement it with the 'no' answers as the medication question refers to medication use within the last month, i.e. P24-P28, so it could be that before this
+#time point the mother took folic acid
+table(mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18, useNA = "ifany")
+#no  yes <NA> 
+#11  730  706
+
+linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_in_first_trimester_p18 <- mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18
+table(linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_in_first_trimester_p18)
+
+folic_acid <- linkage_preBMI_BC_edu_mhealth %>% select(c(
+  mother_health_folic_acid_use_before_pregnancy_p18,
+  mother_health_folic_acid_use_in_first_trimester_p18))
+
+for(i in 1:ncol(folic_acid)){
+  folic_acid[,i] <- as.numeric(folic_acid[,i])}
+cor(folic_acid$mother_health_folic_acid_use_before_pregnancy_p18,
+    folic_acid$mother_health_folic_acid_use_in_first_trimester_p18, use="complete.obs")
+#0.1408994
+
+table(linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_pregnancy_p18,
+      linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_in_first_trimester_p18)
+#     no yes
+#no    8 168
+#yes   3 556
+#variation in when folic acid is used - combine variable to generate pre- and during pregnancy folic acid use
+
+table(linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_pregnancy_p18, useNA="ifany")
+table(linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_in_first_trimester_p18, useNA="ifany")
+
+linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_during_pregnancy_p18 <- linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_in_first_trimester_p18
+linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_during_pregnancy_p18[
+  linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_pregnancy_p18=="yes"] <- "yes"
+linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_during_pregnancy_p18[
+  is.na(linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_during_pregnancy_p18) &
+    linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_pregnancy_p18=="no"] <- "no"
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>% rename(
+  mother_health_folic_acid_use_before_during_pregnancy_p28=mother_health_folic_acid_use_before_during_pregnancy_p18
+)
+table(linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_during_pregnancy_p28, useNA="ifany")
+#no  yes <NA> 
+# 8  733  706
+
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>% 
+  relocate(mother_health_folic_acid_use_before_during_pregnancy_p28, .before=mother_health_regular_dentist_visits_p18)
+
+linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_before_pregnancy_p18 <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_health_folic_acid_use_in_first_trimester_p18 <- NULL
+rm(mother_health_folic_acid, mother_med_folic_acid, mother_med_health_folic_acid)
+
+#retrospectively combine mother_health_bleeding_gums_before_pregnancy_p18 and mother_health_bleeding_gums_during_pregnancy_p18
+bleeding_gums <- linkage_preBMI_BC_edu_mhealth %>% select(c(
+  mother_health_bleeding_gums_before_pregnancy_p18,
+  mother_health_bleeding_gums_during_pregnancy_p18))
+
+for(i in 1:ncol(bleeding_gums)){
+  bleeding_gums[,i] <- as.numeric(bleeding_gums[,i])}
+cor(bleeding_gums$mother_health_bleeding_gums_before_pregnancy_p18,
+    bleeding_gums$mother_health_bleeding_gums_during_pregnancy_p18, use="complete.obs")
+#0.4604902
+
+table(linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_before_pregnancy_p18,
+      linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_during_pregnancy_p18)
+#   no yes
+#no  405 151
+#yes  36 142
+#mostly concordant
+
+linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_p18 <- NA
+linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_p18[linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_before_pregnancy_p18=="yes"|
+                                                                linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_during_pregnancy_p18=="yes"] <- "yes"
+linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_p18[is.na(linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_p18) &
+                                                                linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_before_pregnancy_p18=="no"|
+                                                                is.na(linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_p18) &
+                                                                linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_during_pregnancy_p18=="no"] <- "no"
+linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_p18 <- as.factor(linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_p18)
+table(linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_p18, useNA = "ifany")
+
+linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>%
+  relocate(mother_health_bleeding_gums_p18, .before = mother_health_bleeding_gums_before_pregnancy_p18)
+linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_before_pregnancy_p18 <- NULL
+linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_during_pregnancy_p18 <- NULL
+
+str(linkage_preBMI_BC_edu_mhealth, list.len=ncol(linkage_preBMI_BC_edu_mhealth))
+#1447 141
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+write.table(linkage_preBMI_BC_edu_mhealth, "2023_04_26_linkage_preBMI_BC_edu_mhealth.txt", sep="\t", row.names=F, quote = F)
+#linkage_preBMI_BC_edu_mhealth <- read.delim("2023_04_26_linkage_preBMI_BC_edu_mhealth.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+rm(cor_test_original, cor_test_update, 
+   linkage, linkage_preBMI_BC_edu,
+   mother_health,
+   mother_grav, mother_smoking,
+   bleeding_gums, folic_acid)
+
+        ##### =========================== 5. MOTHER FOOD PREFERENCES AND AVOIDENCES =========================== #####
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+mother_food <- read.delim("mother_food_preferences_avoidances_all.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#966 88
+str(mother_food)
+
+#update the column names for consistency
+mother_food <- mother_food %>% rename(
+  mother_food_avoid_gluten_preg=mother_avoid_gluten_preg,
+  mother_food_avoid_dairy_preg=mother_avoid_dairy_preg)
+
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_food_pref_avoid/")
+#colnames_mother_food <- colnames(mother_food)
+#write.table(colnames_mother_food, "2023_04_26_mother_food_colnames.txt", sep="\t", row.names=F, quote = F)
+#rm(colnames_mother_food)
+
+summary(mother_food)
+
+linkage_preBMI_BC_edu_mhealth_mfood <- full_join(linkage_preBMI_BC_edu_mhealth, mother_food)
+#1448 231
+
+add_mother <- linkage_preBMI_BC_edu_mhealth_mfood %>% filter(
+  is.na(sibling_number)
+)
+summary(add_mother)
+#again, LLNEXT010045_2 was added - remove as discussed above (all data are missing for mother health questionnaire (as expected))
+
+linkage_preBMI_BC_edu_mhealth_mfood <- linkage_preBMI_BC_edu_mhealth_mfood %>% filter (
+  next_id_mother != "LLNEXT010045_2")
+#1447 231
+
+rm(add_mother)
+
+str(linkage_preBMI_BC_edu_mhealth_mfood, list.len=ncol(linkage_preBMI_BC_edu_mhealth_mfood))
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+write.table(linkage_preBMI_BC_edu_mhealth_mfood, "2023_04_30_linkage_preBMI_BC_edu_mhealth_mfood.txt", sep="\t", row.names=F, quote = F)
+#1447 228
+#linkage_preBMI_BC_edu_mhealth_mfood <- read.delim("2023_04_30_linkage_preBMI_BC_edu_mhealth_mfood.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+rm(linkage_preBMI_BC_edu_mhealth, mother_food)
+
+        ##### =========================== 6. MOTHER STRESS =========================== #####
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+mother_stress <- read.delim("20230316_Mother_stress_final.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#892 11 
+str(mother_stress)
+
+mother_stress <- mother_stress %>% rename(next_id_mother=next_nr,
+                                          mother_swing_pos_home_work_inxn_avg_p12 = mother_stress_average_positive_hwi_P12,
+                                          mother_swing_neg_home_work_inxn_avg_p12 = mother_stress_average_negative_hwi_P12,
+                                          mother_swing_pos_work_home_inxn_avg_p12 = mother_stress_average_positive_whi_P12,
+                                          mother_swing_neg_work_home_inxn_avg_p12 = mother_stress_average_negative_whi_P12,
+                                          mother_ldi_stress_past_year_avg_m1 = mother_stress_mean_pregnancy_stress_M1,
+                                          mother_ldi_stress_past_year_avg_m10 = mother_stress_mean_pregnancy_stress_M10,
+                                          mother_swing_pos_home_work_inxn_avg_m10 = mother_stress_average_positive_hwi_M10,
+                                          mother_swing_neg_home_work_inxn_avg_m10 = mother_stress_average_negative_hwi_M10,
+                                          mother_swing_pos_work_home_inxn_avg_m10 = mother_stress_average_positive_whi_M10,
+                                          mother_swing_neg_work_home_inxn_avg_m10 = mother_stress_average_negative_whi_M10)
+
+mother_stress <- mother_stress[, c("next_id_mother",
+                                   "mother_swing_pos_work_home_inxn_avg_p12",
+                                   "mother_swing_neg_work_home_inxn_avg_p12",
+                                   "mother_swing_pos_home_work_inxn_avg_p12",
+                                   "mother_swing_neg_home_work_inxn_avg_p12",
+                                   "mother_ldi_stress_past_year_avg_m1",
+                                   "mother_ldi_stress_past_year_avg_m10",
+                                   "mother_swing_pos_work_home_inxn_avg_m10",
+                                   "mother_swing_neg_work_home_inxn_avg_m10",
+                                   "mother_swing_pos_home_work_inxn_avg_m10",
+                                   "mother_swing_neg_home_work_inxn_avg_m10")]
+str(mother_stress)
+
+#make ldi stress longitudinal
+mother_ldi_stress <- mother_stress %>% select(c(
+  next_id_mother,
+  mother_ldi_stress_past_year_avg_m1,
+  mother_ldi_stress_past_year_avg_m10)) %>% 
+    rename(
+    mother_ldi_stress_past_year_preg_avg_P12=mother_ldi_stress_past_year_avg_m1, #use for the P12, P28 and B time points
+    mother_ldi_stress_past_year_postpartum_avg_M3=mother_ldi_stress_past_year_avg_m10) #use for the M3 time point
+summary(mother_ldi_stress)
+
+  #duplicate to investigate stress of M1 at all pregnancy time points and early time points of the mother and infant: P12, P28, B, W2, M1 and M2
+mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_P28 <- mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_P12
+mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_B <- mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_P12
+mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_W2 <- mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_P12
+mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_M1 <- mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_P12
+mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_M2 <- mother_ldi_stress$mother_ldi_stress_past_year_preg_avg_P12
+
+  #duplicate to investigate stress of M10 at post-pregnancy time points of the mother and infant: M3, M6, M9 and M12
+mother_ldi_stress$mother_ldi_stress_past_year_postpartum_avg_M6 <- mother_ldi_stress$mother_ldi_stress_past_year_postpartum_avg_M3
+mother_ldi_stress$mother_ldi_stress_past_year_postpartum_avg_M9 <- mother_ldi_stress$mother_ldi_stress_past_year_postpartum_avg_M3
+mother_ldi_stress$mother_ldi_stress_past_year_postpartum_avg_M12 <- mother_ldi_stress$mother_ldi_stress_past_year_postpartum_avg_M3
+str(mother_ldi_stress)
+
+#make into longitudinal design
+#make dataframe long
+mother_ldi_stress_long<-melt(mother_ldi_stress, id.vars=c("next_id_mother")) #8920 3
+mother_ldi_stress_long$timepoint <- mother_ldi_stress_long$variable
+mother_ldi_stress_long$timepoint<-gsub(".*_", "", mother_ldi_stress_long$timepoint)
+mother_ldi_stress_long$variable<-gsub("_P12", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$variable<-gsub("_P28", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$variable<-gsub("_B", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$variable<-gsub("_W2", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$variable<-gsub("_M12", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$variable<-gsub("_M1", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$variable<-gsub("_M2", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$variable<-gsub("_M3", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$variable<-gsub("_M6", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$variable<-gsub("_M9", "", mother_ldi_stress_long$variable)
+mother_ldi_stress_long$SAMPLE_ID<-paste0(mother_ldi_stress_long$next_id_mother, "_", mother_ldi_stress_long$timepoint)
+mother_ldi_stress_long<-mother_ldi_stress_long[,c(1,5,4,2,3)]
+mother_ldi_stress_wide <- dcast(mother_ldi_stress_long, next_id_mother + SAMPLE_ID +timepoint ~ variable, value.var="value")
+#8920  5
+
+str(mother_ldi_stress_wide)
+mother_ldi_stress_wide <- mother_ldi_stress_wide %>% mutate_if(is.character, as.factor)
+mother_ldi_stress_wide <- mother_ldi_stress_wide %>% relocate(
+  mother_ldi_stress_past_year_preg_avg, .before = mother_ldi_stress_past_year_postpartum_avg
+)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_stress//")
+write.table(mother_ldi_stress_wide, "2023_05_18_mother_ldi_stress_RE_FORMATTED.txt", sep="\t", row.names=F, quote = F)
+rm(mother_ldi_stress, mother_ldi_stress_long, mother_ldi_stress_wide)
+
+mother_stress$mother_ldi_stress_past_year_avg_m1 <- NULL
+mother_stress$mother_ldi_stress_past_year_avg_m10 <- NULL
+
+linkage_preBMI_BC_edu_mhealth_mfood_mstress <- full_join(linkage_preBMI_BC_edu_mhealth_mfood, mother_stress)
+#1447 236
+str(linkage_preBMI_BC_edu_mhealth_mfood_mstress, list.len=ncol(linkage_preBMI_BC_edu_mhealth_mfood_mstress))
+
+rm(linkage_preBMI_BC_edu_mhealth_mfood, mother_stress)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+write.table(linkage_preBMI_BC_edu_mhealth_mfood_mstress, "2023_04_30_linkage_preBMI_BC_edu_mhealth_mfood_mstress.txt", sep="\t", row.names=F, quote = F)
+#1447 236
+#linkage_preBMI_BC_edu_mhealth_mfood_mstress <- read.delim("2023_04_30_linkage_preBMI_BC_edu_mhealth_mfood_mstress.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+        ##### =========================== 7. MOTHER M2 FFQ =========================== #####
+#NOTE THAT THIS SECTION WAS UPDATED WITH THE CURRENT DATA FREEZE OF APRIL 2023
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+mother_index <- read.delim("aMED_diet_scores_no_outliers_n247.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_index)
+#247  2 
+mother_index <- mother_index %>% 
+  rename(next_id_mother = NEXT_ID_mother,
+         mother_ffq_aMED_score = aMED_score)
+
+mother_ffq_grams <-  read.delim("Maternal_diet_grams_per_group_M2_no_outliers_n310.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#310  30
+str(mother_ffq_grams)
+mother_ffq_grams <- mother_ffq_grams %>%
+  rename(next_id_mother=NEXT_ID_mother)
+
+names(mother_ffq_grams) <- gsub("_day_M2", "_day_m2", names(mother_ffq_grams))
+str(mother_ffq_grams)
+
+mother_ffq_nutrients <- read.delim("Maternal_diet_macro_micronutrients_M2_no_outliers_n310.txt")
+#236  42
+str(mother_ffq_nutrients)
+mother_ffq_nutrients <- mother_ffq_nutrients %>% 
+  rename(next_id_mother = NEXT_ID_mother,
+         mother_ffq_nutrients_beta_carotene_M2  = mother_ffq_nutrients_beta.carotene_M2 )
+
+names(mother_ffq_nutrients) <- gsub("_M2", "_m2", names(mother_ffq_nutrients))
+
+df_list <- list(mother_index, mother_ffq_grams, mother_ffq_nutrients)
+#merge all data frames in list
+mother_ffq <- df_list %>% reduce(full_join)
+
+plot(mother_ffq$mother_ffq_group_alcohol_ml_per_day_m2, mother_ffq$mother_ffq_nutrients_alcohol_total_m2) #highly correlated
+dev.off()
+
+str(mother_ffq)
+
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_ffq/")
+#mother_ffq_colnames <- colnames(mother_ffq)
+#write.table(mother_ffq_colnames, "2023_04_30_mother_ffq_colnames.txt", sep="\t", row.names=F, quote = F)
+
+#investigate correlations between nutrients
+str(mother_ffq_nutrients)
+mother_ffq_nutrients$next_id_mother <- NULL
+mother_ffq_nutrients$mother_ffq_energy_kJ_m2 <- NULL
+mother_ffq_nutrients$mother_ffq_energy_kcal_m2 <- NULL
+
+mother_ffq_nutrients_corr <- mother_ffq_nutrients[complete.cases(mother_ffq_nutrients), ]
+#310  39
+spearman_corr <- result(mother_ffq_nutrients_corr, mother_ffq_nutrients_corr)
+spearman_corr$FDR <- p.adjust(spearman_corr$pvalue)
+
+#remove 1:1 correlations
+spearman_corr_unique <- spearman_corr %>% 
+  as_tibble() %>% 
+  mutate(duplicates = if_else(factor1 == factor2,
+                              TRUE,
+                              FALSE)) %>% 
+  filter(duplicates == FALSE)
+
+spearman_corr_unique$duplicates <- NULL 
+
+spearman_corr_FDR <- spearman_corr_unique %>% filter(
+  FDR<0.05
+)
+#1242  9
+
+write.table(spearman_corr_unique, "2023_04_30_spearman_mother_nutrients.txt", sep="\t", row.names=F, quote = F)
+
+spearman_corr_threshold <- spearman_corr_unique %>% filter (
+  CorCoefficient > 0.8
+)
+#84 5
+
+pdf(file = "2023_04_30_spearman_mother_nutrients.pdf", useDingbats = F, onefile = T, width = 20, height=12)
+ggplot(data = spearman_corr, aes(factor1, factor2, fill = CorCoefficient))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Spearnman\nCorrelation") +
+  geom_text(aes(label = round(CorCoefficient, digits = 1)), color = "black", size = 1) +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  #theme(axis.text.x=element_blank(), #remove x axis labels
+  #      axis.ticks.x=element_blank(), #remove x axis ticks
+  #      axis.text.y=element_blank(),  #remove y axis labels
+  #      axis.ticks.y=element_blank()  #remove y axis ticks
+  #)+
+  coord_fixed()
+
+ggplot(data = spearman_corr_FDR, aes(factor1, factor2, fill = CorCoefficient))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Spearnman\nCorrelation") +
+  geom_text(aes(label = round(CorCoefficient, digits = 1)), color = "black", size = 1) +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  #theme(axis.text.x=element_blank(), #remove x axis labels
+  #      axis.ticks.x=element_blank(), #remove x axis ticks
+  #      axis.text.y=element_blank(),  #remove y axis labels
+  #      axis.ticks.y=element_blank()  #remove y axis ticks
+  #)+
+  coord_fixed()
+
+ggplot(data = spearman_corr_threshold, aes(factor1, factor2, fill = CorCoefficient))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Spearnman\nCorrelation") +
+  geom_text(aes(label = round(CorCoefficient, digits = 1)), color = "black", size = 1) +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  #theme(axis.text.x=element_blank(), #remove x axis labels
+  #      axis.ticks.x=element_blank(), #remove x axis ticks
+  #      axis.text.y=element_blank(),  #remove y axis labels
+  #      axis.ticks.y=element_blank()  #remove y axis ticks
+  #)+
+  coord_fixed()
+dev.off()
+
+#consider choosing variables of interest and run correlation again for further reduction of nutrient items
+
+linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq <- full_join(linkage_preBMI_BC_edu_mhealth_mfood_mstress, mother_ffq)
+str(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq, list.len=ncol(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq))
+#1447 308
+
+linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq <- linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq %>%
+  relocate(mother_ffq_energy_kcal_m2, .after = mother_ffq_aMED_score) %>%
+  relocate(mother_ffq_energy_kJ_m2, .after = mother_ffq_energy_kcal_m2)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+write.table(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq, "linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq.txt", sep="\t", row.names=F, quote = F)
+#linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq <- read.delim("linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+rm(linkage_preBMI_BC_edu_mhealth_mfood_mstress, mother_ffq, mother_ffq_grams, mother_ffq_nutrients, mother_ffq_nutrients_corr,
+   mother_index, spearman_corr, spearman_corr_FDR, spearman_corr_unique, spearman_corr_threshold, df_list)
+
+        ##### =========================== 8. PARTNER SMOKING AND STRESS =========================== #####        
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+partner <- read.delim("20230316_partner_smoking_stress_final.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#199  12
+
+str(partner)
+partner <- partner [,c("next_nr",
+                       "partner_age_started_smoking_3",
+                       "partner_age_quit_smoking_3",
+                       "partner_currently_smoking_3",
+                       "partner_ever_smoked_full_year_3",
+                       "partner_mean_stress_1")]
+
+partner <- partner %>% rename(
+  next_id_partner=next_nr,
+  partner_smoking_started_age=partner_age_started_smoking_3,
+  partner_smoking_quit_age=partner_age_quit_smoking_3,
+  partner_smoking_currently=partner_currently_smoking_3,
+  partner_smoking_ever_smoked_full_year=partner_ever_smoked_full_year_3,
+  partner_stress_avg=partner_mean_stress_1)
+
+summary(partner)
+#there is information for 199 partners:
+#partner_smoking_started_age is only available for 10 participants - removem too little power
+#partner_smoking_quit_age is only available for 20 participants - remove, too little power
+
+partner$partner_smoking_started_age <- NULL
+partner$partner_smoking_quit_age <- NULL
+
+partner$partner_smoking_currently <- as.character(partner$partner_smoking_currently)
+partner$partner_smoking_currently[partner$partner_smoking_currently=="Nee"] <- "no"
+partner$partner_smoking_currently[partner$partner_smoking_currently=="Ja"] <- "yes"
+partner$partner_smoking_currently <- as.factor(as.character(partner$partner_smoking_currently))
+
+partner$partner_smoking_ever_smoked_full_year <- as.character(partner$partner_smoking_ever_smoked_full_year)
+partner$partner_smoking_ever_smoked_full_year[partner$partner_smoking_ever_smoked_full_year=="Nee"] <- "no"
+partner$partner_smoking_ever_smoked_full_year[partner$partner_smoking_ever_smoked_full_year=="Ja"] <- "yes"
+partner$partner_smoking_ever_smoked_full_year <- as.factor(as.character(partner$partner_smoking_ever_smoked_full_year))
+
+linkage_mother_partner <- full_join(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq, partner)
+str(linkage_mother_partner, list.len=ncol(linkage_mother_partner))
+#1447 313
+
+rm(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq, partner)
+
+        ##### =========================== 9. FAMILY EXPOSURES =========================== #####
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+family_exp <- read.delim("exposures_infant_mother_FINAL.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#987  6
+
+summary(family_exp)
+family_exp$next_id_mother <- str_pad(family_exp$next_id_mother, 6, pad = "0")
+family_exp$next_id_mother<-as.factor(sub("^","LLNEXT",family_exp$next_id_mother)) #966 unique ids
+
+family_exp$next_id_infant <- str_pad(family_exp$next_id_infant, 6, pad = "0")
+family_exp$next_id_infant<-as.factor(sub("^","LLNEXT",family_exp$next_id_infant)) #953 unique ids
+str(family_exp)
+
+family_exp <- family_exp %>%
+  rename(family_pets_any = pets_any,
+         family_pets_cat = pets_cat,
+         family_pets_dog = pets_dog,
+         family_living_situation = living_situation)
+
+summary(family_exp)
+
+#update family pets nested
+family_exp$family_pets_cat <- as.character(family_exp$family_pets_cat)
+family_exp$family_pets_cat[is.na(family_exp$family_pets_cat) & 
+                             family_exp$family_pets_any=="no"] <- "no"
+family_exp$family_pets_cat <- as.factor(family_exp$family_pets_cat)
+
+family_exp$family_pets_dog <- as.character(family_exp$family_pets_dog)
+family_exp$family_pets_dog[is.na(family_exp$family_pets_dog) & 
+                             family_exp$family_pets_any=="no"] <- "no"
+family_exp$family_pets_dog <- as.factor(family_exp$family_pets_dog)
+summary(family_exp)
+
+#update family living situation
+family_exp$family_living_situation <- as.character(family_exp$family_living_situation)
+family_exp$family_living_situation[family_exp$family_living_situation=="big_house"] <- "house"
+family_exp$family_living_situation[family_exp$family_living_situation=="small_house"] <- "house"
+family_exp$family_living_situation <- as.factor(family_exp$family_living_situation)
+table(family_exp$family_living_situation, useNA="ifany")
+
+linkage_mother_partner_fam <- full_join(linkage_mother_partner, family_exp) #jointed by next_id_mother and next_id_infant
+str(linkage_mother_partner_fam, list.len=ncol(linkage_mother_partner_fam))
+#1471  317
+
+#24 additional mothers-infant pairs outside of the linkage file
+add_mother <- linkage_mother_partner_fam %>% filter(
+  is.na(sibling_number)) %>% #only next_id_mother and family_exp data available
+    select(c(next_id_mother, 
+             next_id_infant))
+#24  2
+#For these 24 mothers, the next_id_infant was missing. Because the table was joined by both next_id_mother and next_id_infant,
+#these are thus seen by R as 'extra' mothers. Thus update the missing next_id_infant for these mothers (also included LLNEXT010045_2 which contains no additional data
+#and already know that this can be removed) 
+
+linkage <- linkage_mother_partner[,c("next_id_mother", "next_id_infant")] #1447 2
+add_mother_link <- left_join(add_mother, linkage, by="next_id_mother") #25 3
+#indeed, all infant ids are available; there are 25 rows in the joint data frame as mother LLNEXT202484 is duplicated with 2 distinct next_id_infant which are twins
+
+mother_LLNEXT202484 <- family_exp %>%
+  filter(next_id_mother=="LLNEXT202484")
+#this mother has no data regarding family_exp and can thus be omitted from family_exp together with LLNEXT010045_2 (as previously mentioned)
+family_exp <- family_exp %>% filter(
+  next_id_mother != "LLNEXT010045_2" &
+    next_id_mother !="LLNEXT202848"
+)
+#985  6
+
+rm(linkage, add_mother, mother_LLNEXT202484)
+
+#manually update the next_id_infant of family_exp using add_mother_link
+add_mother_link
+family_exp$next_id_infant <- as.character(family_exp$next_id_infant)
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT007913"] <- "LLNEXT007995"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT010162"] <- "LLNEXT010315"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT012467"] <- "LLNEXT202137"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT012638"] <- "LLNEXT200487"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT100233"] <- "LLNEXT100266"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT111399"] <- "LLNEXT123699"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT111557"] <- "LLNEXT201030"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT201212"] <- "LLNEXT204110"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT201868"] <- "LLNEXT204171"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT202484"] <- "LLNEXT204225"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT203130"] <- "LLNEXT203452"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT204444"] <- "LLNEXT204572"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT205400"] <- "LLNEXT205709"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT205928"] <- "LLNEXT206210"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT206003"] <- "LLNEXT206234"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT208061"] <- "LLNEXT208097"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT301103"] <- "LLNEXT303513"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT302314"] <- "LLNEXT302338"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT303422"] <- "LLNEXT303604"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT303720"] <- "LLNEXT303781"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT308377"] <- "LLNEXT308432"
+family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT309060"] <- "LLNEXT789999"
+
+#remerge family_exp to linkage file
+linkage_mother_partner_fam <- full_join(linkage_mother_partner, family_exp) #jointed by next_id_mother and next_id_infant
+str(linkage_mother_partner_fam, list.len=ncol(linkage_mother_partner_fam))
+#1447 315
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+write.table(linkage_mother_partner_fam, "linkage_mother_partner_fam.txt", sep="\t", row.names=F, quote = F)
+#linkage_mother_partner_fam <- read.delim("linkage_mother_partner_fam.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#str(linkage_mother_partner_fam, list.len=ncol(linkage_mother_partner_fam))
+#1447 317
+
+rm(add_mother_link, family_exp, linkage_mother_partner)
+
+        ##### =========================== 10. INFANT HEALTH =========================== #####
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#standard questionnaires
+infant_health <- read.delim("infant_health_static_10_04_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#752  40
+
+str(infant_health)
+
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/infant_health/")
+#infant_health_colnames <- colnames(infant_health)
+#write.table(infant_health_colnames, "infant_health_colnames.txt", sep="\t", row.names=F, quote = F)
+
+summary(infant_health)
+colnames(infant_health) <- gsub("_any", "", colnames(infant_health))
+infant_health <- infant_health %>%
+  rename(infant_health_throat_infection=infant_health_past_year_throat_infection_m12,
+         infant_health_airway_nose_ear_throat_infection_freq=infant_health_past_year_freq_airway_nose_ear_throat_infection_m12,
+         infant_health_itchy_skin_rash_age_months=infant_health_itchy_skin_rash_age_months_m12,
+         infant_health_past_4_weeks_earache_discharge_m12=infant_health_earache_discharge_m12,
+         infant_health_sneeze_runny_nose_blocked_nose_without_sickness=infant_isaac_sneeze_runny_nose_blocked_nose_without_sickness_m12,
+         infant_health_medication_flu_ent_infection=infant_health_flu_ent_infection_medication,
+         infant_health_medication_flu=infant_health_past_year_flu_medicine_doctor_m12,
+         infant_health_medication_throat_infection=infant_health_past_year_throat_infection_medicine_doctor_m12,
+         infant_health_medication_middle_ear_infection=infant_health_past_year_middle_ear_infection_medicine_doctor_m12)
+
+#eczema cases defined by researchers and provided by Soesma
+infant_health_eczema <- read.delim("20230227_Eczema cases and controls_longID.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#1167 17
+summary(infant_health_eczema)
+
+infant_health_eczema <- infant_health_eczema %>% select(c(
+  NEXT_ID,
+  Case))
+
+infant_health_eczema <- infant_health_eczema %>% rename(
+  next_id_infant=NEXT_ID,
+  infant_health_eczema_cases=Case)
+
+str(infant_health_eczema)
+
+infant_health_all <- full_join(infant_health, infant_health_eczema)
+#1168  41
+str(infant_health_all)
+
+#investigate correlation between questionnaire data and derived cases
+table(infant_health_all$infant_health_eczema_questionnaire, useNA="ifany")
+eczema <- infant_health_all %>% select(c(
+  infant_health_eczema_questionnaire,
+  infant_health_eczema_cases))
+eczema$infant_health_eczema_questionnaire <- as.character(eczema$infant_health_eczema_questionnaire)
+eczema$infant_health_eczema_questionnaire[eczema$infant_health_eczema_questionnaire=="no"] <- 0
+eczema$infant_health_eczema_questionnaire[eczema$infant_health_eczema_questionnaire=="yes"] <- 1
+eczema$infant_health_eczema_questionnaire <- as.numeric(eczema$infant_health_eczema_questionnaire)
+
+eczema_corr <- cor(eczema$infant_health_eczema_questionnaire, 
+                   eczema$infant_health_eczema_cases, use="complete.obs")
+#0.7675899
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/infant_health/")
+pdf(file = "2023_05_03_correlation_questionnaire_cases_eczema.pdf", useDingbats = F, onefile = T, width = 20)
+eczema %>%
+  filter(!is.na(infant_health_eczema_questionnaire) & !is.na(infant_health_eczema_cases)) %>% #168 overlapping values
+  ggplot(aes(x = infant_health_eczema_questionnaire, y = infant_health_eczema_cases)) + 
+  geom_point() +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Correlation between infant_health_eczema_questionnaire and infant_health_eczema_cases") +
+  ggtitle(paste0("Correlation: ", round(eczema_corr, 2)))
+dev.off()
+
+#in the plot we largely visualize that if the defined cases are yes, so are the questionnaires, and vice versa for those without eczema
+#there are some participants where the defined cases are yes, but in the questionnaire it is no --> this is expected as it is based on 
+#other criteria than just the questionnaire alone. There are no participants where the questionnaires indicated a case, but the defined
+#criteria did not (which is good and as expected)
+
+#conclusion --> generate a new variable where cases are supplemented with the no's of the questionnaire
+rm(eczema)
+
+table(infant_health_all$infant_health_eczema_questionnaire, useNA="ifany")
+#no   yes <NA> 
+#430 103  635 
+table(infant_health_all$infant_health_eczema_cases, useNA="ifany")
+#0   1  <NA> 
+#88 164 916 
+
+infant_health_all$infant_health_eczema_cases[infant_health_all$infant_health_eczema_cases==0] <- "no"
+infant_health_all$infant_health_eczema_cases[infant_health_all$infant_health_eczema_cases==1] <- "yes"
+infant_health_all$infant_health_eczema_cases <- as.factor(infant_health_all$infant_health_eczema_cases)
+
+infant_health_all$infant_health_eczema_diagnosis_relaxed <- infant_health_all$infant_health_eczema_cases
+infant_health_all$infant_health_eczema_diagnosis_relaxed[is.na(infant_health_all$infant_health_eczema_diagnosis_relaxed)&
+                                                           infant_health_all$infant_health_eczema_questionnaire=="no"] <- "no"
+table(infant_health_all$infant_health_eczema_diagnosis_relaxed, useNA = "ifany")
+
+infant_health_all <- infant_health_all %>% rename(
+  infant_health_eczema_diagnosis_strict=infant_health_eczema_cases) %>%
+  relocate(infant_health_eczema_diagnosis_strict, .before = infant_health_impetigo) %>%
+  relocate(infant_health_eczema_diagnosis_relaxed, .before=infant_health_eczema_diagnosis_strict)
+
+infant_health_all$infant_health_eczema_questionnaire <- NULL
+infant_health_all$infant_health_past_year_freq_airway_nose_ear_throat_infection_m12_numeric <- NULL #already have categorical version, which when made numeric will become numeric
+
+str(infant_health_all)
+
+table(infant_health_all$infant_health_medication_flu, infant_health_all$infant_health_medication_flu_ent_infection)
+
+#check if medication is nested
+medication <- infant_health_all %>% select(c(
+  infant_health_medication_flu_ent_infection,
+  infant_health_medication_flu,
+  infant_health_medication_middle_ear_infection,
+  infant_health_medication_throat_infection))
+summary(medication)
+
+#medication is nested (which is also as I recall because I cleaned this part of the infant health questionnaire)
+#here I would just take the main variable of infant_health_medication_flu_ent_infection
+
+infant_health_all$infant_health_medication_flu <- NULL
+infant_health_all$infant_health_medication_middle_ear_infection <- NULL
+infant_health_all$infant_health_medication_throat_infection <- NULL
+
+str(infant_health_all)
+
+#retrospectively generate a 'breathing difficulty' variable for infant health
+infant_health_all <- infant_health_all %>% 
+  mutate(infant_health_breathing_difficulties=ifelse(infant_health_wheeze=="yes" | 
+                                                       infant_health_rumbling_breath_m4=="yes" |
+                                                       infant_health_shortness_breath_m4=="yes", "yes", NA))
+infant_health_all$infant_health_breathing_difficulties[is.na(infant_health_all$infant_health_breathing_difficulties) & infant_health_all$infant_health_wheeze=="no" |
+                                                         is.na(infant_health_all$infant_health_breathing_difficulties) & infant_health_all$infant_health_rumbling_breath_m4=="no" |
+                                                         is.na(infant_health_all$infant_health_breathing_difficulties) & infant_health_all$infant_health_shortness_breath_m4=="no" ] <- "no"
+table(infant_health_all$infant_health_breathing_difficulties, useNA="ifany")
+
+#QC
+breathing_diff <- infant_health_all %>% select(c(
+  infant_health_breathing_difficulties,
+  infant_health_wheeze,
+  infant_health_rumbling_breath_m4,
+  infant_health_shortness_breath_m4))
+#correctly derived
+rm(breathing_diff)
+
+infant_health_all <- infant_health_all %>% relocate(
+  infant_health_breathing_difficulties, .before=infant_health_wheeze)
+
+str(infant_health_all)
+#1168  38
+
+#retrospectively include the information of the IGSQ and ROME to infant health
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/") #these files can be found in the Dynamics phenotype folder of TEAMS
+infant_rome <- read.delim("ROME_INFANT_RE_FORMATTED_27_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_rome)
+summary(infant_rome)
+#4512 9
+#if infant colic and infant regurgitation == yes, and mucus in stool > 0, update health problem to yes; vice verse for no
+
+  #ROME
+infant_rome <- infant_rome %>% select(c(
+  next_id_infant,
+  infant_colic,
+  #infant_rome_e1_regurgitation, #common in infants
+  infant_rome_e25_mucus_stool_last_week))
+
+#define health problems over time, i.e. if there were any ROME related health problems at any time point
+infant_rome <- infant_rome %>%
+  group_by(next_id_infant) %>%
+  mutate(infant_colic_updated = ifelse(any(infant_colic == "yes" & !is.na(infant_colic)), "yes", "no")) %>%
+  #mutate(infant_rome_e1_regurgitation_updated = ifelse(any(infant_rome_e1_regurgitation == "yes" & !is.na(infant_rome_e1_regurgitation)), "yes", "no")) %>%
+  mutate(infant_rome_e25_mucus_stool_last_week_updated = ifelse(any(infant_rome_e25_mucus_stool_last_week >0 & !is.na(infant_rome_e25_mucus_stool_last_week)), "yes", "no")) %>%
+  mutate_if(is.character, as.factor)
+summary(infant_rome)
+
+#subset to distinct ids
+infant_rome_distinct <- distinct(infant_rome, next_id_infant, .keep_all = TRUE) %>% select(next_id_infant, infant_colic_updated, infant_rome_e25_mucus_stool_last_week_updated)
+summary(infant_rome_distinct)
+
+  #IGSQ
+infant_igsq <- read.delim("IGSQ_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_igsq)
+summary(infant_igsq)
+#if IGSQ frequencies are > 0, update health problem to yes; vice versa for no
+infant_igsq <- infant_igsq %>% select(-c(
+  timepoint,
+  SAMPLE_ID,
+  infant_igsq_4_amount_spitting_milk_past_week,
+  infant_igsq_7_crying_duration_per_day_past_week))
+str(infant_igsq)
+
+#define health problems over time
+infant_igsq <- infant_igsq %>%
+  group_by(next_id_infant) %>%
+  mutate(infant_igsq_1_freq_hard_stools_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_10_freq_days_restless_past_week = ifelse(any(infant_igsq_10_freq_days_restless_past_week >0 & !is.na(infant_igsq_10_freq_days_restless_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_11_freq_unstoppable_restlessness_baby_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_12_freq_gas_per_day_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_13_freq_discomfort_gas_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_2_freq_difficult_stool_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_3_freq_spitting_milk_normal_day_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_5_freq_discomfort_spitting_milk_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_6_freq_pain_spitting_milk_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_8_freq_unstoppable_crying_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate(infant_igsq_9_freq_crying_after_feeding_past_week = ifelse(any(infant_igsq_1_freq_hard_stools_past_week >0 & !is.na(infant_igsq_1_freq_hard_stools_past_week)), "yes", "no")) %>%
+  mutate_if(is.character, as.factor)
+summary(infant_igsq)
+
+#subset to distinct ids
+infant_igsq_distinct <- distinct(infant_igsq, next_id_infant, .keep_all = TRUE)
+summary(infant_igsq_distinct)
+#only infant_igsq_1_freq_hard_stools_past_week and infant_igsq_10_freq_days_restless_past_week were distinct; all babies experienced all other IGSQ symptoms within the 1st year of life; 
+#given this, infant health problem was retrospectively removed
+
+  #infant health problem [THIS SECTION WAS UPDATED TO REMOVE INFANT HEALTH PROBLEM GIVEN THAT ALL INFANTS AT SOME TIME POINT HAD A HEALTH PROBLEM]
+#infant_health_problem <- infant_health_all %>% select(c(
+#  next_id_infant,
+#  infant_health_known_health_problem))
+##1168 2
+
+#infant_health_problem_update <- left_join(infant_health_problem, infant_rome_distinct)
+##1168  4
+#str(infant_health_problem_update)
+#table(infant_health_problem_update$infant_health_known_health_problem, useNA="ifany")
+##no  yes <NA> 
+##85  479  604 
+
+#infant_health_problem_update$infant_health_known_health_problem_update <- NA
+#infant_health_problem_update$infant_health_known_health_problem_update[infant_health_problem_update$infant_health_known_health_problem=="yes"|
+#                                                                         infant_health_problem_update$infant_colic_updated=="yes" |
+#                                                                         #infant_health_problem_update$infant_rome_e1_regurgitation_updated=="yes" |
+#                                                                         infant_health_problem_update$infant_rome_e25_mucus_stool_last_week_updated=="yes"] <- "yes"
+#infant_health_problem_update$infant_health_known_health_problem_update[is.na(infant_health_problem_update$infant_health_known_health_problem_update) &
+#                                                                         infant_health_problem_update$infant_health_known_health_problem=="no"] <- "no"
+
+#infant_health_problem_update$infant_health_known_health_problem_update <- as.factor(infant_health_problem_update$infant_health_known_health_problem_update)
+#summary(infant_health_problem_update)
+
+#infant_health_all$infant_health_known_health_problem <- infant_health_problem_update$infant_health_known_health_problem_update
+#table(infant_health_all$infant_health_known_health_problem, useNA="ifany")
+infant_health_all$infant_health_known_health_problem <- NULL
+
+#retrospectively update infant_health_constipation with data from the IGSQ 
+#this cannot be done because as we saw previously, if the frequency of finding it difficult to pass stool is >0, then all infants have had difficulty at some time point
+#thus, I will keep the infant_health_constipation variable as it is.
+
+linkage_mother_partner_fam_ihealth <- full_join(linkage_mother_partner_fam, infant_health_all) #joined by next_id_infant
+#1449 351
+#there are two additional infants in comparison to the linkage file
+
+infant_add <- linkage_mother_partner_fam_ihealth %>% filter(
+  is.na(infant_relations))
+#2 360
+infant_add$next_id_infant
+#LLNEXT00000? - this participant needs to be removed from all infant questionnaire data
+#LLNEXT120779 - this participant originates from the eczema cases data file that was sent to us by Soesma and has missing data for eczema
+#thus, remove both participants 
+
+linkage_mother_partner_fam_ihealth <- linkage_mother_partner_fam_ihealth %>% 
+  filter(!is.na(infant_relations))
+str(linkage_mother_partner_fam_ihealth,list.len=ncol(linkage_mother_partner_fam_ihealth))
+#1447 351
+
+rm(infant_add, infant_health, infant_health_all, infant_health_eczema, medication,
+   infant_igsq, infant_igsq_distinct, infant_rome, infant_rome_distinct,
+   linkage_mother_partner_fam)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+write.table(linkage_mother_partner_fam_ihealth, "linkage_mother_partner_fam_ihealth.txt", sep="\t", row.names=F, quote = F)
+
+#linkage_mother_partner_fam_ihealth <- read.delim("linkage_mother_partner_fam_ihealth.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(linkage_mother_partner_fam_ihealth, list.len=ncol(linkage_mother_partner_fam_ihealth))
+    
+        ##### =========================== 11. INFANT NUTRITION =========================== #####
+#FFQ items 'raw'
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+infant_ffq <- read.delim("infant_FFQs_yes_no_masterfile_final_2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#905  144
+
+#select cross-sectional variables of interest
+infant_ffq <- infant_ffq %>% select(c(
+  next_id_infant,
+  infant_ever_never_breastfed))
+
+infant_ffq <- infant_ffq %>% rename(
+  infant_ffq_ever_never_breastfed=infant_ever_never_breastfed)
+
+summary(infant_ffq)
+#write file for storage as cross-sectional data
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/infant_nutrition/")
+#write.table(infant_ffq, "infant_nutrition.txt", sep="\t", row.names=F, quote = F)
+#added to TEAMS retrospectively
+
+#FFQ items 'processed' (NOTE: this file can be found in the Dynamic_phenotypes folder of TEAMS)
+#NOTE: kcal needs to be adjusted for when investigate relations with dietary patterns
+infant_ffq_kcal <- read.delim("infant_ffq_proc_masterfile.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#476 1126 
+
+infant_ffq_kcal$next_id_infant <- str_pad(infant_ffq_kcal$next_id_infant, 6, pad = "0")
+infant_ffq_kcal$next_id_infant<-as.factor(sub("^","LLNEXT",infant_ffq_kcal$next_id_infant)) #476 unique ids
+
+infant_ffq_kcal <- infant_ffq_kcal %>% select(c(
+  next_id_infant,
+  infant_ffq_kcal_per_day_item_sum_recal_M6,
+  infant_ffq_kcal_per_day_item_sum_recal_M9,
+  infant_ffq_kcal_per_day_item_sum_recal_M12))
+#NOTE: these kcal values were recalculated to exclude kcal coming from breast milk and formula milk (given the lack of reliability of
+#calculating kcal for breastmilk - thus the kcal value only reflects the kcal for food items (and not breast- and or formula milk))
+
+#rename to coincide with mother variable name
+infant_ffq_kcal <- infant_ffq_kcal %>% rename(
+  infant_ffq_energy_kcal_recal_m6=infant_ffq_kcal_per_day_item_sum_recal_M6,
+  infant_ffq_energy_kcal_recal_m9=infant_ffq_kcal_per_day_item_sum_recal_M9,
+  infant_ffq_energy_kcal_recal_m12=infant_ffq_kcal_per_day_item_sum_recal_M12)
+
+str(infant_ffq_kcal)
+
+#ffq dietary patterns
+infant_diet_patterns <- read.delim("2023_03_13_infant_ffq_pca_M6_M9_M12_regression_loadings.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#476  16
+summary(infant_diet_patterns)
+
+df_list <- list(infant_ffq, infant_ffq_kcal, infant_diet_patterns)
+infant_nutrition <- df_list %>% reduce(full_join) #joined by next_id_infant
+#905  20
+str(infant_nutrition)
+colnames(infant_nutrition) <- tolower(colnames(infant_nutrition))
+infant_nutrition <- infant_nutrition %>%
+  relocate(infant_ffq_energy_kcal_recal_m6, .before = infant_ffq_f1_sweet_desserts_m9) %>%
+  relocate(infant_ffq_energy_kcal_recal_m9, .before = infant_ffq_f1_starchy_foods_legumes_m12) %>%
+  relocate(infant_ffq_energy_kcal_recal_m12, .after = infant_ffq_f5_protein_fats_oils_m12) 
+str(infant_nutrition)
+
+summary(infant_nutrition)
+
+#remove participant LLNEXT00000?
+infant_nutrition <- infant_nutrition %>%
+  filter(next_id_infant!="LLNEXT00000?")
+#904  20
+
+#retrospectively add additional data retrieved from BabyBiome study
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#babybiome <- read.delim("metadata_LLNEXT_replication_UPDATED_CS_Baby_Biome_phenotypes_06_05_2023_early_tp_W2_M1_M2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#37  58
+#str(babybiome)
+
+#filter on infants 
+#babybiome <- babybiome %>% filter(
+#  Type=="infant"
+#)
+
+#babybiome_feeding_mode <- babybiome %>% select(c(
+#  NEXT_ID,
+#  infant_ever_never_breastfed)) %>%
+#  rename(next_id_infant=NEXT_ID,
+#         infant_babybiome_ever_never_breastfed=infant_ever_never_breastfed)
+#str(babybiome_feeding_mode)
+
+#ffq_babybiome_feeding_mode <- left_join(babybiome_feeding_mode, infant_ffq) #Joining with `by = join_by(next_id_infant)`
+##37  3
+#str(ffq_babybiome_feeding_mode)
+##exactly the same information is reflected here, thus there is no need to complement BabyBiome with infant FFQs cross-sectionally
+#rm(babybiome, babybiome_feeding_mode, ffq_babybiome_feeding_mode)
+
+linkage_mother_partner_fam_ihealth_iffq <- full_join(linkage_mother_partner_fam_ihealth, infant_nutrition) #joined by next_id_infant
+#1447  370
+
+rm(df_list, infant_diet_patterns, infant_ffq, infant_ffq_kcal, infant_nutrition,
+   linkage_mother_partner_fam_ihealth)
+
+        ##### =========================== 12. INFANT GROWTH =========================== #####
+infant_growth <- read.delim("infant_growth_coefficients.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_growth)
+#821  7
+
+infant_growth$next_id_infant <- str_pad(infant_growth$next_id_infant, 6, pad = "0")
+infant_growth$next_id_infant<-as.factor(sub("^","LLNEXT",infant_growth$next_id_infant)) #821 unique ids
+
+infant_growth <- infant_growth %>% rename (
+  infant_growth_standardized_weight_intercept_kg=weight_intercept, #mean difference of infant weight compared to population weight; mean across all time points of measurements
+  infant_growth_standardized_weight_slope_kg=weight_slope,
+  infant_growth_standardized_length_intercept_cm=growth_intercept,
+  infant_growth_standardized_length_slope_cm=growth_slope,
+  infant_growth_standardized_head_circumf_intercept_cm=circumference_intercept,
+  infant_growth_standardized_head_circumf_slope_cm=circumference_slope)
+
+#reorder infant growth and retrospectively remove intercept values as they are highly correlated with birth measurements (which will be used instead)
+infant_growth <- infant_growth[,c(
+  "next_id_infant",
+  "infant_growth_standardized_weight_slope_kg",
+  "infant_growth_standardized_length_slope_cm",
+  "infant_growth_standardized_head_circumf_slope_cm")]
+
+summary(infant_growth)
+
+infant_growth_birth_measurements <- read.delim("infant_growth_birth_measurement.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_growth_birth_measurements)
+#817  4
+infant_growth_birth_measurements <- infant_growth_birth_measurements %>%
+        rename(infant_growth_birth_weight_kg=infant_growth_weight_kg_B,
+               infant_growth_birth_length_cm=infant_growth_length_cm_B,
+               infant_growth_birth_head_circumf_cm=infant_growth_head_circumf_cm_B)
+
+infant_growth_all <- full_join(infant_growth_birth_measurements, infant_growth) #Joining, by = "next_id_infant"
+str(infant_growth_all)
+#821  7
+
+linkage_mother_partner_infant <- full_join(linkage_mother_partner_fam_ihealth_iffq, infant_growth_all)
+#1447 376
+str(linkage_mother_partner_infant, list.len=ncol(linkage_mother_partner_infant))
+
+rm(infant_growth, infant_growth_birth_measurements, infant_growth_all,
+   linkage_mother_partner_fam_ihealth_iffq)
+
+        ##### =========================== 13. ORDER DATAFRAME BY TIME POINT AND WRITE FILE =========================== #####
+masterfile_cross_sectional <- linkage_mother_partner_infant %>%
+  select(FAMILY:mother_lifelinesbirthcards_prepreg_bmi_kg_m2,
+         mother_education_p18:mother_swing_neg_home_work_inxn_avg_p12,
+         mother_delivery_within_month_hosp:infant_misc_sex,
+         mother_swing_pos_work_home_inxn_avg_m10:infant_growth_standardized_head_circumf_slope_cm)
+
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+str(masterfile_cross_sectional, list.len=ncol(masterfile_cross_sectional))
+#1447  376
+skim(masterfile_cross_sectional)
+write.table(masterfile_cross_sectional, "masterfile_cross_sectional_2023_06_12.txt", sep="\t", row.names=F, quote = F)
+#masterfile_cross_sectional <- read.delim("masterfile_cross_sectional_2023_06_12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+colnames_cross_sectional <- as.data.frame(colnames(masterfile_cross_sectional))
+write.table(colnames_cross_sectional, "colnames_cross_sectional.txt", sep="\t", row.names=F, quote = F)
+#manually confirmed that the colnames coincided with the codebook:
+#rename: mother_health_folic_acid_use_before_during_pregnancy_p28 --> mother_healthmed_folic_acid_use_before_during_pregnancy_p28
+masterfile_cross_sectional <- masterfile_cross_sectional %>%
+  rename(mother_healthmed_folic_acid_use_before_during_pregnancy_p28=mother_health_folic_acid_use_before_during_pregnancy_p28)
+write.table(masterfile_cross_sectional, "masterfile_cross_sectional_2023_06_12.txt", sep="\t", row.names=F, quote = F)
+
+        ##### =========================== 14. SUMMARY STATISTICS =========================== #####
+metadata_input <- masterfile_cross_sectional %>% select (-c(
+  FAMILY,
+  next_id_mother,
+  next_id_infant,
+  next_id_partner,
+  sibling_number,
+  twin_pair))
+
+str(metadata_input, list.len=ncol(metadata_input))
+summary_statistics_metadata (metadata_input)
