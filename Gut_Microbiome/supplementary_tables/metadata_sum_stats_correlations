@@ -1,0 +1,2628 @@
+###     SCRIPT: PHENOTYPE SUMMARY STATISTICS AND CORRELATIONS
+###     AUTHOR(S): SIOBHAN BRUSHETT 
+###     DESCRIPTION: SUMMARY STATISTICS AND CORRELATIONS OF CROSS-SECTIONAL AND LONGITUDINAL LL-NEXT METADATA
+###     PROJECT: LL-NEXT
+###     LAST UPDATED: 23 JULY  2023
+
+#libraries
+library(tidyverse)
+library(stringr)
+library(reshape2)
+
+#Contents 
+## 0. LOAD FILES
+## 1. CROSS-SECTIONAL SUBSETS
+## 2. CROSS-SECTIONAL SUMMARY STATISTICS
+## 3. CROSS-SECTIONAL CORRELATIONS
+## 4. LONGITUDINAL SUBSETS, SUMMARY STATISTICS AND CORRELATIONS
+
+#functions
+#summary statistics (Author: Siobhan)
+generate_summary_statistics <- function(df) {
+        
+        #subset numeric variables
+        numeric_vars <- df %>%
+                select_if(is.numeric)
+        
+        #generate summary statistics for numeric variables
+        numeric_summary <- numeric_vars %>%
+                pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
+                group_by(variable) %>%
+                summarise(
+                        total_n = sum(!is.na(value)),
+                        percentage_of_total_n = sum(!is.na(value)) / nrow(df) * 100,
+                        total_number_missings = sum(is.na(value)),
+                        percentage_of_total_number_missings = sum(is.na(value)) / nrow(df) * 100,
+                        mean = mean(value, na.rm = TRUE),
+                        sd = sd(value, na.rm = TRUE),
+                        min = min(value, na.rm = TRUE),
+                        Q1 = quantile(value, 0.25, na.rm = TRUE),
+                        median = median(value, na.rm = TRUE),
+                        Q3 = quantile(value, 0.75, na.rm = TRUE),
+                        max = max(value, na.rm = TRUE)
+                        
+                ) %>%
+                ungroup()
+        
+        #subset categorical variables
+        factor_vars <- df %>%
+                select_if(is.factor)
+        
+        #generate summary statistics for categorical variables
+        factor_summary <- factor_vars %>%
+                pivot_longer(cols = everything(),
+                             names_to = "variable",
+                             values_to = "value") %>%
+                group_by(variable) %>%
+                summarise(
+                        n_factor_levels = n_distinct(value, na.rm = TRUE),
+                        total_n = sum(!is.na(value)),
+                        percentage_total_n = sum(!is.na(value)) / nrow(df) * 100,
+                        total_number_missings = sum(is.na(value)),
+                        percentage_of_total_number_missings = sum(is.na(value)) / nrow(df) * 100)
+        factor_summary_levels <- #this script was updated here for factor_summary_levels and how it was defined
+                factor_vars %>%
+                pivot_longer(cols = everything(),
+                             names_to = "variable",
+                             values_to = "value") %>%
+                group_by(variable, value) %>%
+                summarise(
+                        n = n(),
+                        perc = n() / nrow(factor_vars) * 100
+                ) %>%
+                drop_na()
+        factor_summary_levels <- factor_summary_levels %>%
+                mutate(perc=n/sum(n)*100) %>%
+                mutate(
+                        level = paste0("level_", row_number())
+                ) %>%
+                filter(value!="NA") %>%
+                pivot_wider(names_from = level,
+                            values_from = c(value, n, perc),
+                            names_glue = "{level}_{.value}")
+        
+        #determine the maximum number of levels in the factor_summary_levels (for colname reordering)
+        level_cols <- grep("^level_\\d+_value$", names(factor_summary_levels), value = TRUE)
+        n <- max(as.integer(gsub("^level_(\\d+)_value$", "\\1", level_cols)))
+        
+        #define order of colnames for categorical variables
+        colnames_order <- c("variable",
+                            unlist(lapply(1:n, function(i) paste0("level_", i, "_", c("value", "n", "perc")))))
+        
+        #reorder the columns of the dataframe
+        factor_summary_levels <- factor_summary_levels[, colnames_order]
+        
+        #combine summary statistics data for factor summary
+        factor_summary <- left_join(factor_summary,factor_summary_levels, by = "variable") %>%
+                ungroup()
+        
+        #export the new table
+        write.table (numeric_summary, file = "./meta_data_numeric_summary_stats.txt" , quote = F, sep = "\t", row.names = F)
+        write.table (factor_summary, file = "./meta_data_categorical_summary_stats.txt" , quote = F, sep = "\t", row.names = F)
+}
+
+#spearman correlation (Authors: Alex and Trishla)
+spearman <- function(x,y) {
+        matchID <- intersect(rownames(x), rownames(y))
+        x1 <- x[matchID,]
+        y1 <- y[matchID,]
+        result_cor <- matrix(nrow=ncol(x1), ncol=ncol(y1))
+        rownames(result_cor) <- colnames(x1)
+        colnames(result_cor) <- colnames(y1)
+        result_pvalue <- matrix(nrow=ncol(x1), ncol=ncol(y1))
+        for (i in 1:ncol(y1)) {
+                for (j in 1:ncol(x1)) {
+                        cor1<-try(cor.test(x1[,j], y1[,i], method = "spearman"))
+                        if(class(cor1)[1] != "try-error") {
+                                result_cor[j,i]= cor1$estimate
+                                result_pvalue[j,i]= cor1$p.value
+                        } else {
+                                result_cor[j,i]= NA
+                                result_pvalue[j,i]= NA
+                        }
+                }}
+        result = list()
+        result$p.val= result_pvalue
+        result$cor= result_cor
+        return(result)
+}
+result <- function(x,y){
+        correlation <- spearman(x,y)
+        a<- melt(correlation$cor)
+        a<- cbind(a, melt(correlation$p.val)[,"value"])
+        result= a[order(a[,4]),]
+        colnames(result)=c("factor1", "factor2", "CorCoefficient","pvalue")
+        return(result)
+}
+
+                ##### =========================== 0. LOAD FILES =========================== #####
+##cross-sectional
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#cs <- read.delim("masterfile_cross_sectional_2023_06_12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#str(cs, list.len=ncol(cs))
+##1447 376
+
+##retrospectively update infant_sex
+#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+#infant_sex <- read.delim("2023_07_11_infant_sex.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#str(infant_sex)
+##1418 2 (NOTE: some infants have not yet been born)
+
+#cs_sex <- full_join(cs, infant_sex, by="next_id_infant")
+##1447 377
+#cs_sex <- cs_sex %>% 
+#        relocate(sex, .before = infant_misc_sex) %>%
+#        select(-infant_misc_sex) %>%
+#        rename(infant_misc_sex = sex)
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#write.table(cs_sex, "masterfile_cross_sectional_2023_07_11.txt", sep="\t", row.names=F, quote = F)
+
+#rm(list=ls())
+
+cs <- read.delim("masterfile_cross_sectional_2023_07_11.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(cs, list.len=ncol(cs))
+#1447 376
+
+#cross-sectional variable selection
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+cs_sel <- read.delim("masterfile_cross_sectional_selection_2023_06_12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(cs_sel)
+#376 11
+
+#longitudinal
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+long <- read.delim("masterfile_longitudinal_2023_06_12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(long, list.len=ncol(long))
+#14236  237
+
+#longitudinal variable selection
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+long_sel <- read.delim("masterfile_longitudinal_selection_2023_06_12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(long_sel)
+#237  7
+
+#microbiome metadata - for linkage to microbiome
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/micro_sum_stats/")
+metadata <- read.delim("LLNEXT_metadata_CLEAN_10_07_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#4577  28
+
+                ##### =========================== 1. CROSS-SECTIONAL SUBSETS =========================== #####
+                ####1.1 subset by selection for mothers####
+table(cs_sel$mother_microbiome_selection)
+#253 variables should be selected for cross-sectional mother microbiome
+
+mother_cs <- cs_sel %>% select(c(
+        variable_name,
+        mother_microbiome_selection)) %>%
+        filter(mother_microbiome_selection == "1")
+#253  2
+
+#subset cross-sectional masterfile according to cross-sectional mother_microbiome_selection
+mother_cs$variable_name <- as.factor(as.character(mother_cs$variable_name)) #remove factor levels with 0
+matching_cols <- mother_cs$variable_name
+mother_cs_sel <- cs %>%
+        select(any_of(matching_cols))
+str(mother_cs_sel, list.len=ncol(mother_cs_sel))
+#1447 252
+
+rm(mother_cs)
+
+#subet cross-sectional masterfile mother microbiome selection according to microbiome metadata (for linkage to available microbiome data)
+metadata_mother <- metadata %>% filter(
+        Type == "mother") %>%
+        select(NEXT_ID)
+#1638  1
+str(metadata_mother)
+metadata_mother$NEXT_ID <- as.factor(as.character(metadata_mother$NEXT_ID)) #1417 --> 703 levels for merging
+metadata_mother <- as.data.frame(unique(metadata_mother$NEXT_ID)) #obtain unique mother ids (to avoid duplication)
+metadata_mother <- metadata_mother %>% rename(
+        "next_id_mother"="unique(metadata_mother$NEXT_ID)")
+#703 1
+mother_cs_sel <- left_join(metadata_mother, mother_cs_sel) #Joining, by = "next_id_mother"
+#715  252 (6 sets of twins)
+mother_cs_sel <- mother_cs_sel %>%
+        filter(
+                twin_pair != "pair_2")
+#703  252
+
+rm(metadata_mother)
+        
+                ####1.2 subset by selection for infants####
+table(cs_sel$infant_microbiome_selection) #112
+table(cs_sel$infant_timepoint_M6) #13 - 7 (the first 7 are family IDs) == 6 [5 dietary patterns and total kcal]
+table(cs_sel$infant_timepoint_M9) #13 - 7 == 6
+table(cs_sel$infant_timepoint_M12)#13 - 7 == 6
+#130 variables should be selected for cross-sectional infant microbiome
+
+infant_cs <- cs_sel %>% select(c(
+        variable_name,
+        infant_microbiome_selection,
+        infant_timepoint_M6,
+        infant_timepoint_M9,
+        infant_timepoint_M12)) %>%
+        filter(infant_microbiome_selection == "1" |
+                       infant_timepoint_M6 == "1" |
+                       infant_timepoint_M9 == "1" |
+                       infant_timepoint_M12 == "1")
+#130  2
+
+#subset cross-sectional masterfile according to cross-sectional mother_microbiome_selection
+infant_cs$variable_name <- as.factor(as.character(infant_cs$variable_name)) #remove factor levels with 0
+matching_cols <- infant_cs$variable_name
+infant_cs_sel <- cs %>%
+        select(any_of(matching_cols))
+str(infant_cs_sel, list.len=ncol(infant_cs_sel))
+#1447 130
+
+#there are 29 rows which are mothers unlinked to infants - thus remove these rows to reflect only available infant data
+table(infant_cs_sel$infant_relations, useNA="ifany") #29 no_mother_infant_pair
+infant_cs_sel <- infant_cs_sel[infant_cs_sel$infant_relations!="no_mother_infant_pair",]
+#1418 130
+infant_cs_sel$infant_relations <- as.factor(as.character(infant_cs_sel$infant_relations))
+table(infant_cs_sel$infant_relations, useNA="ifany")
+#singleton     twins 
+#1352        66 
+
+rm(cs, cs_sel, infant_cs)
+
+#subet cross-sectional masterfile infant microbiome selection according to microbiome metadata (for linkage to available microbiome data)
+metadata_infant <- metadata %>% filter(
+        Type == "infant") %>%
+        select(NEXT_ID)
+#2939  1
+str(metadata_infant)
+metadata_infant$NEXT_ID <- as.factor(as.character(metadata_infant$NEXT_ID)) #1417 --> 714 levels for merging
+metadata_infant <- as.data.frame(unique(metadata_infant$NEXT_ID)) #obtain unique infant ids (to avoid duplication)
+metadata_infant <- metadata_infant %>% rename(
+        "next_id_infant"="unique(metadata_infant$NEXT_ID)")
+#714 1
+infant_cs_sel <- left_join(metadata_infant, infant_cs_sel) #Joining, by = "next_id_infant"
+#714  130
+str(infant_cs_sel)
+rm(metadata_infant)
+
+                ##### =========================== 2. CROSS-SECTIONAL SUMMARY STATISTICS =========================== #####
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/pheno_sum_stats/cross_sectional_metadata/")
+
+                #### 2.1. mother cross-sectional summary statistics ####
+mother_cs_sel$FAMILY <- NULL
+mother_cs_sel$next_id_mother <- NULL
+mother_cs_sel$next_id_infant <- NULL
+mother_cs_sel$next_id_partner <- NULL
+
+str(mother_cs_sel, list.len=ncol(mother_cs_sel))
+
+table(mother_cs_sel$infant_relations, useNA="ifany")
+mother_cs_sel$infant_relations <- as.factor(as.character(mother_cs_sel$infant_relations))
+#691 singletons and 12 twins
+
+#make certain variables factors for summary statistics
+
+        #mother education
+table(mother_cs_sel$mother_education_p18, useNA = "ifany")
+
+factor_levels <- c(
+        "elementary_to_lower_secondary_education",
+        "upper_secondary_education",
+        "tertiary_education")
+
+#convert numerical values to factors
+mother_cs_sel <- mother_cs_sel %>%
+        mutate(mother_education_p18 = factor(mother_education_p18, levels = 0:2, labels = factor_levels))
+
+        #mother income
+table(mother_cs_sel$mother_income_net_p18, useNA = "ifany")
+
+factor_levels <- c(
+        "low_income",
+        "middle_income",
+        "high_income")
+
+#convert numerical values to factors
+mother_cs_sel <- mother_cs_sel %>%
+        mutate(mother_income_net_p18 = factor(mother_income_net_p18, levels = 0:2, labels = factor_levels))
+
+        #gestational age
+table(mother_cs_sel$mother_birthcard_gestational_age_catg, useNA = "ifany")
+
+factor_levels <- c(
+        "very_preterm_=<32_wks",
+        "moderate_preterm_32_<36.9wks",
+        "term_36.9_41.9wks",
+        "post_term_=>41.9wks")
+
+#convert numerical values to factors
+mother_cs_sel <- mother_cs_sel %>%
+        mutate(mother_birthcard_gestational_age_catg = factor(mother_birthcard_gestational_age_catg, levels = 1:4, labels = factor_levels))
+
+#generate summary statistics
+generate_summary_statistics(mother_cs_sel)
+
+#171 variables for numeric mother cross-sectional summary statistics
+numeric_vars <- mother_cs_sel %>%
+        select_if(is.numeric)
+#703 171
+
+#77 variables for categorical mother cross-sectional summary statistics
+factor_vars <- mother_cs_sel %>%
+        select_if(is.factor)
+#703  77
+
+#read in summary statistics files to order by original files
+mother_cs_num_sumstats <- read.delim("mother_cs_numeric_summary_stats.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_cs_catg_sumstats <- read.delim("mother_cs_categorical_summary_stats.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+mother_cs_num_sumstats_ordered <- mother_cs_num_sumstats[match(colnames(numeric_vars), mother_cs_num_sumstats$variable), , drop = FALSE]
+mother_cs_catg_sumstats_ordered <- mother_cs_catg_sumstats[match(colnames(factor_vars), mother_cs_catg_sumstats$variable), , drop = FALSE]
+
+write.table(mother_cs_num_sumstats_ordered, "mother_cs_numeric_summary_stats.txt", sep="\t", row.names=F, quote = F)
+write.table(mother_cs_catg_sumstats_ordered, "mother_cs_categorical_summary_stats.txt", sep="\t", row.names=F, quote = F)
+
+rm(mother_cs_num_sumstats, mother_cs_num_sumstats_ordered, numeric_vars,
+   mother_cs_catg_sumstats, mother_cs_catg_sumstats_ordered, factor_vars)
+
+                #### 2.2. infant cross-sectional summary statistics ####
+infant_cs_sel$FAMILY <- NULL
+infant_cs_sel$next_id_mother <- NULL
+infant_cs_sel$next_id_infant <- NULL
+infant_cs_sel$next_id_partner <- NULL
+
+str(infant_cs_sel, list.len=ncol(infant_cs_sel))
+
+table(infant_cs_sel$infant_relations, useNA="ifany")
+infant_cs_sel$infant_relations <- as.factor(as.character(infant_cs_sel$infant_relations))
+#690 singletons and 24 twins (12 sets of twins - this is duplicated because of the long format of the dataframe)
+
+#make certain variables factors for summary statistics
+
+        #mother education
+table(infant_cs_sel$mother_education_p18, useNA = "ifany")
+
+factor_levels <- c(
+        "elementary_to_lower_secondary_education",
+        "upper_secondary_education",
+        "tertiary_education")
+
+#convert numerical values to factors
+infant_cs_sel <- infant_cs_sel %>%
+        mutate(mother_education_p18 = factor(mother_education_p18, levels = 0:2, labels = factor_levels))
+
+        #mother income
+table(infant_cs_sel$mother_income_net_p18, useNA = "ifany")
+
+factor_levels <- c(
+        "low_income",
+        "middle_income",
+        "high_income")
+
+#convert numerical values to factors
+infant_cs_sel <- infant_cs_sel %>%
+        mutate(mother_income_net_p18 = factor(mother_income_net_p18, levels = 0:2, labels = factor_levels))
+
+        #gestational age
+table(infant_cs_sel$mother_birthcard_gestational_age_catg, useNA = "ifany")
+
+factor_levels <- c(
+        "very_preterm_=<32_wks",
+        "moderate_preterm_32_<36.9wks",
+        "term_36.9_41.9wks",
+        "post_term_=>41.9wks")
+
+#convert numerical values to factors
+infant_cs_sel <- infant_cs_sel %>%
+        mutate(mother_birthcard_gestational_age_catg = factor(mother_birthcard_gestational_age_catg, levels = 1:4, labels = factor_levels))
+
+#generate summary statistics
+generate_summary_statistics(infant_cs_sel)
+
+#42 variables for numeric infant cross-sectional summary statistics
+numeric_vars <- infant_cs_sel %>%
+        select_if(is.numeric)
+#714 42
+
+#84 variables for categorical infant cross-sectional summary statistics
+factor_vars <- infant_cs_sel %>%
+        select_if(is.factor)
+#714  84
+
+#read in summary statistics files to order by original files
+infant_cs_num_sumstats <- read.delim("infant_cs_numeric_summary_stats.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_cs_catg_sumstats <- read.delim("infant_cs_categorical_summary_stats.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+
+infant_cs_num_sumstats_ordered <- infant_cs_num_sumstats[match(colnames(numeric_vars), infant_cs_num_sumstats$variable), , drop = FALSE]
+infant_cs_catg_sumstats_ordered <- infant_cs_catg_sumstats[match(colnames(factor_vars), infant_cs_catg_sumstats$variable), , drop = FALSE]
+
+write.table(infant_cs_num_sumstats_ordered, "infant_cs_numeric_summary_stats.txt", sep="\t", row.names=F, quote = F)
+write.table(infant_cs_catg_sumstats_ordered, "infant_cs_categorical_summary_stats.txt", sep="\t", row.names=F, quote = F)
+
+rm(infant_cs_num_sumstats, infant_cs_num_sumstats_ordered, numeric_vars,
+   infant_cs_catg_sumstats, infant_cs_catg_sumstats_ordered, factor_vars)
+
+                ##### =========================== 3. CROSS-SECTIONAL CORRELATIONS =========================== #####
+                #### 3.1. mother cross-sectional correlations####
+str(mother_cs_sel, list.len=ncol(mother_cs_sel))
+
+for (i in 1:ncol(mother_cs_sel)){
+        mother_cs_sel[,i] <- as.numeric(mother_cs_sel[,i])}
+str(mother_cs_sel, list.len=ncol(mother_cs_sel))
+#703 248
+
+spearman_corr <- result(mother_cs_sel, mother_cs_sel)
+#61504  4
+
+spearman_corr$FDR<-p.adjust(spearman_corr$pvalue, method = "BH")
+#61504  5
+
+#remove 1:1 correlations
+spearman_corr <- spearman_corr %>% 
+        as_tibble() %>% 
+        mutate(duplicates = if_else(factor1 == factor2,
+                                    TRUE,
+                                    FALSE)) %>% 
+        filter(duplicates == FALSE)
+
+spearman_corr$duplicates <- NULL 
+#61256  5
+
+#remove NA's (for incomplete cases for correlations)
+spearman_corr <- spearman_corr[complete.cases(spearman_corr), ]
+#60990  5
+
+spearman_FDR_corr <- spearman_corr %>% 
+        filter(FDR<0.05)
+#8436  5
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/pheno_correlations/")
+write.table(spearman_corr, "mother_cs_correlations.txt", sep="\t", row.names=F, quote = F)
+
+pdf(file = "mother_cs_correlations.pdf", useDingbats = F, onefile = T, width = 15, height=18)
+ggplot(data = spearman_corr, aes(factor1, factor2, fill = CorCoefficient))+
+        geom_tile(color = "white")+
+        scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                             midpoint = 0, limit = c(-1,1), space = "Lab", 
+                             name="Spearman\nCorrelation") +
+        theme_minimal()+ 
+        #theme(axis.text.x=element_blank(), #remove x axis labels
+        #      axis.ticks.x=element_blank(), #remove x axis ticks
+        #      axis.text.y=element_blank(),  #remove y axis labels
+        #      axis.ticks.y=element_blank()  #remove y axis ticks
+        #)+
+        coord_fixed() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        theme(axis.text=element_text(size=3))
+
+ggplot(data = spearman_FDR_corr, aes(factor1, factor2, fill = CorCoefficient))+
+        geom_tile(color = "white")+
+        scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                             midpoint = 0, limit = c(-1,1), space = "Lab", 
+                             name="Spearman\nCorrelation") +
+        theme_minimal()+ 
+        #theme(axis.text.x=element_blank(), #remove x axis labels
+        #      axis.ticks.x=element_blank(), #remove x axis ticks
+        #      axis.text.y=element_blank(),  #remove y axis labels
+        #      axis.ticks.y=element_blank()  #remove y axis ticks
+        #)+
+        coord_fixed() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        theme(axis.text=element_text(size=3))
+
+dev.off()
+
+rm(mother_cs_sel, spearman_corr, spearman_FDR_corr)
+
+                #### 3.2. infant cross-sectional correlations####
+str(infant_cs_sel, list.len=ncol(infant_cs_sel))
+
+for (i in 1:ncol(infant_cs_sel)){
+        infant_cs_sel[,i] <- as.numeric(infant_cs_sel[,i])}
+str(infant_cs_sel, list.len=ncol(infant_cs_sel))
+#714 126
+
+spearman_corr <- result(infant_cs_sel, infant_cs_sel)
+#15876  4
+spearman_corr$FDR<-p.adjust(spearman_corr$pvalue, method = "BH")
+
+#remove 1:1 correlations
+spearman_corr <- spearman_corr %>% 
+        as_tibble() %>% 
+        mutate(duplicates = if_else(factor1 == factor2,
+                                    TRUE,
+                                    FALSE)) %>% 
+        filter(duplicates == FALSE)
+
+spearman_corr$duplicates <- NULL 
+#15750  5
+
+#remove NA's (for incomplete cases for correlations)
+spearman_corr <- spearman_corr[complete.cases(spearman_corr), ]
+#15588  5
+
+spearman_FDR_corr <- spearman_corr %>% 
+        filter(FDR<0.05)
+#1358  5
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/pheno_correlations/")
+write.table(spearman_corr, "infant_cs_correlations.txt", sep="\t", row.names=F, quote = F)
+
+pdf(file = "infant_cs_correlations.pdf", useDingbats = F, onefile = T, width = 15, height=18)
+ggplot(data = spearman_corr, aes(factor1, factor2, fill = CorCoefficient))+
+        geom_tile(color = "white")+
+        scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                             midpoint = 0, limit = c(-1,1), space = "Lab", 
+                             name="Spearman\nCorrelation") +
+        theme_minimal()+ 
+        #theme(axis.text.x=element_blank(), #remove x axis labels
+        #      axis.ticks.x=element_blank(), #remove x axis ticks
+        #      axis.text.y=element_blank(),  #remove y axis labels
+        #      axis.ticks.y=element_blank()  #remove y axis ticks
+        #)+
+        coord_fixed() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        theme(axis.text=element_text(size=6))
+
+ggplot(data = spearman_FDR_corr, aes(factor1, factor2, fill = CorCoefficient))+
+        geom_tile(color = "white")+
+        scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                             midpoint = 0, limit = c(-1,1), space = "Lab", 
+                             name="Spearman\nCorrelation") +
+        theme_minimal()+ 
+        #theme(axis.text.x=element_blank(), #remove x axis labels
+        #      axis.ticks.x=element_blank(), #remove x axis ticks
+        #      axis.text.y=element_blank(),  #remove y axis labels
+        #      axis.ticks.y=element_blank()  #remove y axis ticks
+        #)+
+        coord_fixed() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        theme(axis.text=element_text(size=6))
+
+dev.off()
+
+rm(infant_cs_sel, spearman_corr, spearman_FDR_corr)
+
+                ##### =========================== 4. LONGITUDINAL SUBSETS, SUMMARY STATISTICS AND CORRELATIONS =========================== #####
+                ####4.1 mother subset and preparation for longitudinal summary statistics and correlations####
+table(long_sel$mother_microbiome_selection) #51
+table(long_sel$mother_microbiome_timepoint_M3) #13 - 10 (metadata) = 3 (mother_stooldiary_not_well_avg, infant feeding mode (simple and complex))
+#54 variables should be selected for longitudinal mother microbiome
+
+mother_long <- long_sel %>% select(c(
+        variable_name,
+        mother_microbiome_selection,
+        mother_microbiome_timepoint_M3)) %>%
+        filter(mother_microbiome_selection == "1" |
+                       mother_microbiome_timepoint_M3=="1")
+#54  3
+
+#subset longitudinal masterfile according to longitudinal mother_microbiome_selection
+mother_long$variable_name <- as.factor(as.character(mother_long$variable_name)) #remove factor levels with 0
+matching_cols <- mother_long$variable_name
+mother_long_sel <- long %>%
+        select(any_of(matching_cols))
+str(mother_long_sel, list.len=ncol(mother_long_sel))
+#14236 54
+
+rm(mother_long)
+
+#make certain variables factors for summary statistics 
+        #mother_BSS
+table(mother_long_sel$mother_BSS, useNA="ifany")
+factor_levels <- c(
+        "hard_lumps",
+        "lumpy_sausage",
+        "cracked_sausage",
+        "smooth_sausage",
+        "soft_blobs",
+        "fluffy_mush",
+        "watery")
+
+#convert numerical values to factors
+mother_long_sel <- mother_long_sel %>%
+        mutate(mother_BSS = factor(mother_BSS, levels = 1:7, labels = factor_levels))
+
+mother_long_sel$timepoint <- as.character(mother_long_sel$timepoint)
+mother_long_sel$timepoint <- factor(mother_long_sel$timepoint, levels=c("P12", "P28", 
+                                                                        "B", "W2", "M1", "M2", "M3",
+                                                                        "M6", "M9", "M12"))
+table(mother_long_sel$timepoint, useNA = "ifany")
+#P12  P28    B   W2   M1   M2   M3   M6   M9  M12 
+#1085 1167 1849 1444 1436 1449 2198 1181 1176 1251 
+
+colnames(mother_long_sel)
+summary(mother_long_sel)
+
+#generate mother_next_ids available from metagenomics
+metadata_mother <- metadata %>% filter(
+        Type == "mother") %>%
+        select(NEXT_ID) %>% 
+        rename(next_id_mother = NEXT_ID)
+#1638  1
+str(metadata_mother)
+metadata_mother$next_id_mother <- as.factor(as.character(metadata_mother$next_id_mother)) #1417 --> 703 levels for merging
+metadata_mother<- distinct(metadata_mother, .keep_all = T)
+#703  1
+
+#filter by timepoint and run summary stats by time point
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/pheno_sum_stats/longitudinal_metadata/intermediate_files/")
+
+        #P12
+mother_long_sel_P12 <- mother_long_sel %>% filter (
+        timepoint=="P12") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1085  7
+str(mother_long_sel_P12) #all mother phenos
+
+mother_long_sel_P12 <- merge(metadata_mother, mother_long_sel_P12, by = "next_id_mother", all.x = TRUE)
+#713  7
+mother_long_sel_P12 <- distinct(mother_long_sel_P12, .keep_all = T)
+#703  7
+
+mother_long_sel_P12$next_id_mother <- NULL
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_P12)
+
+        #correlations
+mother_long_sel_corr_P12 <- mother_long_sel_P12
+colnames(mother_long_sel_corr_P12) <- paste0(colnames(mother_long_sel_corr_P12), "_P12")
+for (i in 1:ncol(mother_long_sel_corr_P12)){
+        mother_long_sel_corr_P12[,i] <- as.numeric(mother_long_sel_corr_P12[,i])}
+
+str(mother_long_sel_corr_P12, list.len=ncol(mother_long_sel_corr_P12))
+#703  6
+
+        #P28
+mother_long_sel_P28 <- mother_long_sel %>% filter (
+        timepoint=="P28") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1167  38
+str(mother_long_sel_P28) #all mother phenos
+
+mother_long_sel_P28 <- merge(metadata_mother, mother_long_sel_P28, by = "next_id_mother", all.x = TRUE)
+#715  38
+mother_long_sel_P28 <- distinct(mother_long_sel_P28, .keep_all = T)
+#703  38
+
+mother_long_sel_P28$next_id_mother <- NULL
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_P28)
+
+        #correlations
+mother_long_sel_corr_P28 <- mother_long_sel_P28
+colnames(mother_long_sel_corr_P28) <- paste0(colnames(mother_long_sel_corr_P28), "_P28")
+for (i in 1:ncol(mother_long_sel_corr_P28)){
+        mother_long_sel_corr_P28[,i] <- as.numeric(mother_long_sel_corr_P28[,i])}
+
+str(mother_long_sel_corr_P28, list.len=ncol(mother_long_sel_corr_P28))
+#703  37
+
+        #B
+mother_long_sel_B <- mother_long_sel %>% filter (
+        timepoint=="B") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1849  27
+str(mother_long_sel_B) #all mother phenos
+
+mother_long_sel_B <- merge(metadata_mother, mother_long_sel_B, by = "next_id_mother", all.x = TRUE)
+#1340  27
+mother_long_sel_B <- distinct(mother_long_sel_B, .keep_all = T)
+#1316  27
+
+#duplications due to rows pertaining to infant specific data, thus, coalesce to avoid duplications and unnecessary missings
+mother_long_sel_B <- mother_long_sel_B %>%
+        group_by(next_id_mother) %>%
+        summarize(across(everything(), ~ first(na.omit(.))))
+#703  27
+summary(mother_long_sel_B)
+
+mother_long_sel_B$next_id_mother <- NULL
+str(mother_long_sel_B)
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_B)
+
+        #correlations
+mother_long_sel_corr_B <- as.data.frame(mother_long_sel_B)
+colnames(mother_long_sel_corr_B) <- paste0(colnames(mother_long_sel_corr_B), "_B")
+for (i in 1:ncol(mother_long_sel_corr_B)){
+        mother_long_sel_corr_B[,i] <- as.numeric(mother_long_sel_corr_B[,i])}
+
+str(mother_long_sel_corr_B, list.len=ncol(mother_long_sel_corr_B))
+#703  26
+
+        #W2
+mother_long_sel_W2 <- mother_long_sel %>% filter (
+        timepoint=="W2") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1444  5
+str(mother_long_sel_W2)
+
+        #mother phenotypes
+mother_long_sel_W2_mother <- mother_long_sel_W2 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#556 2
+mother_long_sel_W2_mother <- merge(metadata_mother, mother_long_sel_W2_mother, by = "next_id_mother", all.x = TRUE)
+#712  2
+mother_long_sel_W2_mother <- distinct(mother_long_sel_W2_mother, .keep_all = T)
+#703 2
+
+        #infant phenotypes
+mother_long_sel_W2_infant <- mother_long_sel_W2 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+
+#888 3
+mother_long_sel_W2_infant <- merge(metadata_mother, mother_long_sel_W2_infant, by = "next_id_mother", all.x = TRUE)
+#715  3
+mother_long_sel_W2_infant <- distinct(mother_long_sel_W2_infant, .keep_all = T)
+#706 2
+summary(mother_long_sel_W2_infant)
+#LLNEXT001018, LLNEXT004727 and LLNEXT008020 have repeated data which can be coalesced 
+mother_long_sel_W2_infant <- mother_long_sel_W2_infant %>%
+        group_by(next_id_mother) %>%
+        summarize(across(everything(), ~ first(na.omit(.))))
+#703  3
+
+length(unique(mother_long_sel_W2_mother$next_id_mother %in% mother_long_sel_W2_infant$next_id_mother))
+
+mother_long_sel_W2 <- full_join(mother_long_sel_W2_mother, mother_long_sel_W2_infant) #Joining, by = "next_id_mother"
+#703 4
+str(mother_long_sel_W2)
+
+rm(mother_long_sel_W2_mother, mother_long_sel_W2_infant)
+
+mother_long_sel_W2$next_id_mother <- NULL
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_W2)
+
+        #correlations
+mother_long_sel_corr_W2 <- mother_long_sel_W2
+colnames(mother_long_sel_corr_W2) <- paste0(colnames(mother_long_sel_corr_W2), "_W2")
+for (i in 1:ncol(mother_long_sel_corr_W2)){
+        mother_long_sel_corr_W2[,i] <- as.numeric(mother_long_sel_corr_W2[,i])}
+
+str(mother_long_sel_corr_W2, list.len=ncol(mother_long_sel_corr_W2))
+#703  3
+
+        #M1
+mother_long_sel_M1 <- mother_long_sel %>% filter (
+        timepoint=="M1") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1444  5
+str(mother_long_sel_M1)
+
+        #mother phenotypes
+mother_long_sel_M1_mother <- mother_long_sel_M1 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#556 2
+mother_long_sel_M1_mother <- merge(metadata_mother, mother_long_sel_M1_mother, by = "next_id_mother", all.x = TRUE)
+#712  2
+mother_long_sel_M1_mother <- distinct(mother_long_sel_M1_mother, .keep_all = T)
+#703 2
+
+        #infant phenotypes
+mother_long_sel_M1_infant <- mother_long_sel_M1 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+
+#880 3
+mother_long_sel_M1_infant <- merge(metadata_mother, mother_long_sel_M1_infant, by = "next_id_mother", all.x = TRUE)
+#715  3
+mother_long_sel_M1_infant <- distinct(mother_long_sel_M1_infant, .keep_all = T)
+#705 2
+summary(mother_long_sel_M1_infant)
+#LLNEXT008020 and LLNEXT008859 have repeated data which can be coalesced 
+mother_long_sel_M1_infant <- mother_long_sel_M1_infant %>%
+        group_by(next_id_mother) %>%
+        summarize(across(everything(), ~ first(na.omit(.))))
+#703  3
+
+length(unique(mother_long_sel_M1_mother$next_id_mother %in% mother_long_sel_M1_infant$next_id_mother))
+
+mother_long_sel_M1 <- full_join(mother_long_sel_M1_mother, mother_long_sel_M1_infant) #Joining, by = "next_id_mother"
+#703 4
+str(mother_long_sel_M1)
+
+rm(mother_long_sel_M1_mother, mother_long_sel_M1_infant)
+
+mother_long_sel_M1$next_id_mother <- NULL
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_M1)
+
+        #correlations
+mother_long_sel_corr_M1 <- mother_long_sel_M1
+colnames(mother_long_sel_corr_M1) <- paste0(colnames(mother_long_sel_corr_M1), "_M1")
+for (i in 1:ncol(mother_long_sel_corr_M1)){
+        mother_long_sel_corr_M1[,i] <- as.numeric(mother_long_sel_corr_M1[,i])}
+
+str(mother_long_sel_corr_M1, list.len=ncol(mother_long_sel_corr_M1))
+#703  3
+
+        #M2
+mother_long_sel_M2 <- mother_long_sel %>% filter (
+        timepoint=="M2") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1449  5
+str(mother_long_sel_M2)
+
+        #mother phenotypes
+mother_long_sel_M2_mother <- mother_long_sel_M2 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#556 2
+mother_long_sel_M2_mother <- merge(metadata_mother, mother_long_sel_M2_mother, by = "next_id_mother", all.x = TRUE)
+#712  2
+mother_long_sel_M2_mother <- distinct(mother_long_sel_M2_mother, .keep_all = T)
+#703 2
+
+        #infant phenotypes
+mother_long_sel_M2_infant <- mother_long_sel_M2 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+
+#893 3
+mother_long_sel_M2_infant <- merge(metadata_mother, mother_long_sel_M2_infant, by = "next_id_mother", all.x = TRUE)
+#715  3
+mother_long_sel_M2_infant <- distinct(mother_long_sel_M2_infant, .keep_all = T)
+#703 2
+summary(mother_long_sel_M2_infant)
+
+length(unique(mother_long_sel_M2_mother$next_id_mother %in% mother_long_sel_M2_infant$next_id_mother))
+
+mother_long_sel_M2 <- full_join(mother_long_sel_M2_mother, mother_long_sel_M2_infant) #Joining, by = "next_id_mother"
+#703 4
+str(mother_long_sel_M2)
+
+rm(mother_long_sel_M2_mother, mother_long_sel_M2_infant)
+
+mother_long_sel_M2$next_id_mother <- NULL
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_M2)
+
+        #correlations
+mother_long_sel_corr_M2 <- mother_long_sel_M2
+colnames(mother_long_sel_corr_M2) <- paste0(colnames(mother_long_sel_corr_M2), "_M2")
+for (i in 1:ncol(mother_long_sel_corr_M2)){
+        mother_long_sel_corr_M2[,i] <- as.numeric(mother_long_sel_corr_M2[,i])}
+
+str(mother_long_sel_corr_M2, list.len=ncol(mother_long_sel_corr_M2))
+#703  3
+
+        #M3
+mother_long_sel_M3 <- mother_long_sel %>% filter (
+        timepoint=="M3") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#2198  41
+str(mother_long_sel_M3)
+
+        #mother phenotypes
+mother_long_sel_M3_mother <- mother_long_sel_M3 %>% filter (
+        Type == "mother") %>%
+        select(-c(Type,
+                  infant_ffq_feeding_mode_simple,
+                  infant_ffq_feeding_mode_complex))
+
+#1066 38
+mother_long_sel_M3_mother <- merge(metadata_mother, mother_long_sel_M3_mother, by = "next_id_mother", all.x = TRUE)
+#715  39
+mother_long_sel_M3_mother <- distinct(mother_long_sel_M3_mother, .keep_all = T)
+#703 39
+str(mother_long_sel_M3_mother)
+
+        #infant phenotypes
+mother_long_sel_M3_infant <- mother_long_sel_M3 %>% filter (
+        Type == "infant") %>%
+        select(c(next_id_mother,
+                 infant_ffq_feeding_mode_simple,
+                 infant_ffq_feeding_mode_complex))
+
+#1132 3
+mother_long_sel_M3_infant <- merge(metadata_mother, mother_long_sel_M3_infant, by = "next_id_mother", all.x = TRUE)
+#715  3
+mother_long_sel_M3_infant <- distinct(mother_long_sel_M3_infant, .keep_all = T)
+#705 2
+summary(mother_long_sel_M3_infant)
+#LLNEXT004727 and LLNEXT011558 have repeated data which can be coalesced 
+mother_long_sel_M3_infant <- mother_long_sel_M3_infant %>%
+        group_by(next_id_mother) %>%
+        summarize(across(everything(), ~ first(na.omit(.))))
+#703  3
+
+length(unique(mother_long_sel_M3_mother$next_id_mother %in% mother_long_sel_M3_infant$next_id_mother))
+
+mother_long_sel_M3 <- full_join(mother_long_sel_M3_mother, mother_long_sel_M3_infant) #Joining, by = "next_id_mother"
+#703 40
+str(mother_long_sel_M3)
+
+rm(mother_long_sel_M3_mother, mother_long_sel_M3_infant)
+
+mother_long_sel_M3$next_id_mother <- NULL
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_M3)
+
+        #correlations
+mother_long_sel_corr_M3 <- mother_long_sel_M3
+colnames(mother_long_sel_corr_M3) <- paste0(colnames(mother_long_sel_corr_M3), "_M3")
+for (i in 1:ncol(mother_long_sel_corr_M3)){
+        mother_long_sel_corr_M3[,i] <- as.numeric(mother_long_sel_corr_M3[,i])}
+
+str(mother_long_sel_corr_M3, list.len=ncol(mother_long_sel_corr_M3))
+#703  39
+
+        #M6
+mother_long_sel_M6 <- mother_long_sel %>% filter (
+        timepoint=="M6") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1181  5
+str(mother_long_sel_M6)
+
+        #mother phenotypes
+mother_long_sel_M6_mother <- mother_long_sel_M6 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 mother_ldi_stress_past_year_postpartum_avg))
+
+#314 2
+mother_long_sel_M6_mother <- merge(metadata_mother, mother_long_sel_M6_mother, by = "next_id_mother", all.x = TRUE)
+#711  2
+mother_long_sel_M6_mother <- distinct(mother_long_sel_M6_mother, .keep_all = T)
+#703 2
+str(mother_long_sel_M6_mother)
+
+        #infant phenotypes
+mother_long_sel_M6_infant <- mother_long_sel_M6 %>% filter (
+        Type == "infant") %>%
+        select(c(next_id_mother,
+                 infant_ffq_feeding_mode_simple,
+                 infant_ffq_feeding_mode_complex))
+
+#867 3
+mother_long_sel_M6_infant <- merge(metadata_mother, mother_long_sel_M6_infant, by = "next_id_mother", all.x = TRUE)
+#715  3
+mother_long_sel_M6_infant <- distinct(mother_long_sel_M6_infant, .keep_all = T)
+#705 2
+summary(mother_long_sel_M6_infant)
+#LLNEXT001522 and LLNEXT133589 have repeated data which can be coalesced 
+mother_long_sel_M6_infant <- mother_long_sel_M6_infant %>%
+        group_by(next_id_mother) %>%
+        summarize(across(everything(), ~ first(na.omit(.))))
+#703  3
+
+length(unique(mother_long_sel_M6_mother$next_id_mother %in% mother_long_sel_M6_infant$next_id_mother))
+
+mother_long_sel_M6 <- full_join(mother_long_sel_M6_mother, mother_long_sel_M6_infant) #Joining, by = "next_id_mother"
+#703 4
+str(mother_long_sel_M6)
+
+rm(mother_long_sel_M6_mother, mother_long_sel_M6_infant)
+
+mother_long_sel_M6$next_id_mother <- NULL
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_M6)
+
+        #correlations
+mother_long_sel_corr_M6 <- mother_long_sel_M6
+colnames(mother_long_sel_corr_M6) <- paste0(colnames(mother_long_sel_corr_M6), "_M6")
+for (i in 1:ncol(mother_long_sel_corr_M6)){
+        mother_long_sel_corr_M6[,i] <- as.numeric(mother_long_sel_corr_M6[,i])}
+
+str(mother_long_sel_corr_M6, list.len=ncol(mother_long_sel_corr_M6))
+#703  3
+
+        #M9
+mother_long_sel_M9 <- mother_long_sel %>% filter (
+        timepoint=="M9") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1176  5
+str(mother_long_sel_M9)
+
+        #mother phenotypes
+mother_long_sel_M9_mother <- mother_long_sel_M9 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 mother_ldi_stress_past_year_postpartum_avg))
+
+#314 2
+mother_long_sel_M9_mother <- merge(metadata_mother, mother_long_sel_M9_mother, by = "next_id_mother", all.x = TRUE)
+#711  2
+mother_long_sel_M9_mother <- distinct(mother_long_sel_M9_mother, .keep_all = T)
+#703 2
+str(mother_long_sel_M9_mother)
+
+        #infant phenotypes
+mother_long_sel_M9_infant <- mother_long_sel_M9 %>% filter (
+        Type == "infant") %>%
+        select(c(next_id_mother,
+                 infant_ffq_feeding_mode_simple,
+                 infant_ffq_feeding_mode_complex))
+
+#862 3
+mother_long_sel_M9_infant <- merge(metadata_mother, mother_long_sel_M9_infant, by = "next_id_mother", all.x = TRUE)
+#715  3
+mother_long_sel_M9_infant <- distinct(mother_long_sel_M9_infant, .keep_all = T)
+#705 2
+summary(mother_long_sel_M9_infant)
+#LLNEXT001018 and LLNEXT008020 have repeated data which can be coalesced 
+mother_long_sel_M9_infant <- mother_long_sel_M9_infant %>%
+        group_by(next_id_mother) %>%
+        summarize(across(everything(), ~ first(na.omit(.))))
+#703  3
+
+length(unique(mother_long_sel_M9_mother$next_id_mother %in% mother_long_sel_M9_infant$next_id_mother))
+
+mother_long_sel_M9 <- full_join(mother_long_sel_M9_mother, mother_long_sel_M9_infant) #Joining, by = "next_id_mother"
+#703 4
+str(mother_long_sel_M9)
+
+rm(mother_long_sel_M9_mother, mother_long_sel_M9_infant)
+
+mother_long_sel_M9$next_id_mother <- NULL
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_M9)
+
+        #correlations
+mother_long_sel_corr_M9 <- mother_long_sel_M9
+colnames(mother_long_sel_corr_M9) <- paste0(colnames(mother_long_sel_corr_M9), "_M9")
+for (i in 1:ncol(mother_long_sel_corr_M9)){
+        mother_long_sel_corr_M9[,i] <- as.numeric(mother_long_sel_corr_M9[,i])}
+
+str(mother_long_sel_corr_M9, list.len=ncol(mother_long_sel_corr_M9))
+#703  3
+
+        #M12
+mother_long_sel_M12 <- mother_long_sel %>% filter (
+        timepoint=="M12") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1251  5
+str(mother_long_sel_M12)
+
+        #mother phenotypes
+mother_long_sel_M12_mother <- mother_long_sel_M12 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 mother_ldi_stress_past_year_postpartum_avg))
+
+#314 2
+mother_long_sel_M12_mother <- merge(metadata_mother, mother_long_sel_M12_mother, by = "next_id_mother", all.x = TRUE)
+#711  2
+mother_long_sel_M12_mother <- distinct(mother_long_sel_M12_mother, .keep_all = T)
+#703 2
+str(mother_long_sel_M12_mother)
+
+        #infant phenotypes
+mother_long_sel_M12_infant <- mother_long_sel_M12 %>% filter (
+        Type == "infant") %>%
+        select(c(next_id_mother,
+                 infant_ffq_feeding_mode_simple,
+                 infant_ffq_feeding_mode_complex))
+
+#937 3
+mother_long_sel_M12_infant <- merge(metadata_mother, mother_long_sel_M12_infant, by = "next_id_mother", all.x = TRUE)
+#715  3
+mother_long_sel_M12_infant <- distinct(mother_long_sel_M12_infant, .keep_all = T)
+#704 2
+summary(mother_long_sel_M12_infant)
+#LLNEXT004727 has repeated data which can be coalesced 
+mother_long_sel_M12_infant <- mother_long_sel_M12_infant %>%
+        group_by(next_id_mother) %>%
+        summarize(across(everything(), ~ first(na.omit(.))))
+#703  3
+
+length(unique(mother_long_sel_M12_mother$next_id_mother %in% mother_long_sel_M12_infant$next_id_mother))
+
+mother_long_sel_M12 <- full_join(mother_long_sel_M12_mother, mother_long_sel_M12_infant) #Joining, by = "next_id_mother"
+#703 4
+str(mother_long_sel_M12)
+
+rm(mother_long_sel_M12_mother, mother_long_sel_M12_infant)
+
+mother_long_sel_M12$next_id_mother <- NULL
+
+        #summary statistics
+generate_summary_statistics(mother_long_sel_M12)
+
+        #correlations
+mother_long_sel_corr_M12 <- mother_long_sel_M12
+colnames(mother_long_sel_corr_M12) <- paste0(colnames(mother_long_sel_corr_M12), "_M12")
+for (i in 1:ncol(mother_long_sel_corr_M12)){
+        mother_long_sel_corr_M12[,i] <- as.numeric(mother_long_sel_corr_M12[,i])}
+
+str(mother_long_sel_corr_M12, list.len=ncol(mother_long_sel_corr_M12))
+#703  3
+
+                ####4.2 mother longitudinal summary statistics ####
+#clean RStudio
+rm(mother_long_sel_P12, mother_long_sel_P28, 
+   mother_long_sel_B, mother_long_sel_W2, mother_long_sel_M1, mother_long_sel_M2, mother_long_sel_M3,
+   mother_long_sel_M6, mother_long_sel_M9, mother_long_sel_M12)
+
+#generate dataframe to order summary statistics data by: 
+timepoints <- c("P12", "P28", "B", "W2", "M1", "M2", "M3", "M6", "M9", "M12")
+
+        #numeric summary statistics
+numeric_vars <- mother_long_sel %>% filter (
+        timepoint=="P12") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) #%>%
+        #select_if(is.numeric)
+#1085 45
+
+numeric_vars <- merge(metadata_mother, numeric_vars, by = "next_id_mother", all.x = TRUE)
+#713  45
+numeric_vars <- distinct(numeric_vars, .keep_all = T)
+#703  45
+
+numeric_vars <- numeric_vars %>%
+        select_if(is.numeric)
+#703  14
+
+#repeat column names 10 times (for the 10 time point levels)
+repeated_colnames <- rep(colnames(numeric_vars), each = 10)
+
+#generate the final dataframe to order by
+output_numeric_df <- data.frame(colnames = repeated_colnames)
+output_numeric_df$timepoint <- rep(timepoints, length.out = nrow(output_numeric_df))
+output_numeric_df <- output_numeric_df %>% rename (variable=colnames)
+str(output_numeric_df)
+
+#add time point to summary stats files to merge all time points
+        #P12
+mother_num_P12 <- read.delim("mother_long_numeric_summary_stats_P12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_P12 <- mother_num_P12 %>% 
+        mutate(timepoint="P12") %>%
+        relocate(timepoint, .after=variable)
+
+        #P28
+mother_num_P28 <- read.delim("mother_long_numeric_summary_stats_P28.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_P28 <- mother_num_P28 %>% 
+        mutate(timepoint="P28") %>%
+        relocate(timepoint, .after=variable)
+
+        #B
+mother_num_B <- read.delim("mother_long_numeric_summary_stats_B.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_B <- mother_num_B %>% 
+        mutate(timepoint="B") %>%
+        relocate(timepoint, .after=variable)
+
+        #W2
+mother_num_W2 <- read.delim("mother_long_numeric_summary_stats_W2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_W2 <- mother_num_W2 %>% 
+        mutate(timepoint="W2") %>%
+        relocate(timepoint, .after=variable)
+
+        #M1
+mother_num_M1 <- read.delim("mother_long_numeric_summary_stats_M1.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_M1 <- mother_num_M1 %>% 
+        mutate(timepoint="M1") %>%
+        relocate(timepoint, .after=variable)
+
+        #M2
+mother_num_M2 <- read.delim("mother_long_numeric_summary_stats_M2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_M2 <- mother_num_M2 %>% 
+        mutate(timepoint="M2") %>%
+        relocate(timepoint, .after=variable)
+
+        #M3
+mother_num_M3 <- read.delim("mother_long_numeric_summary_stats_M3.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_M3 <- mother_num_M3 %>% 
+        mutate(timepoint="M3") %>%
+        relocate(timepoint, .after=variable)
+
+        #M6
+mother_num_M6 <- read.delim("mother_long_numeric_summary_stats_M6.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_M6 <- mother_num_M6 %>% 
+        mutate(timepoint="M6") %>%
+        relocate(timepoint, .after=variable)
+
+        #M9
+mother_num_M9 <- read.delim("mother_long_numeric_summary_stats_M9.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_M9 <- mother_num_M9 %>% 
+        mutate(timepoint="M9") %>%
+        relocate(timepoint, .after=variable)
+
+        #M12
+mother_num_M12 <- read.delim("mother_long_numeric_summary_stats_M12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_num_M12 <- mother_num_M12 %>% 
+        mutate(timepoint="M12") %>%
+        relocate(timepoint, .after=variable)
+
+
+#merge all data frames 
+mother_num_rbind <- bind_rows(mother_num_P12, mother_num_P28,
+                              mother_num_B, mother_num_W2, mother_num_M1, mother_num_M2, mother_num_M3,
+                              mother_num_M6, mother_num_M9, mother_num_M12)
+mother_long_num_final <- left_join(output_numeric_df, mother_num_rbind) #Joining, by = c("variable", "timepoint")
+#140  13
+
+#remove rows where statistics are NA (after timepoint column)
+mother_long_num_final <- mother_long_num_final[complete.cases(mother_long_num_final), ]
+#34 13
+
+rm(mother_num_P12, mother_num_P28,
+   mother_num_B, mother_num_W2, mother_num_M1, mother_num_M2, mother_num_M3,
+   mother_num_M6, mother_num_M9, mother_num_M12,
+   numeric_vars, output_numeric_df, mother_num_rbind)
+
+        #categorical summary statistics
+factor_vars <- mother_long_sel %>% filter (
+        timepoint=="P12") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                Type,
+                #next_id_mother,
+                next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) #%>%
+        #select_if(is.factor)
+#1085 45
+
+factor_vars <- merge(metadata_mother, factor_vars, by = "next_id_mother", all.x = TRUE)
+#713  45
+factor_vars <- distinct(factor_vars, .keep_all = T)
+#703  45
+
+factor_vars <- factor_vars %>%
+        select_if(is.factor)
+#703  31
+
+factor_vars$next_id_mother <- NULL
+
+#repeat column names 10 times (for the 10 time point levels)
+repeated_colnames <- rep(colnames(factor_vars), each = 10)
+
+#generate the final dataframe to order by
+output_catg_df <- data.frame(colnames = repeated_colnames)
+output_catg_df$timepoint <- rep(timepoints, length.out = nrow(output_catg_df))
+output_catg_df <- output_catg_df %>% rename (variable=colnames)
+str(output_catg_df)
+
+#add time point to summary stats files to merge all time points
+        #P12
+mother_catg_P12 <- read.delim("mother_long_categorical_summary_stats_P12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_P12 <- mother_catg_P12 %>% 
+        mutate(timepoint="P12") %>%
+        relocate(timepoint, .after=variable)
+
+        #P28
+mother_catg_P28 <- read.delim("mother_long_categorical_summary_stats_P28.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_P28 <- mother_catg_P28 %>% 
+        mutate(timepoint="P28") %>%
+        relocate(timepoint, .after=variable)
+
+        #B
+mother_catg_B <- read.delim("mother_long_categorical_summary_stats_B.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_B <- mother_catg_B %>% 
+        mutate(timepoint="B") %>%
+        relocate(timepoint, .after=variable)
+
+        #W2
+mother_catg_W2 <- read.delim("mother_long_categorical_summary_stats_W2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_W2 <- mother_catg_W2 %>% 
+        mutate(timepoint="W2") %>%
+        relocate(timepoint, .after=variable)
+
+        #M1
+mother_catg_M1 <- read.delim("mother_long_categorical_summary_stats_M1.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_M1 <- mother_catg_M1 %>% 
+        mutate(timepoint="M1") %>%
+        relocate(timepoint, .after=variable)
+
+        #M2
+mother_catg_M2 <- read.delim("mother_long_categorical_summary_stats_M2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_M2 <- mother_catg_M2 %>% 
+        mutate(timepoint="M2") %>%
+        relocate(timepoint, .after=variable)
+
+        #M3
+mother_catg_M3 <- read.delim("mother_long_categorical_summary_stats_M3.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_M3 <- mother_catg_M3 %>% 
+        mutate(timepoint="M3") %>%
+        relocate(timepoint, .after=variable)
+
+        #M6
+mother_catg_M6 <- read.delim("mother_long_categorical_summary_stats_M6.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_M6 <- mother_catg_M6 %>% 
+        mutate(timepoint="M6") %>%
+        relocate(timepoint, .after=variable)
+
+        #M9
+mother_catg_M9 <- read.delim("mother_long_categorical_summary_stats_M9.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_M9 <- mother_catg_M9 %>% 
+        mutate(timepoint="M9") %>%
+        relocate(timepoint, .after=variable)
+
+        #M12
+mother_catg_M12 <- read.delim("mother_long_categorical_summary_stats_M12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_catg_M12 <- mother_catg_M12 %>% 
+        mutate(timepoint="M12") %>%
+        relocate(timepoint, .after=variable)
+
+
+#merge all data frames 
+mother_catg_rbind <- bind_rows(mother_catg_P12, mother_catg_P28,
+                              mother_catg_B, mother_catg_W2, mother_catg_M1, mother_catg_M2, mother_catg_M3,
+                              mother_catg_M6, mother_catg_M9, mother_catg_M12)
+mother_long_catg_final <- left_join(output_catg_df, mother_catg_rbind) #Joining, by = c("variable", "timepoint")
+#300  28
+str(mother_long_catg_final)
+
+#remove rows where statistics are NA (after timepoint column)
+timepoint_index <- which(names(mother_long_catg_final) == "timepoint")
+#remove rows where all values after "timepoint" are NAs
+mother_long_catg_final <- mother_long_catg_final[rowSums(is.na(mother_long_catg_final[, (timepoint_index + 1):ncol(mother_long_catg_final)])) != ncol(mother_long_catg_final[, (timepoint_index + 1):ncol(mother_long_catg_final)]), ]
+#92  28
+
+rm(mother_catg_P12, mother_catg_P28,
+   mother_catg_B, mother_catg_W2, mother_catg_M1, mother_catg_M2, mother_catg_M3,
+   mother_catg_M6, mother_catg_M9, mother_catg_M12,
+   factor_vars, output_catg_df, mother_catg_rbind)
+
+#write files
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/pheno_sum_stats/longitudinal_metadata/")
+write.table(mother_long_num_final, "mother_long_numeric_summary_stats.txt", sep="\t", row.names=F, quote = F)
+write.table(mother_long_catg_final, "mother_long_categorical_summary_stats.txt", sep="\t", row.names=F, quote = F)
+
+        ##previous script which generates summary statistics overall (not by timepoint)##
+##pivot dataframe to wide format based on timepoint and maintain timepoint order
+#mother_long_sel$timepoint <- factor(mother_long_sel$timepoint, levels=c("P12", "P28", "B", "W2", "M1", "M2", "M3", "M6", "M9", "M12"))
+
+#timepoint_levels <- c("P12", "P28", "B", "W2", "M1", "M2", "M3", "M6", "M9", "M12")
+
+#mother_long_sel_wide <- mother_long_sel %>%
+#        pivot_wider(
+#                id_cols = c(FAMILY, Type, next_id_mother, next_id_infant, next_id_partner,
+#                            infant_relations, sibling_number, twin_pair, SAMPLE_ID),
+#                names_from = timepoint,
+#                values_from = -c(FAMILY, Type, next_id_mother, next_id_infant, next_id_partner,
+#                                 infant_relations, sibling_number, twin_pair, SAMPLE_ID, timepoint),
+#                names_prefix = "",
+#                names_repair = "universal",
+#                names_sort = TRUE
+#        ) %>% #to maintain the time point order
+#        rename_with(
+#                ~ if_else(. %in% c("FAMILY", "SAMPLE_ID"), ., paste0(str_remove(., paste0("_", timepoint_levels[match(str_extract(., "(?<=_)[A-Z0-9]+$"), timepoint_levels)])), "_", timepoint_levels[match(str_extract(., "(?<=_)[A-Z0-9]+$"), timepoint_levels)])),
+#                .cols = -c(FAMILY, Type, next_id_mother, next_id_infant, next_id_partner,
+#                           infant_relations, sibling_number, twin_pair, SAMPLE_ID)
+#        )
+
+#str(mother_long_sel_wide, list.len=ncol(mother_long_sel_wide))
+#14236  449
+#colnames(mother_long_sel_wide)
+
+#remove columns with all NAs (given that data is not available at all time points and that this varies by variable)
+#mother_long_sel_wide <- mother_long_sel_wide %>%
+#        select(where(~ !all(is.na(.))))
+#14236  135
+
+                ####4.3 mother longitudinal correlations####
+mother_long_corr <- bind_rows(mother_long_sel_corr_P12, mother_long_sel_corr_P28, mother_long_sel_corr_B,
+                              mother_long_sel_corr_W2, mother_long_sel_corr_M1, mother_long_sel_corr_M2, mother_long_sel_corr_M3,
+                              mother_long_sel_corr_M6, mother_long_sel_corr_M9, mother_long_sel_corr_M12)
+str(mother_long_corr, list.len=ncol(mother_long_corr))
+#7030 126
+
+#clean RStudio
+rm(mother_long_sel_corr_P12, mother_long_sel_corr_P28, mother_long_sel_corr_B,
+   mother_long_sel_corr_W2, mother_long_sel_corr_M1, mother_long_sel_corr_M2, mother_long_sel_corr_M3,
+   mother_long_sel_corr_M6, mother_long_sel_corr_M9, mother_long_sel_corr_M12)
+
+spearman_corr <- result(mother_long_corr, mother_long_corr)
+#15876  4
+spearman_corr$FDR<-p.adjust(spearman_corr$pvalue, method = "BH")
+
+#remove 1:1 correlations
+spearman_corr <- spearman_corr %>% 
+        as_tibble() %>% 
+        mutate(duplicates = if_else(factor1 == factor2,
+                                    TRUE,
+                                    FALSE)) %>% 
+        filter(duplicates == FALSE)
+
+spearman_corr$duplicates <- NULL 
+#15750  5
+
+#remove NA's (for incomplete cases for correlations)
+spearman_corr <- spearman_corr[complete.cases(spearman_corr), ]
+#3026  5
+
+spearman_FDR_corr <- spearman_corr %>% 
+        filter(FDR<0.05)
+#258  5
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/pheno_correlations/")
+write.table(spearman_corr, "mother_long_correlations.txt", sep="\t", row.names=F, quote = F)
+
+pdf(file = "mother_long_correlations.pdf", useDingbats = F, onefile = T, width = 15, height=18)
+ggplot(data = spearman_corr, aes(factor1, factor2, fill = CorCoefficient))+
+        geom_tile(color = "white")+
+        scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                             midpoint = 0, limit = c(-1,1), space = "Lab", 
+                             name="Spearman\nCorrelation") +
+        theme_minimal()+ 
+        #theme(axis.text.x=element_blank(), #remove x axis labels
+        #      axis.ticks.x=element_blank(), #remove x axis ticks
+        #      axis.text.y=element_blank(),  #remove y axis labels
+        #      axis.ticks.y=element_blank()  #remove y axis ticks
+        #)+
+        coord_fixed() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        theme(axis.text=element_text(size=5))
+
+ggplot(data = spearman_FDR_corr, aes(factor1, factor2, fill = CorCoefficient))+
+        geom_tile(color = "white")+
+        scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                             midpoint = 0, limit = c(-1,1), space = "Lab", 
+                             name="Spearman\nCorrelation") +
+        theme_minimal()+ 
+        #theme(axis.text.x=element_blank(), #remove x axis labels
+        #      axis.ticks.x=element_blank(), #remove x axis ticks
+        #      axis.text.y=element_blank(),  #remove y axis labels
+        #      axis.ticks.y=element_blank()  #remove y axis ticks
+        #)+
+        coord_fixed() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        theme(axis.text=element_text(size=5))
+
+dev.off()
+
+rm(mother_long_sel, mother_long_corr, spearman_corr, spearman_FDR_corr)
+rm(metadata_mother, mother_long_num_final, mother_long_catg_final)
+
+                ####4.4 infant subset subset and preparation for longitudinal summary statistics and correlations####
+table(long_sel$infant_microbiome_selection) 
+#105 variables should be selected for longitudinal infant microbiome
+
+infant_long <- long_sel %>% select(c(
+        variable_name,
+        infant_microbiome_selection)) %>%
+        filter(infant_microbiome_selection == "1")
+#105  2
+
+#subset longitudinal masterfile according to longitudinal infant_microbiome_selection
+infant_long$variable_name <- as.factor(as.character(infant_long$variable_name)) #remove factor levels with 0
+matching_cols <- infant_long$variable_name
+infant_long_sel <- long %>%
+        select(any_of(matching_cols))
+str(infant_long_sel, list.len=ncol(infant_long_sel))
+#14236 105
+
+rm(infant_long)
+
+#make certain variables factors for summary statistics 
+        #infant_stool_freq
+table(infant_long_sel$infant_rome_stool_freq_last_month, useNA="ifany")
+factor_levels <- c(
+        "0_<_once_wk",
+        "1_1_2_times_wk",
+        "2_3_7_times_wk",
+        "3_once_day",
+        "4_2_3_times_day",
+        "5_>3_times_day")
+
+#convert numerical values to factors
+infant_long_sel <- infant_long_sel %>%
+        mutate(infant_rome_stool_freq_last_month = factor(infant_rome_stool_freq_last_month, levels = 1:6, labels = factor_levels))
+
+        #infant_stool_structure
+table(infant_long_sel$infant_rome_stool_structure, useNA="ifany")
+factor_levels <- c(
+        "0_very_hard",
+        "1_hard",
+        "2_not_hard_not_soft",
+        "3_very_soft",
+        "4_watery",
+        "5_sometimes_hard_sometimes_soft")
+
+#convert numerical values to factors
+infant_long_sel <- infant_long_sel %>%
+        mutate(infant_rome_stool_structure = factor(infant_rome_stool_structure, levels = 1:6, labels = factor_levels))
+
+        #infant_mucus_stool
+table(infant_long_sel$infant_rome_mucus_stool_last_week, useNA="ifany")
+factor_levels <- c(
+        "0_never",
+        "1_once",
+        "2_on_and_off",
+        "3_almost_always",
+        "4_always")
+
+#convert numerical values to factors
+infant_long_sel <- infant_long_sel %>%
+        mutate(infant_rome_mucus_stool_last_week = factor(infant_rome_mucus_stool_last_week, levels = 0:4, labels = factor_levels))
+
+        #infant_BITSS
+table(infant_long_sel$infant_BITSS, useNA="ifany")
+factor_levels <- c(
+        "0_hard_stool",
+        "1_formed_stool",
+        "2_loose_stool",
+        "3_watery_stool")
+
+#convert numerical values to factors
+infant_long_sel <- infant_long_sel %>%
+        mutate(infant_BITSS = factor(infant_BITSS, levels = 1:4, labels = factor_levels))
+
+        #infant_sleep_problem
+table(infant_long_sel$infant_sleep_pattern_problem, useNA="ifany")
+factor_levels <- c(
+        "0_no_problem",
+        "1_small_problem",
+        "2_big_problem")
+
+#convert numerical values to factors
+infant_long_sel <- infant_long_sel %>%
+        mutate(infant_sleep_pattern_problem = factor(infant_sleep_pattern_problem, levels = 0:2, labels = factor_levels))
+
+
+colnames(infant_long_sel)
+#14236  105
+
+#filter for infants only
+infant_long_sel <- infant_long_sel %>% filter (
+        infant_relations != "no_mother_infant_pair") #19
+#14217  105
+
+infant_long_sel$timepoint <- factor(infant_long_sel$timepoint, levels=c("P12", "P28", "B", "W2", "M1", "M2", "M3", "M6", "M9", "M12"))
+table(infant_long_sel$timepoint, useNA = "ifany")
+#P12  P28    B   W2   M1   M2   M3   M6   M9  M12 
+#1073 1164 1847 1444 1436 1449 2196 1181 1176 1251 
+
+#generate infant_next_ids available from metagenomics
+metadata_infant <- metadata %>% filter(
+        Type == "infant") %>%
+        select(NEXT_ID) %>% 
+        rename(next_id_infant = NEXT_ID)
+#2939  1
+str(metadata_infant)
+metadata_infant$next_id_infant <- as.factor(as.character(metadata_infant$next_id_infant)) #1417 --> 714 levels for merging
+metadata_infant<- distinct(metadata_infant, .keep_all = T)
+#714  1
+
+#filter by timepoint and run summary stats by time point
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/pheno_sum_stats/longitudinal_metadata/intermediate_files/")
+
+        #P12
+infant_long_sel_P12 <- infant_long_sel %>% filter (
+        timepoint=="P12") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1073  3
+str(infant_long_sel_P12)
+
+        #mother phenotypes
+infant_long_sel_P12_mother <- infant_long_sel_P12 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#1073 2
+infant_long_sel_P12_mother <- merge(metadata_infant, infant_long_sel_P12_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_P12_mother <- distinct(infant_long_sel_P12_mother, .keep_all = T)
+#714 2
+str(infant_long_sel_P12_mother)
+#at this time point, only mother phenotypes were associated with available infant data
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_P12_mother) #I did not omit next_id_infant so that the script could run; just manually removed the categorical sumstats output table
+
+        #correlations
+infant_long_sel_corr_P12 <- infant_long_sel_P12_mother
+colnames(infant_long_sel_corr_P12) <- paste0(colnames(infant_long_sel_corr_P12), "_P12")
+for (i in 1:ncol(infant_long_sel_corr_P12)){
+        infant_long_sel_corr_P12[,i] <- as.numeric(infant_long_sel_corr_P12[,i])}
+
+str(infant_long_sel_corr_P12, list.len=ncol(infant_long_sel_corr_P12))
+infant_long_sel_corr_P12$next_id_mother_P12 <- NULL
+#714  1
+
+infant_long_sel_P12 <- infant_long_sel_P12_mother
+rm(infant_long_sel_P12_mother)
+
+        #P28
+infant_long_sel_P28 <- infant_long_sel %>% filter (
+        timepoint=="P28") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1164  3
+str(infant_long_sel_P28)
+
+        #mother phenotypes
+infant_long_sel_P28_mother <- infant_long_sel_P28 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#1164 2
+infant_long_sel_P28_mother <- merge(metadata_infant, infant_long_sel_P28_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_P28_mother <- distinct(infant_long_sel_P28_mother, .keep_all = T)
+#714 2
+str(infant_long_sel_P28_mother)
+#at this time point, only mother phenotypes were associated with available infant data
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_P28_mother) #I did not omit next_id_infant so that the script could run; just manually removed the categorical sumstats output table
+
+        #correlations
+infant_long_sel_corr_P28 <- infant_long_sel_P28_mother
+colnames(infant_long_sel_corr_P28) <- paste0(colnames(infant_long_sel_corr_P28), "_P28")
+for (i in 1:ncol(infant_long_sel_corr_P28)){
+        infant_long_sel_corr_P28[,i] <- as.numeric(infant_long_sel_corr_P28[,i])}
+
+str(infant_long_sel_corr_P28, list.len=ncol(infant_long_sel_corr_P28))
+infant_long_sel_corr_P28$next_id_mother_P28 <- NULL
+#714  1
+
+infant_long_sel_P28 <- infant_long_sel_P28_mother
+rm(infant_long_sel_P28_mother)
+
+        #B
+infant_long_sel_B <- infant_long_sel %>% filter (
+        timepoint=="B") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1847  6
+str(infant_long_sel_B)
+
+        #mother phenotypes
+infant_long_sel_B_mother <- infant_long_sel_B %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#1030 2
+infant_long_sel_B_mother <- merge(metadata_infant, infant_long_sel_B_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_B_mother <- distinct(infant_long_sel_B_mother, .keep_all = T)
+#714 2
+
+        #infant phenotypes
+infant_long_sel_B_infant <- infant_long_sel_B %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+
+#817 4
+infant_long_sel_B_infant <- merge(metadata_infant, infant_long_sel_B_infant, by = "next_id_infant", all.x = TRUE)
+#714  4
+infant_long_sel_B_infant <- distinct(infant_long_sel_B_infant, .keep_all = T)
+#714 4
+summary(infant_long_sel_B_infant)
+
+length(unique(infant_long_sel_B_mother$next_id_infant %in% infant_long_sel_B_infant$next_id_infant))
+
+infant_long_sel_B <- full_join(infant_long_sel_B_mother, infant_long_sel_B_infant) #Joining, by = "next_id_mother"
+#714 5
+str(infant_long_sel_B)
+
+rm(infant_long_sel_B_mother, infant_long_sel_B_infant)
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_B) #I did not omit next_id_infant so that the script could run; just manually removed the categorical sumstats output table
+
+        #correlations
+infant_long_sel_corr_B <- infant_long_sel_B
+colnames(infant_long_sel_corr_B) <- paste0(colnames(infant_long_sel_corr_B), "_B")
+for (i in 1:ncol(infant_long_sel_corr_B)){
+        infant_long_sel_corr_B[,i] <- as.numeric(infant_long_sel_corr_B[,i])}
+
+str(infant_long_sel_corr_B, list.len=ncol(infant_long_sel_corr_B))
+#714  5
+infant_long_sel_corr_B$next_id_infant_B <- NULL
+
+        #W2
+infant_long_sel_W2 <- infant_long_sel %>% filter (
+        timepoint=="W2") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1444  28
+str(infant_long_sel_W2)
+
+        #mother phenotypes
+infant_long_sel_W2_mother <- infant_long_sel_W2 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#556 2
+infant_long_sel_W2_mother <- merge(metadata_infant, infant_long_sel_W2_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_W2_mother <- distinct(infant_long_sel_W2_mother, .keep_all = T)
+#714 2
+
+        #infant phenotypes
+infant_long_sel_W2_infant <- infant_long_sel_W2 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+str(infant_long_sel_W2_infant)
+#888 26
+infant_long_sel_W2_infant <- merge(metadata_infant, infant_long_sel_W2_infant, by = "next_id_infant", all.x = TRUE)
+#714  26
+infant_long_sel_W2_infant <- distinct(infant_long_sel_W2_infant, .keep_all = T)
+#714  26
+summary(infant_long_sel_W2_infant)
+
+length(unique(infant_long_sel_W2_mother$next_id_infant %in% infant_long_sel_W2_infant$next_id_infant))
+
+infant_long_sel_W2 <- full_join(infant_long_sel_W2_mother, infant_long_sel_W2_infant) #Joining, by = "next_id_mother"
+#714 27
+str(infant_long_sel_W2)
+
+rm(infant_long_sel_W2_mother, infant_long_sel_W2_infant)
+
+infant_long_sel_W2$next_id_infant <- NULL
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_W2)
+
+        #correlations
+infant_long_sel_corr_W2 <- infant_long_sel_W2
+colnames(infant_long_sel_corr_W2) <- paste0(colnames(infant_long_sel_corr_W2), "_W2")
+for (i in 1:ncol(infant_long_sel_corr_W2)){
+        infant_long_sel_corr_W2[,i] <- as.numeric(infant_long_sel_corr_W2[,i])}
+
+str(infant_long_sel_corr_W2, list.len=ncol(infant_long_sel_corr_W2))
+#714  26
+
+        #M1
+infant_long_sel_M1 <- infant_long_sel %>% filter (
+        timepoint=="M1") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1436  34
+str(infant_long_sel_M1)
+
+        #mother phenotypes
+infant_long_sel_M1_mother <- infant_long_sel_M1 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#556 2
+infant_long_sel_M1_mother <- merge(metadata_infant, infant_long_sel_M1_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_M1_mother <- distinct(infant_long_sel_M1_mother, .keep_all = T)
+#714 2
+
+        #infant phenotypes
+infant_long_sel_M1_infant <- infant_long_sel_M1 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+str(infant_long_sel_M1_infant)
+#880 32
+infant_long_sel_M1_infant <- merge(metadata_infant, infant_long_sel_M1_infant, by = "next_id_infant", all.x = TRUE)
+#714  32
+infant_long_sel_M1_infant <- distinct(infant_long_sel_M1_infant, .keep_all = T)
+#714 32
+summary(infant_long_sel_M1_infant)
+
+length(unique(infant_long_sel_M1_mother$next_id_infant %in% infant_long_sel_M1_infant$next_id_infant))
+
+infant_long_sel_M1 <- full_join(infant_long_sel_M1_mother, infant_long_sel_M1_infant) #Joining, by = "next_id_mother"
+#714 33
+str(infant_long_sel_M1)
+
+rm(infant_long_sel_M1_mother, infant_long_sel_M1_infant)
+
+infant_long_sel_M1$next_id_infant <- NULL
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_M1)
+
+        #correlations
+infant_long_sel_corr_M1 <- infant_long_sel_M1
+colnames(infant_long_sel_corr_M1) <- paste0(colnames(infant_long_sel_corr_M1), "_M1")
+for (i in 1:ncol(infant_long_sel_corr_M1)){
+        infant_long_sel_corr_M1[,i] <- as.numeric(infant_long_sel_corr_M1[,i])}
+
+str(infant_long_sel_corr_M1, list.len=ncol(infant_long_sel_corr_M1))
+#714  32
+
+        #M2
+infant_long_sel_M2 <- infant_long_sel %>% filter (
+        timepoint=="M2") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1449  34
+str(infant_long_sel_M2)
+
+        #mother phenotypes
+infant_long_sel_M2_mother <- infant_long_sel_M2 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#556 2
+infant_long_sel_M2_mother <- merge(metadata_infant, infant_long_sel_M2_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_M2_mother <- distinct(infant_long_sel_M2_mother, .keep_all = T)
+#714 2
+
+        #infant phenotypes
+infant_long_sel_M2_infant <- infant_long_sel_M2 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+str(infant_long_sel_M2_infant)
+#893 32
+infant_long_sel_M2_infant <- merge(metadata_infant, infant_long_sel_M2_infant, by = "next_id_infant", all.x = TRUE)
+#714  32
+infant_long_sel_M2_infant <- distinct(infant_long_sel_M2_infant, .keep_all = T)
+#714 32
+summary(infant_long_sel_M2_infant)
+
+length(unique(infant_long_sel_M2_mother$next_id_infant %in% infant_long_sel_M2_infant$next_id_infant))
+
+infant_long_sel_M2 <- full_join(infant_long_sel_M2_mother, infant_long_sel_M2_infant) #Joining, by = "next_id_mother"
+#714 33
+str(infant_long_sel_M2)
+
+rm(infant_long_sel_M2_mother, infant_long_sel_M2_infant)
+
+infant_long_sel_M2$next_id_infant <- NULL
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_M2)
+
+        #correlations
+infant_long_sel_corr_M2 <- infant_long_sel_M2
+colnames(infant_long_sel_corr_M2) <- paste0(colnames(infant_long_sel_corr_M2), "_M2")
+for (i in 1:ncol(infant_long_sel_corr_M2)){
+        infant_long_sel_corr_M2[,i] <- as.numeric(infant_long_sel_corr_M2[,i])}
+
+str(infant_long_sel_corr_M2, list.len=ncol(infant_long_sel_corr_M2))
+#714  32
+
+        #M3
+infant_long_sel_M3 <- infant_long_sel %>% filter (
+        timepoint=="M3") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#2196  49
+str(infant_long_sel_M3)
+
+        #mother phenotypes
+infant_long_sel_M3_mother <- infant_long_sel_M3 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_postpartum_avg))
+
+#1064 2
+infant_long_sel_M3_mother <- merge(metadata_infant, infant_long_sel_M3_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_M3_mother <- distinct(infant_long_sel_M3_mother, .keep_all = T)
+#714 2
+
+        #infant phenotypes
+infant_long_sel_M3_infant <- infant_long_sel_M3 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_postpartum_avg))
+str(infant_long_sel_M3_infant)
+#1132 47
+infant_long_sel_M3_infant <- merge(metadata_infant, infant_long_sel_M3_infant, by = "next_id_infant", all.x = TRUE)
+#714  47
+infant_long_sel_M3_infant <- distinct(infant_long_sel_M3_infant, .keep_all = T)
+#714 47
+summary(infant_long_sel_M3_infant)
+
+length(unique(infant_long_sel_M3_mother$next_id_infant %in% infant_long_sel_M3_infant$next_id_infant))
+
+infant_long_sel_M3 <- full_join(infant_long_sel_M3_mother, infant_long_sel_M3_infant) #Joining, by = "next_id_mother"
+#714 48
+str(infant_long_sel_M3)
+
+rm(infant_long_sel_M3_mother, infant_long_sel_M3_infant)
+
+infant_long_sel_M3$next_id_infant <- NULL
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_M3)
+
+        #correlations
+infant_long_sel_corr_M3 <- infant_long_sel_M3
+colnames(infant_long_sel_corr_M3) <- paste0(colnames(infant_long_sel_corr_M3), "_M3")
+for (i in 1:ncol(infant_long_sel_corr_M3)){
+        infant_long_sel_corr_M3[,i] <- as.numeric(infant_long_sel_corr_M3[,i])}
+
+str(infant_long_sel_corr_M3, list.len=ncol(infant_long_sel_corr_M3))
+#714  47
+
+        #M6
+infant_long_sel_M6 <- infant_long_sel %>% filter (
+        timepoint=="M6") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1181  70
+str(infant_long_sel_M6)
+
+        #mother phenotypes
+infant_long_sel_M6_mother <- infant_long_sel_M6 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_postpartum_avg))
+
+#314 2
+infant_long_sel_M6_mother <- merge(metadata_infant, infant_long_sel_M6_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_M6_mother <- distinct(infant_long_sel_M6_mother, .keep_all = T)
+#714 2
+
+        #infant phenotypes
+infant_long_sel_M6_infant <- infant_long_sel_M6 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_postpartum_avg))
+str(infant_long_sel_M6_infant)
+#867 68
+infant_long_sel_M6_infant <- merge(metadata_infant, infant_long_sel_M6_infant, by = "next_id_infant", all.x = TRUE)
+#714  68
+infant_long_sel_M6_infant <- distinct(infant_long_sel_M6_infant, .keep_all = T)
+#714 68
+summary(infant_long_sel_M6_infant)
+
+length(unique(infant_long_sel_M6_mother$next_id_infant %in% infant_long_sel_M6_infant$next_id_infant))
+
+infant_long_sel_M6 <- full_join(infant_long_sel_M6_mother, infant_long_sel_M6_infant) #Joining, by = "next_id_mother"
+#714 69
+str(infant_long_sel_M6)
+
+rm(infant_long_sel_M6_mother, infant_long_sel_M6_infant)
+
+infant_long_sel_M6$next_id_infant <- NULL
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_M6)
+
+        #correlations
+infant_long_sel_corr_M6 <- infant_long_sel_M6
+colnames(infant_long_sel_corr_M6) <- paste0(colnames(infant_long_sel_corr_M6), "_M6")
+for (i in 1:ncol(infant_long_sel_corr_M6)){
+        infant_long_sel_corr_M6[,i] <- as.numeric(infant_long_sel_corr_M6[,i])}
+
+str(infant_long_sel_corr_M6, list.len=ncol(infant_long_sel_corr_M6))
+#714  68
+
+        #M9
+infant_long_sel_M9 <- infant_long_sel %>% filter (
+        timepoint=="M9") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1176  73
+str(infant_long_sel_M9)
+
+        #mother phenotypes
+infant_long_sel_M9_mother <- infant_long_sel_M9 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_postpartum_avg))
+
+#314 2
+infant_long_sel_M9_mother <- merge(metadata_infant, infant_long_sel_M9_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_M9_mother <- distinct(infant_long_sel_M9_mother, .keep_all = T)
+#714 2
+
+        #infant phenotypes
+infant_long_sel_M9_infant <- infant_long_sel_M9 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_postpartum_avg))
+str(infant_long_sel_M9_infant)
+#862 71
+infant_long_sel_M9_infant <- merge(metadata_infant, infant_long_sel_M9_infant, by = "next_id_infant", all.x = TRUE)
+#714  71
+infant_long_sel_M9_infant <- distinct(infant_long_sel_M9_infant, .keep_all = T)
+#714 71
+summary(infant_long_sel_M9_infant)
+
+length(unique(infant_long_sel_M9_mother$next_id_infant %in% infant_long_sel_M9_infant$next_id_infant))
+
+infant_long_sel_M9 <- full_join(infant_long_sel_M9_mother, infant_long_sel_M9_infant) #Joining, by = "next_id_mother"
+#714 71
+str(infant_long_sel_M9)
+
+rm(infant_long_sel_M9_mother, infant_long_sel_M9_infant)
+
+infant_long_sel_M9$next_id_infant <- NULL
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_M9)
+
+        #correlations
+infant_long_sel_corr_M9 <- infant_long_sel_M9
+colnames(infant_long_sel_corr_M9) <- paste0(colnames(infant_long_sel_corr_M9), "_M9")
+for (i in 1:ncol(infant_long_sel_corr_M9)){
+        infant_long_sel_corr_M9[,i] <- as.numeric(infant_long_sel_corr_M9[,i])}
+
+str(infant_long_sel_corr_M9, list.len=ncol(infant_long_sel_corr_M9))
+#714  71
+
+        #M12
+infant_long_sel_M12 <- infant_long_sel %>% filter (
+        timepoint=="M12") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1251  88
+str(infant_long_sel_M12)
+
+        #mother phenotypes
+infant_long_sel_M12_mother <- infant_long_sel_M12 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_infant,
+                 mother_ldi_stress_past_year_postpartum_avg))
+
+#314 2
+infant_long_sel_M12_mother <- merge(metadata_infant, infant_long_sel_M12_mother, by = "next_id_infant", all.x = TRUE)
+#714  2
+infant_long_sel_M12_mother <- distinct(infant_long_sel_M12_mother, .keep_all = T)
+#714 2
+
+        #infant phenotypes
+infant_long_sel_M12_infant <- infant_long_sel_M12 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_postpartum_avg))
+str(infant_long_sel_M12_infant)
+#937 86
+infant_long_sel_M12_infant <- merge(metadata_infant, infant_long_sel_M12_infant, by = "next_id_infant", all.x = TRUE)
+#714  86
+infant_long_sel_M12_infant <- distinct(infant_long_sel_M12_infant, .keep_all = T)
+#714 86
+summary(infant_long_sel_M12_infant)
+
+length(unique(infant_long_sel_M12_mother$next_id_infant %in% infant_long_sel_M12_infant$next_id_infant))
+
+infant_long_sel_M12 <- full_join(infant_long_sel_M12_mother, infant_long_sel_M12_infant) #Joining, by = "next_id_mother"
+#714 86
+str(infant_long_sel_M12)
+
+rm(infant_long_sel_M12_mother, infant_long_sel_M12_infant)
+
+infant_long_sel_M12$next_id_infant <- NULL
+
+        #summary statistics
+generate_summary_statistics(infant_long_sel_M12)
+
+        #correlations
+infant_long_sel_corr_M12 <- infant_long_sel_M12
+colnames(infant_long_sel_corr_M12) <- paste0(colnames(infant_long_sel_corr_M12), "_M12")
+for (i in 1:ncol(infant_long_sel_corr_M12)){
+        infant_long_sel_corr_M12[,i] <- as.numeric(infant_long_sel_corr_M12[,i])}
+
+str(infant_long_sel_corr_M12, list.len=ncol(infant_long_sel_corr_M12))
+#714  86
+
+#clean RStudio
+rm(infant_long_sel_P12, infant_long_sel_P28, 
+   infant_long_sel_B, infant_long_sel_W2, infant_long_sel_M1, infant_long_sel_M2, infant_long_sel_M3,
+   infant_long_sel_M6, infant_long_sel_M9, infant_long_sel_M12)
+
+                ####4.5 infant longitudinal summary statistics ####
+#generate dataframe to order summary statistics data by: 
+timepoints <- c("P12", "P28", "B", "W2", "M1", "M2", "M3", "M6", "M9", "M12")
+
+#numeric summary statistics
+numeric_vars <- infant_long_sel %>% filter (
+        timepoint=="P12") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) #%>%
+#select_if(is.numeric)
+#1073 96
+
+numeric_vars <- merge(metadata_infant, numeric_vars, by = "next_id_infant", all.x = TRUE)
+#714  96
+numeric_vars <- distinct(numeric_vars, .keep_all = T)
+#714  96
+
+#repeat column names 10 times (for the 10 time point levels)
+repeated_colnames <- rep(colnames(numeric_vars), each = 10)
+
+#generate the final dataframe to order by
+output_numeric_df <- data.frame(colnames = repeated_colnames)
+output_numeric_df$timepoint <- rep(timepoints, length.out = nrow(output_numeric_df))
+output_numeric_df <- output_numeric_df %>% rename (variable=colnames)
+str(output_numeric_df)
+
+        #add time point to summary stats files to merge all time points
+        #P12
+infant_num_P12 <- read.delim("infant_long_numeric_summary_stats_P12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_P12 <- infant_num_P12 %>% 
+        mutate(timepoint="P12") %>%
+        relocate(timepoint, .after=variable)
+
+        #P28
+infant_num_P28 <- read.delim("infant_long_numeric_summary_stats_P28.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_P28 <- infant_num_P28 %>% 
+        mutate(timepoint="P28") %>%
+        relocate(timepoint, .after=variable)
+
+        #B
+infant_num_B <- read.delim("infant_long_numeric_summary_stats_B.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_B <- infant_num_B %>% 
+        mutate(timepoint="B") %>%
+        relocate(timepoint, .after=variable)
+
+        #W2
+infant_num_W2 <- read.delim("infant_long_numeric_summary_stats_W2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_W2 <- infant_num_W2 %>% 
+        mutate(timepoint="W2") %>%
+        relocate(timepoint, .after=variable)
+
+        #M1
+infant_num_M1 <- read.delim("infant_long_numeric_summary_stats_M1.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M1 <- infant_num_M1 %>% 
+        mutate(timepoint="M1") %>%
+        relocate(timepoint, .after=variable)
+
+        #M2
+infant_num_M2 <- read.delim("infant_long_numeric_summary_stats_M2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M2 <- infant_num_M2 %>% 
+        mutate(timepoint="M2") %>%
+        relocate(timepoint, .after=variable)
+
+        #M3
+infant_num_M3 <- read.delim("infant_long_numeric_summary_stats_M3.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M3 <- infant_num_M3 %>% 
+        mutate(timepoint="M3") %>%
+        relocate(timepoint, .after=variable)
+
+        #M6
+infant_num_M6 <- read.delim("infant_long_numeric_summary_stats_M6.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M6 <- infant_num_M6 %>% 
+        mutate(timepoint="M6") %>%
+        relocate(timepoint, .after=variable)
+
+        #M9
+infant_num_M9 <- read.delim("infant_long_numeric_summary_stats_M9.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M9 <- infant_num_M9 %>% 
+        mutate(timepoint="M9") %>%
+        relocate(timepoint, .after=variable)
+
+        #M12
+infant_num_M12 <- read.delim("infant_long_numeric_summary_stats_M12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_num_M12 <- infant_num_M12 %>% 
+        mutate(timepoint="M12") %>%
+        relocate(timepoint, .after=variable)
+
+
+#merge all data frames 
+infant_num_rbind <- bind_rows(infant_num_P12, infant_num_P28,
+                              infant_num_B, infant_num_W2, infant_num_M1, infant_num_M2, infant_num_M3,
+                              infant_num_M6, infant_num_M9, infant_num_M12)
+infant_long_num_final <- left_join(output_numeric_df, infant_num_rbind) #Joining, by = c("variable", "timepoint")
+#960  13
+
+#remove rows where statistics are NA (after timepoint column)
+infant_long_num_final <- infant_long_num_final[complete.cases(infant_long_num_final), ]
+#157 13
+
+rm(infant_num_P12, infant_num_P28,
+   infant_num_B, infant_num_W2, infant_num_M1, infant_num_M2, infant_num_M3,
+   infant_num_M6, infant_num_M9, infant_num_M12,
+   numeric_vars, output_numeric_df, infant_num_rbind)
+
+        #categorical summary statistics
+factor_vars <- infant_long_sel %>% filter (
+        timepoint=="P12") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                Type,
+                next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) #%>%
+#select_if(is.factor)
+#1073 96
+
+factor_vars <- merge(metadata_infant, factor_vars, by = "next_id_infant", all.x = TRUE)
+#714  96
+factor_vars <- distinct(factor_vars, .keep_all = T)
+#714  96
+
+#repeat column names 10 times (for the 10 time point levels)
+repeated_colnames <- rep(colnames(factor_vars), each = 10)
+
+#generate the final dataframe to order by
+output_catg_df <- data.frame(colnames = repeated_colnames)
+output_catg_df$timepoint <- rep(timepoints, length.out = nrow(output_catg_df))
+output_catg_df <- output_catg_df %>% rename (variable=colnames)
+str(output_catg_df)
+
+#add time point to summary stats files to merge all time points
+        #W2
+infant_catg_W2 <- read.delim("infant_long_categorical_summary_stats_W2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_catg_W2 <- infant_catg_W2 %>% 
+        mutate(timepoint="W2") %>%
+        relocate(timepoint, .after=variable)
+
+        #M1
+infant_catg_M1 <- read.delim("infant_long_categorical_summary_stats_M1.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_catg_M1 <- infant_catg_M1 %>% 
+        mutate(timepoint="M1") %>%
+        relocate(timepoint, .after=variable)
+
+        #M2
+infant_catg_M2 <- read.delim("infant_long_categorical_summary_stats_M2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_catg_M2 <- infant_catg_M2 %>% 
+        mutate(timepoint="M2") %>%
+        relocate(timepoint, .after=variable)
+
+        #M3
+infant_catg_M3 <- read.delim("infant_long_categorical_summary_stats_M3.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_catg_M3 <- infant_catg_M3 %>% 
+        mutate(timepoint="M3") %>%
+        relocate(timepoint, .after=variable)
+
+        #M6
+infant_catg_M6 <- read.delim("infant_long_categorical_summary_stats_M6.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_catg_M6 <- infant_catg_M6 %>% 
+        mutate(timepoint="M6") %>%
+        relocate(timepoint, .after=variable)
+
+        #M9
+infant_catg_M9 <- read.delim("infant_long_categorical_summary_stats_M9.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_catg_M9 <- infant_catg_M9 %>% 
+        mutate(timepoint="M9") %>%
+        relocate(timepoint, .after=variable)
+
+        #M12
+infant_catg_M12 <- read.delim("infant_long_categorical_summary_stats_M12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_catg_M12 <- infant_catg_M12 %>% 
+        mutate(timepoint="M12") %>%
+        relocate(timepoint, .after=variable)
+
+
+#merge all data frames 
+infant_catg_rbind <- bind_rows(infant_catg_W2, infant_catg_M1, infant_catg_M2, infant_catg_M3,
+                               infant_catg_M6, infant_catg_M9, infant_catg_M12)
+infant_long_catg_final <- left_join(output_catg_df, infant_catg_rbind) #Joining, by = c("variable", "timepoint")
+#470  25
+str(infant_long_catg_final)
+
+#remove rows where statistics are NA (after timepoint column)
+timepoint_index <- which(names(infant_long_catg_final) == "timepoint")
+#remove rows where all values after "timepoint" are NAs
+infant_long_catg_final <- infant_long_catg_final[rowSums(is.na(infant_long_catg_final[, (timepoint_index + 1):ncol(infant_long_catg_final)])) != ncol(infant_long_catg_final[, (timepoint_index + 1):ncol(infant_long_catg_final)]), ]
+#211  25
+
+rm(infant_catg_W2, infant_catg_M1, infant_catg_M2, infant_catg_M3,
+   infant_catg_M6, infant_catg_M9, infant_catg_M12,
+   factor_vars, output_catg_df, infant_catg_rbind)
+
+#write files
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/pheno_sum_stats/longitudinal_metadata/")
+write.table(infant_long_num_final, "infant_long_numeric_summary_stats.txt", sep="\t", row.names=F, quote = F)
+write.table(infant_long_catg_final, "infant_long_categorical_summary_stats.txt", sep="\t", row.names=F, quote = F)                
+
+                ####4.6 infant longitudinal correlations ####
+infant_long_corr <- bind_rows(infant_long_sel_corr_P12, infant_long_sel_corr_P28, infant_long_sel_corr_B,
+                              infant_long_sel_corr_W2, infant_long_sel_corr_M1, infant_long_sel_corr_M2, infant_long_sel_corr_M3,
+                              infant_long_sel_corr_M6, infant_long_sel_corr_M9, infant_long_sel_corr_M12)
+str(infant_long_corr, list.len=ncol(infant_long_corr))
+#7140 370
+options(max.print=1000000)
+summary(infant_long_corr)
+
+#clean RStudio
+rm(infant_long_sel_corr_P12, infant_long_sel_corr_P28, infant_long_sel_corr_B,
+   infant_long_sel_corr_W2, infant_long_sel_corr_M1, infant_long_sel_corr_M2, infant_long_sel_corr_M3,
+   infant_long_sel_corr_M6, infant_long_sel_corr_M9, infant_long_sel_corr_M12)
+
+spearman_corr <- result(infant_long_corr, infant_long_corr)
+#136900  4
+spearman_corr$FDR<-p.adjust(spearman_corr$pvalue, method = "BH")
+
+#remove 1:1 correlations
+spearman_corr <- spearman_corr %>% 
+        as_tibble() %>% 
+        mutate(duplicates = if_else(factor1 == factor2,
+                                    TRUE,
+                                    FALSE)) %>% 
+        filter(duplicates == FALSE)
+
+spearman_corr$duplicates <- NULL 
+#136530  5
+
+#remove NA's (for incomplete cases for correlations)
+spearman_corr <- spearman_corr[complete.cases(spearman_corr), ]
+#20332  5
+
+spearman_FDR_corr <- spearman_corr %>% 
+        filter(FDR<0.05)
+#2654  5
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/supplementary_tables/pheno_correlations/")
+write.table(spearman_corr, "infant_long_correlations.txt", sep="\t", row.names=F, quote = F)
+
+pdf(file = "infant_long_correlations.pdf", useDingbats = F, onefile = T, width = 15, height=18)
+ggplot(data = spearman_corr, aes(factor1, factor2, fill = CorCoefficient))+
+        geom_tile(color = "white")+
+        scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                             midpoint = 0, limit = c(-1,1), space = "Lab", 
+                             name="Spearman\nCorrelation") +
+        theme_minimal()+ 
+        #theme(axis.text.x=element_blank(), #remove x axis labels
+        #      axis.ticks.x=element_blank(), #remove x axis ticks
+        #      axis.text.y=element_blank(),  #remove y axis labels
+        #      axis.ticks.y=element_blank()  #remove y axis ticks
+        #)+
+        coord_fixed() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        theme(axis.text=element_text(size=3))
+
+ggplot(data = spearman_FDR_corr, aes(factor1, factor2, fill = CorCoefficient))+
+        geom_tile(color = "white")+
+        scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                             midpoint = 0, limit = c(-1,1), space = "Lab", 
+                             name="Spearman\nCorrelation") +
+        theme_minimal()+ 
+        #theme(axis.text.x=element_blank(), #remove x axis labels
+        #      axis.ticks.x=element_blank(), #remove x axis ticks
+        #      axis.text.y=element_blank(),  #remove y axis labels
+        #      axis.ticks.y=element_blank()  #remove y axis ticks
+        #)+
+        coord_fixed() +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        theme(axis.text=element_text(size=3))
+
+dev.off()
+
+rm(list=ls())
