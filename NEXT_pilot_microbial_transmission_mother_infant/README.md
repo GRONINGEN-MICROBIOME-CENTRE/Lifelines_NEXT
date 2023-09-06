@@ -2,7 +2,7 @@
 
 Code for our paper "Mother-Infant Gut Viruses and their Bacterial Hosts: Transmission Patterns and Dynamics during Pregnancy and Early Life".
 
-You can download the [current version](https://doi.org/10.1101/2023.08.21.554108]) of the paper.
+You can download the current version of the paper from [BioRxiv](https://doi.org/10.1101/2023.08.21.554108]).
 
 ## One-Sentence Summary
 We studied the dynamics of the maternal virome during and after pregnancy, the infant virome during early life, with a particular focus on the transmission of viral strains from mothers to their infants. 
@@ -12,6 +12,7 @@ Early development of the gut ecosystem is crucial for lifelong health. While inf
 
 ## Data availability
 Sample information, basic phenotypes, family structure and raw sequences are available in the [EGA archive](https://ega-archive.org/studies/EGAS00001005969).
+Virus scaffolds composing the virus data base generated from the samples can be found at [FigShare](https://doi.org/10.6084/m9.figshare.23926593)
 
 ## Code availability
 [Virome discovery pipeline:](https://github.com/GRONINGEN-MICROBIOME-CENTRE/Lifelines_NEXT/tree/main/NEXT_pilot_microbial_transmission_mother_infant/Virome_discovery)
