@@ -1,1 +1,2 @@
-Description of the project (Sana to add)
+Directories contain attempts at code optimization and often contain their own README (this feature probably will be removed to avoid confusion).
+
