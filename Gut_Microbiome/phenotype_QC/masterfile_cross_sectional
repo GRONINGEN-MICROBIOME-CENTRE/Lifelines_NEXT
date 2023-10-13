@@ -2,12 +2,12 @@
 ###     AUTHOR(S): SIOBHAN BRUSHETT 
 ###     DESCRIPTION: MASTERFILE OF CLEANED LIFELINES-NEXT CROSS-SECTIONAL QUESTIONNAIRES
 ###     PROJECT: LL-NEXT
-###     LAST UPDATED: 12 JUNE  2023
+###     LAST UPDATED: 29 SEPTEMBER  2023
 
 #save to:
 #setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
 #set for MacBook
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
 setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
 
 #libaries
@@ -145,8 +145,8 @@ str(linkage)
 #NOTE that in the linkage file there are 33 twins, thus 33 mothers are duplicated 
 
         ##### =========================== 1. MOTHER PRE-PREGNANCY PHENOTYPES (LIFELINES) =========================== #####
-#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/lifelines_baseline/")
-setwd("~/OneDrive - UMCG/NEXT_clean_up/lifelines_baseline/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/lifelines_baseline/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/lifelines_baseline/")
 
 preBMI <- read.delim("2023_04_18_lifelines_baseline_pre_preg_bmi_cleaned_SB.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #420  9
@@ -185,7 +185,7 @@ dev.off()
 #birth cards
 setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 #MacBook location:
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 birthcards <- read.delim("birth_phenotypes_all_final_selection_26_09_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #1021  100
 
@@ -272,8 +272,8 @@ table(del_mismatch$hospital_BC) #5 of the 15 mothers have a hospital indicated a
 
 #go back to original data and establish which types of hospitals these data originated from in the questionnaires
 
-#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/pregnancy_birthcards_delivery/")
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/pregnancy_birthcards_delivery/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/pregnancy_birthcards_delivery/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/pregnancy_birthcards_delivery/")
 del_questionnaires <- read.delim("del_phenotypes_final.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #966 33
 del_questionnaires <- del_questionnaires %>% rename(next_id_mother=next_nr)
@@ -679,7 +679,8 @@ str(linkage_preBMI_birthcards, list.len=ncol(linkage_preBMI_birthcards))
 summary(linkage_preBMI_birthcards)
 
 #retrospectively add blood group data to birthcards
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 mother_bloodgroup <- read.delim("NEXT_ABO_blood_groups_cleaned_detailed_genotypes_n658.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(mother_bloodgroup)
 #658 3
@@ -812,18 +813,79 @@ linkage_preBMI_birthcards$mother_birthcard_med_afterdel_iron_preparations_B03A <
 linkage_preBMI_birthcards$mother_birthcard_med_afterdel_uterotonics_G02A <- NULL
 
 str(linkage_preBMI_birthcards, list.len=ncol(linkage_preBMI_birthcards))
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+
+#retrospectively add gestational age cleaned by Soesma, which includes both birthcard and registration information
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/gestational_age_Soesma/")
+gestational_age <- read.delim("20230926_Gestational age.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(gestational_age)
+summary(gestational_age)
+
+#because it is unlikely that a mother will be pregnant past the +/- 42 weeks gestational age mark, the participant
+#was updated to the maximum: 43 weeks
+gestational_age$gestational_age_weeks[gestational_age$gestational_age_weeks==45.4285714285714] <- 43 
+
+gestational_age <- gestational_age %>% rename(next_id_mother=ID) %>%
+        select(c(next_id_mother,
+                 gestational_age_weeks))
+summary(gestational_age)
+
+linkage_preBMI_birthcards <- left_join(linkage_preBMI_birthcards, gestational_age, by="next_id_mother")
+table(linkage_preBMI_birthcards$mother_birthcard_gestational_age_weeks, useNA="ifany")
+table(linkage_preBMI_birthcards$gestational_age_weeks, useNA="ifany")
+
+gest_corr <- cor(linkage_preBMI_birthcards$mother_birthcard_gestational_age_weeks, 
+                 linkage_preBMI_birthcards$gestational_age_weeks, use="complete.obs")
+#0.9991703
+
+#as expected given that the overlapping data from Soesma should be what we observe in the birthcards
+qc_gest <- linkage_preBMI_birthcards %>% select(c(
+        mother_birthcard_gestational_age_weeks,
+        gestational_age_weeks))
+#indeed all birthcard data match with Soesma data
+
+rm(qc_gest)
+
+#replace birthcard gestational age with updated gestational age (in days, weeks and category)
+linkage_preBMI_birthcards$gestational_age_days <- linkage_preBMI_birthcards$gestational_age_weeks * 7
+table(linkage_preBMI_birthcards$gestational_age_days, useNA="ifany")
+
+linkage_preBMI_birthcards <- linkage_preBMI_birthcards %>%
+                mutate(gestational_age_catg = ifelse(gestational_age_weeks <= 32, 1,
+                                             ifelse(gestational_age_weeks > 32 & gestational_age_weeks < 36.9, 2,
+                                             ifelse(gestational_age_weeks >= 36.2 & gestational_age_weeks < 41.9, 3,
+                                                    ifelse(gestational_age_weeks >= 41.9, 4, NA)))))
+table(linkage_preBMI_birthcards$gestational_age_catg, useNA = "ifany")
+
+linkage_preBMI_birthcards$mother_birthcard_gestational_age_days <- linkage_preBMI_birthcards$gestational_age_days
+linkage_preBMI_birthcards$mother_birthcard_gestational_age_weeks <- linkage_preBMI_birthcards$gestational_age_weeks
+linkage_preBMI_birthcards$mother_birthcard_gestational_age_catg <- linkage_preBMI_birthcards$gestational_age_catg
+
+linkage_preBMI_birthcards <- linkage_preBMI_birthcards %>% 
+        select(-c(
+                gestational_age_days,
+                gestational_age_weeks,
+                gestational_age_catg)) %>%
+        rename(mother_birthcardself_gestational_age_days=mother_birthcard_gestational_age_days,
+               mother_birthcardself_gestational_age_weeks=mother_birthcard_gestational_age_weeks,
+               mother_birthcardself_gestational_age_catg=mother_birthcard_gestational_age_catg)
+
+linkage_preBMI_birthcards$mother_birthcardself_gestational_age_catg <- as.factor(linkage_preBMI_birthcards$mother_birthcardself_gestational_age_catg) 
+
+summary(linkage_preBMI_birthcards)
+
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
 write.table(linkage_preBMI_birthcards, "2023_04_25_linkage_preBMI_birthcards.txt", sep="\t", row.names=F, quote = F)
 #1447 98 
 #linkage_preBMI_birthcards <- read.delim("2023_04_25_linkage_preBMI_birthcards.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 
 rm(birthcards, birthcards_final, linkage_preBMI,
    mother_bloodgroup, mother_bloodgroup_secondpreg, mother_bloodgroup_secondpreg_linked, mother_bloodgroup_all,
-   mother_med, mother_med_long, mother_med_wide)
+   mother_med, mother_med_long, mother_med_wide, gestational_age)
 
         ##### =========================== 3. MOTHER EDUCATION =========================== #####
-#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 mother_edu <- read.delim("mother_edu_income_p18.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #966 5
 str(mother_edu)
@@ -841,8 +903,7 @@ linkage_preBMI_BC_edu <- full_join(linkage_preBMI_birthcards, mother_edu, by="ne
 #an additional mother with no linkage file information was added?
 
 add_mother <- linkage_preBMI_BC_edu %>% filter(
-        is.na(sibling_number)
-)
+        is.na(sibling_number))
 #LLNEXT010045_2: after contact with Soesma, we established that this NEXT_ID was incorrectly assigned
 #and should not have an _2; Soesma has corrected it on the Molgenis system.
 #This NEXT_ID comes from a M11 questionnaire of the mother, and thus, for all mother questionnaires
@@ -860,7 +921,7 @@ str(linkage_preBMI_BC_edu, list.len=ncol(linkage_preBMI_BC_edu))
 rm(linkage_preBMI_birthcards, mother_edu)
 
         ##### =========================== 4. MOTHER HEALTH =========================== #####
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 mother_health <- read.delim("maternal_health_final_27_09_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #966 49
 str(mother_health)
@@ -978,7 +1039,7 @@ table(mother_health$mother_health_drug_use_one_year_before_pregnancy_weed_cannab
 
 table(mother_health$mother_health_drug_use_one_year_before_pregnancy_xtc_P18, useNA = "ifany")
 #no  yes <NA> 
-# 16   22  928 
+#26   12  928 
 
 mother_health$mother_health_drug_use_one_year_before_pregnancy_xtc_P18[
   is.na(mother_health$mother_health_drug_use_one_year_before_pregnancy_xtc_P18) &
@@ -1003,17 +1064,16 @@ str(mother_health)
 
     #merge with linkage file and clean gravida and smoking related phenotypes
 linkage_preBMI_BC_edu_mhealth <- full_join(linkage_preBMI_BC_edu, mother_health) #joined by next_id_mother
-#1448 151
+#1448 149
 
 add_mother <- linkage_preBMI_BC_edu_mhealth %>% filter(
-  is.na(sibling_number)
-)
+  is.na(sibling_number))
 summary(add_mother)
 #again, LLNEXT010045_2 was added - remove as discussed above (all data are missing for mother health questionnaire (as expected))
 
 linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>% filter (
   next_id_mother != "LLNEXT010045_2")
-#1447 151
+#1447 149
 
 rm(add_mother)
 linkage_preBMI_BC_edu_mhealth$next_id_mother <- as.factor(as.character(linkage_preBMI_BC_edu_mhealth$next_id_mother))
@@ -1162,7 +1222,7 @@ linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>%
 
 linkage_preBMI_BC_edu_mhealth$mother_birthcard_gravidity <- NULL
 linkage_preBMI_BC_edu_mhealth$mother_health_previous_preg_yes_freq_p18 <- NULL
-#1447  149
+#1447  147
 
 str(linkage_preBMI_BC_edu_mhealth, list.len=ncol(linkage_preBMI_BC_edu_mhealth))
 
@@ -1460,7 +1520,8 @@ linkage_preBMI_BC_edu_mhealth <- linkage_preBMI_BC_edu_mhealth %>%
 
 #retrospectively combine mother_health_folic_acid_use_before_pregnancy_p18 and mother_health_folic_acid_use_in_first_trimester_p18
 #also retrospectivly check that mother_med folic acid use complements mother_health_folic_acid_use_in_first_trimester_p18
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/") #NOTE: this file is stored in the Dynamic phenotypes folder on TEAMS
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/") #NOTE: this file is stored in the Dynamic phenotypes folder on TEAMS
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 mother_med_folic_acid <- read.delim("MOTHER_MEDICATION_RE_FORMATTED_01_12_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(mother_med_folic_acid)
 mother_med_folic_acid <- mother_med_folic_acid %>% select(c(
@@ -1485,7 +1546,7 @@ mother_med_health_folic_acid <- left_join(mother_health_folic_acid, mother_med_f
 #complement mother_health with mother_med folic acid and rename to P28
 table(mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18, useNA = "ifany")
 #no  yes <NA> 
-#11  759  677
+#11  759  712
 mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18[is.na(mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18) &
                                                                                    mother_med_health_folic_acid$mother_med_vit_B12_folic_acid_B03B=="yes"] <- "yes"
 #mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18[is.na(mother_med_health_folic_acid$mother_health_folic_acid_use_in_first_trimester_p18) &
@@ -1576,7 +1637,8 @@ linkage_preBMI_BC_edu_mhealth$mother_health_bleeding_gums_during_pregnancy_p18 <
 str(linkage_preBMI_BC_edu_mhealth, list.len=ncol(linkage_preBMI_BC_edu_mhealth))
 #1447 141
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
 write.table(linkage_preBMI_BC_edu_mhealth, "2023_04_26_linkage_preBMI_BC_edu_mhealth.txt", sep="\t", row.names=F, quote = F)
 #linkage_preBMI_BC_edu_mhealth <- read.delim("2023_04_26_linkage_preBMI_BC_edu_mhealth.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 
@@ -1587,7 +1649,8 @@ rm(cor_test_original, cor_test_update,
    bleeding_gums, folic_acid)
 
         ##### =========================== 5. MOTHER FOOD PREFERENCES AND AVOIDENCES =========================== #####
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 mother_food <- read.delim("mother_food_preferences_avoidances_all.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #966 88
 str(mother_food)
@@ -1605,23 +1668,24 @@ mother_food <- mother_food %>% rename(
 summary(mother_food)
 
 linkage_preBMI_BC_edu_mhealth_mfood <- full_join(linkage_preBMI_BC_edu_mhealth, mother_food)
-#1448 231
+#1448 228
 
 add_mother <- linkage_preBMI_BC_edu_mhealth_mfood %>% filter(
-  is.na(sibling_number)
-)
+  is.na(sibling_number))
+
 summary(add_mother)
 #again, LLNEXT010045_2 was added - remove as discussed above (all data are missing for mother health questionnaire (as expected))
 
 linkage_preBMI_BC_edu_mhealth_mfood <- linkage_preBMI_BC_edu_mhealth_mfood %>% filter (
   next_id_mother != "LLNEXT010045_2")
-#1447 231
+#1447 228
 
 rm(add_mother)
 
 str(linkage_preBMI_BC_edu_mhealth_mfood, list.len=ncol(linkage_preBMI_BC_edu_mhealth_mfood))
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
 write.table(linkage_preBMI_BC_edu_mhealth_mfood, "2023_04_30_linkage_preBMI_BC_edu_mhealth_mfood.txt", sep="\t", row.names=F, quote = F)
 #1447 228
 #linkage_preBMI_BC_edu_mhealth_mfood <- read.delim("2023_04_30_linkage_preBMI_BC_edu_mhealth_mfood.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
@@ -1629,7 +1693,8 @@ write.table(linkage_preBMI_BC_edu_mhealth_mfood, "2023_04_30_linkage_preBMI_BC_e
 rm(linkage_preBMI_BC_edu_mhealth, mother_food)
 
         ##### =========================== 6. MOTHER STRESS =========================== #####
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 mother_stress <- read.delim("20230316_Mother_stress_final.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #892 11 
 str(mother_stress)
@@ -1708,7 +1773,7 @@ mother_ldi_stress_wide <- mother_ldi_stress_wide %>% relocate(
   mother_ldi_stress_past_year_preg_avg, .before = mother_ldi_stress_past_year_postpartum_avg
 )
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_stress//")
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_stress/")
 write.table(mother_ldi_stress_wide, "2023_05_18_mother_ldi_stress_RE_FORMATTED.txt", sep="\t", row.names=F, quote = F)
 rm(mother_ldi_stress, mother_ldi_stress_long, mother_ldi_stress_wide)
 
@@ -1721,14 +1786,16 @@ str(linkage_preBMI_BC_edu_mhealth_mfood_mstress, list.len=ncol(linkage_preBMI_BC
 
 rm(linkage_preBMI_BC_edu_mhealth_mfood, mother_stress)
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
 write.table(linkage_preBMI_BC_edu_mhealth_mfood_mstress, "2023_04_30_linkage_preBMI_BC_edu_mhealth_mfood_mstress.txt", sep="\t", row.names=F, quote = F)
 #1447 236
 #linkage_preBMI_BC_edu_mhealth_mfood_mstress <- read.delim("2023_04_30_linkage_preBMI_BC_edu_mhealth_mfood_mstress.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 
         ##### =========================== 7. MOTHER M2 FFQ =========================== #####
 #NOTE THAT THIS SECTION WAS UPDATED WITH THE CURRENT DATA FREEZE OF APRIL 2023
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 mother_index <- read.delim("aMED_diet_scores_no_outliers_n247.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(mother_index)
 #247  2 
@@ -1737,7 +1804,7 @@ mother_index <- mother_index %>%
          mother_ffq_aMED_score = aMED_score)
 
 mother_ffq_grams <-  read.delim("Maternal_diet_grams_per_group_M2_no_outliers_n310.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
-#310  30
+#310  31
 str(mother_ffq_grams)
 mother_ffq_grams <- mother_ffq_grams %>%
   rename(next_id_mother=NEXT_ID_mother)
@@ -1746,7 +1813,7 @@ names(mother_ffq_grams) <- gsub("_day_M2", "_day_m2", names(mother_ffq_grams))
 str(mother_ffq_grams)
 
 mother_ffq_nutrients <- read.delim("Maternal_diet_macro_micronutrients_M2_no_outliers_n310.txt")
-#236  42
+#310  42
 str(mother_ffq_nutrients)
 mother_ffq_nutrients <- mother_ffq_nutrients %>% 
   rename(next_id_mother = NEXT_ID_mother,
@@ -1789,9 +1856,8 @@ spearman_corr_unique <- spearman_corr %>%
 spearman_corr_unique$duplicates <- NULL 
 
 spearman_corr_FDR <- spearman_corr_unique %>% filter(
-  FDR<0.05
-)
-#1242  9
+  FDR<0.05)
+#1242  5
 
 write.table(spearman_corr_unique, "2023_04_30_spearman_mother_nutrients.txt", sep="\t", row.names=F, quote = F)
 
@@ -1857,15 +1923,42 @@ linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq <- linkage_preBMI_BC_edu_mhealt
   relocate(mother_ffq_energy_kcal_m2, .after = mother_ffq_aMED_score) %>%
   relocate(mother_ffq_energy_kJ_m2, .after = mother_ffq_energy_kcal_m2)
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+#restrospectively add the heirarchical clustering performed by Milla
+mother_ffq_clusters <- read.delim("20230907_centroids_hierarchical_clusters_10.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(mother_ffq_clusters)
+#310 11
+
+mother_ffq_clusters <- mother_ffq_clusters %>% 
+        relocate(NEXT_ID, .before = student_processed_food) %>%
+        rename(next_id_mother = NEXT_ID,
+               mother_ffq_pattern_processed_foods = student_processed_food,
+               mother_ffq_pattern_vegetarian_foods = vegetarian,
+               mother_ffq_pattern_pescatarian_asian_foods = pescatarian_asian_foods,
+               mother_ffq_pattern_meat_and_fat = meat_and_fat,
+               mother_ffq_pattern_dairy_pancakes_crackers_sauce = dairy_pancakes_crackers_red_sauce,
+               mother_ffq_pattern_snacks_and_alcoholic_drinks = borrel_and_alcoholic_drinks,
+               mother_ffq_pattern_dutch_foods = dutch_diet,
+               mother_ffq_pattern_eggs_other_meats_white_wine = eggs_other_meats_white_wine,
+               mother_ffq_pattern_dutch_breakfast = dutch_breakfast)
+
+summary(mother_ffq_clusters)
+
+linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq <- left_join(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq, mother_ffq_clusters) #Joining, by = "next_id_mother"
+
+summary(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq)
+
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
 write.table(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq, "linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq.txt", sep="\t", row.names=F, quote = F)
 #linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq <- read.delim("linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#1447 318
 
 rm(linkage_preBMI_BC_edu_mhealth_mfood_mstress, mother_ffq, mother_ffq_grams, mother_ffq_nutrients, mother_ffq_nutrients_corr,
-   mother_index, spearman_corr, spearman_corr_FDR, spearman_corr_unique, spearman_corr_threshold, df_list)
+   mother_index, spearman_corr, spearman_corr_FDR, spearman_corr_unique, spearman_corr_threshold, df_list, mother_ffq_clusters)
 
         ##### =========================== 8. PARTNER SMOKING AND STRESS =========================== #####        
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 partner <- read.delim("20230316_partner_smoking_stress_final.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #199  12
 
@@ -1887,7 +1980,7 @@ partner <- partner %>% rename(
 
 summary(partner)
 #there is information for 199 partners:
-#partner_smoking_started_age is only available for 10 participants - removem too little power
+#partner_smoking_started_age is only available for 10 participants - remove too little power
 #partner_smoking_quit_age is only available for 20 participants - remove, too little power
 
 partner$partner_smoking_started_age <- NULL
@@ -1905,12 +1998,12 @@ partner$partner_smoking_ever_smoked_full_year <- as.factor(as.character(partner$
 
 linkage_mother_partner <- full_join(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq, partner)
 str(linkage_mother_partner, list.len=ncol(linkage_mother_partner))
-#1447 313
+#1447 321
 
 rm(linkage_preBMI_BC_edu_mhealth_mfood_mstress_mffq, partner)
 
         ##### =========================== 9. FAMILY EXPOSURES =========================== #####
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 family_exp <- read.delim("exposures_infant_mother_FINAL.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #987  6
 
@@ -1951,7 +2044,7 @@ table(family_exp$family_living_situation, useNA="ifany")
 
 linkage_mother_partner_fam <- full_join(linkage_mother_partner, family_exp) #jointed by next_id_mother and next_id_infant
 str(linkage_mother_partner_fam, list.len=ncol(linkage_mother_partner_fam))
-#1471  317
+#1471  325
 
 #24 additional mothers-infant pairs outside of the linkage file
 add_mother <- linkage_mother_partner_fam %>% filter(
@@ -2007,18 +2100,18 @@ family_exp$next_id_infant[family_exp$next_id_mother=="LLNEXT309060"] <- "LLNEXT7
 #remerge family_exp to linkage file
 linkage_mother_partner_fam <- full_join(linkage_mother_partner, family_exp) #jointed by next_id_mother and next_id_infant
 str(linkage_mother_partner_fam, list.len=ncol(linkage_mother_partner_fam))
-#1447 315
+#1447 325
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
 write.table(linkage_mother_partner_fam, "linkage_mother_partner_fam.txt", sep="\t", row.names=F, quote = F)
 #linkage_mother_partner_fam <- read.delim("linkage_mother_partner_fam.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #str(linkage_mother_partner_fam, list.len=ncol(linkage_mother_partner_fam))
-#1447 317
+#1447 325
 
 rm(add_mother_link, family_exp, linkage_mother_partner)
 
         ##### =========================== 10. INFANT HEALTH =========================== #####
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 #standard questionnaires
 infant_health <- read.delim("infant_health_static_10_04_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #752  40
@@ -2166,7 +2259,7 @@ str(infant_health_all)
 #1168  38
 
 #retrospectively include the information of the IGSQ and ROME to infant health
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/") #these files can be found in the Dynamics phenotype folder of TEAMS
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/") #these files can be found in the Dynamics phenotype folder of TEAMS
 infant_rome <- read.delim("ROME_INFANT_RE_FORMATTED_27_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_rome)
 summary(infant_rome)
@@ -2261,7 +2354,7 @@ infant_health_all$infant_health_known_health_problem <- NULL
 #thus, I will keep the infant_health_constipation variable as it is.
 
 linkage_mother_partner_fam_ihealth <- full_join(linkage_mother_partner_fam, infant_health_all) #joined by next_id_infant
-#1449 351
+#1449 361
 #there are two additional infants in comparison to the linkage file
 
 infant_add <- linkage_mother_partner_fam_ihealth %>% filter(
@@ -2275,23 +2368,94 @@ infant_add$next_id_infant
 linkage_mother_partner_fam_ihealth <- linkage_mother_partner_fam_ihealth %>% 
   filter(!is.na(infant_relations))
 str(linkage_mother_partner_fam_ihealth,list.len=ncol(linkage_mother_partner_fam_ihealth))
-#1447 351
+#1447 361
 
 rm(infant_add, infant_health, infant_health_all, infant_health_eczema, medication,
    infant_igsq, infant_igsq_distinct, infant_rome, infant_rome_distinct,
    linkage_mother_partner_fam)
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
-#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
+#retrospectively add data for family history of eczema
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+eczema_hist_M3 <- read.csv("next_measurements_SCORAD_M3_2023-09-11_11_55_02.csv", sep = ",", header = TRUE, stringsAsFactors = T)
+#1061  8
+str(eczema_hist_M3)
+
+eczema_hist_M3 <- eczema_hist_M3 %>% select(c(
+        Baby.NEXT.ID,
+        Familial.history.of.allergic.disease)) %>%
+        rename(next_id_infant = Baby.NEXT.ID,
+        infant_scorad_family_history_allergic_disease_M3=Familial.history.of.allergic.disease)
+eczema_hist_M3$next_id_infant <- str_pad(eczema_hist_M3$next_id_infant, 6, pad = "0")
+eczema_hist_M3$next_id_infant<-as.factor(sub("^","LLNEXT",eczema_hist_M3$next_id_infant)) #1061 unique ids
+
+summary(eczema_hist_M3)
+eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3 <- as.character(eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3)
+eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3[eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3==""] <- NA
+eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3[eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3=="false"] <- 0
+eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3[eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3=="true"] <- 1
+eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3 <- as.numeric(eczema_hist_M3$infant_scorad_family_history_allergic_disease_M3)
+
+eczema_hist_M12 <- read.csv("next_measurements_SCORAD_M12_2023-09-11_11_55_17.csv", sep = ",", header = TRUE, stringsAsFactors = T)
+#702  8
+str(eczema_hist_M12)
+
+eczema_hist_M12 <- eczema_hist_M12 %>% select(c(
+        Baby.NEXT.ID,
+        Familial.history.of.allergic.disease)) %>%
+        rename( next_id_infant = Baby.NEXT.ID,
+                infant_scorad_family_history_allergic_disease_M12=Familial.history.of.allergic.disease)
+eczema_hist_M12$next_id_infant <- str_pad(eczema_hist_M12$next_id_infant, 6, pad = "0")
+eczema_hist_M12$next_id_infant<-as.factor(sub("^","LLNEXT",eczema_hist_M12$next_id_infant)) #702 unique ids
+
+summary(eczema_hist_M12)
+eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12 <- as.character(eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12)
+eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12[eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12==""] <- NA
+eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12[eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12=="false"] <- 0
+eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12[eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12=="true"] <- 1
+eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12 <- as.numeric(eczema_hist_M12$infant_scorad_family_history_allergic_disease_M12)
+
+eczema_history <- full_join(eczema_hist_M3, eczema_hist_M12) #joined by next_id_infant
+#1110  3
+summary(eczema_history)
+cor(eczema_history$infant_scorad_family_history_allergic_disease_M3, 
+    eczema_history$infant_scorad_family_history_allergic_disease_M12, use="complete.obs")
+#0.5842795
+
+#poor concordance - update manually as opposed to complementing columns
+eczema_history$infant_scorad_family_history_allergic_disease <- NA
+
+eczema_history$infant_scorad_family_history_allergic_disease[eczema_history$infant_scorad_family_history_allergic_disease_M3 == 1 |
+                                                                     eczema_history$infant_scorad_family_history_allergic_disease_M12 == 1] <- "yes"
+
+
+eczema_history$infant_scorad_family_history_allergic_disease[is.na(eczema_history$infant_scorad_family_history_allergic_disease) &
+                                                                     eczema_history$infant_scorad_family_history_allergic_disease_M3 == 0 |
+                                                                     is.na(eczema_history$infant_scorad_family_history_allergic_disease) &
+                                                                     eczema_history$infant_scorad_family_history_allergic_disease_M12 == 0] <- "no"
+
+eczema_history$infant_scorad_family_history_allergic_disease <- as.factor(eczema_history$infant_scorad_family_history_allergic_disease)
+summary(eczema_history)
+
+eczema_history <- eczema_history %>% select(c(
+        next_id_infant,
+        infant_scorad_family_history_allergic_disease))
+
+linkage_mother_partner_fam_ihealth <- left_join(linkage_mother_partner_fam_ihealth, eczema_history)
+linkage_mother_partner_fam_ihealth <- linkage_mother_partner_fam_ihealth %>% relocate(
+        infant_scorad_family_history_allergic_disease, .after = infant_health_medication_flu_ent_infection)
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/")
 write.table(linkage_mother_partner_fam_ihealth, "linkage_mother_partner_fam_ihealth.txt", sep="\t", row.names=F, quote = F)
 
 #linkage_mother_partner_fam_ihealth <- read.delim("linkage_mother_partner_fam_ihealth.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
-str(linkage_mother_partner_fam_ihealth, list.len=ncol(linkage_mother_partner_fam_ihealth))
-    
+#str(linkage_mother_partner_fam_ihealth, list.len=ncol(linkage_mother_partner_fam_ihealth))
+
+rm(eczema_history, eczema_hist_M3, eczema_hist_M12) 
+
         ##### =========================== 11. INFANT NUTRITION =========================== #####
 #FFQ items 'raw'
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
-#setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 infant_ffq <- read.delim("infant_FFQs_yes_no_masterfile_final_2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #905  144
 
@@ -2381,18 +2545,27 @@ infant_nutrition <- infant_nutrition %>%
 #rm(babybiome, babybiome_feeding_mode, ffq_babybiome_feeding_mode)
 
 linkage_mother_partner_fam_ihealth_iffq <- full_join(linkage_mother_partner_fam_ihealth, infant_nutrition) #joined by next_id_infant
-#1447  370
+#1447  381
 
 rm(df_list, infant_diet_patterns, infant_ffq, infant_ffq_kcal, infant_nutrition,
    linkage_mother_partner_fam_ihealth)
 
         ##### =========================== 12. INFANT GROWTH =========================== #####
+#retrospectively updated with 2023_08_25 data freeze give how time sensitive this variable is with regards to missings and an ongoing cohort
 infant_growth <- read.delim("infant_growth_coefficients.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_growth)
-#821  7
+#946  7
 
-infant_growth$next_id_infant <- str_pad(infant_growth$next_id_infant, 6, pad = "0")
-infant_growth$next_id_infant<-as.factor(sub("^","LLNEXT",infant_growth$next_id_infant)) #821 unique ids
+#from previous cleaning, we know that these participants only have missing data, so they will be removed
+#"LLNEXT002602" "LLNEXT004015" "LLNEXT007463" "LLNEXT008336" "LLNEXT300810"
+
+infant_growth <- infant_growth %>% filter(
+        next_id_infant!="LLNEXT002602" &
+                next_id_infant!="LLNEXT004015" &
+                next_id_infant!="LLNEXT007463" &
+                next_id_infant!="LLNEXT008336" &
+                next_id_infant!="LLNEXT300810" )
+#941  7
 
 infant_growth <- infant_growth %>% rename (
   infant_growth_standardized_weight_intercept_kg=weight_intercept, #mean difference of infant weight compared to population weight; mean across all time points of measurements
@@ -2411,20 +2584,23 @@ infant_growth <- infant_growth[,c(
 
 summary(infant_growth)
 
-infant_growth_birth_measurements <- read.delim("infant_growth_birth_measurement.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+infant_growth_birth_measurements <- read.delim("3_infant_growth_birth_measurement.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_growth_birth_measurements)
-#817  4
+#941  6
 infant_growth_birth_measurements <- infant_growth_birth_measurements %>%
-        rename(infant_growth_birth_weight_kg=infant_growth_weight_kg_B,
-               infant_growth_birth_length_cm=infant_growth_length_cm_B,
-               infant_growth_birth_head_circumf_cm=infant_growth_head_circumf_cm_B)
+        rename(infant_growth_birth_weight_kg=infant_growth_weight_kg,
+               infant_growth_birth_length_cm=infant_growth_length_cm,
+               infant_growth_birth_head_circumf_cm=infant_growth_head_circumf_cm) %>%
+        select(-c(timepoint,
+                  infant_growth_bmi_kg_m2)) #too early to use this measurement cross-sectionally at birth
 
 infant_growth_all <- full_join(infant_growth_birth_measurements, infant_growth) #Joining, by = "next_id_infant"
 str(infant_growth_all)
-#821  7
+#941  7
+summary(infant_growth_all)
 
 linkage_mother_partner_infant <- full_join(linkage_mother_partner_fam_ihealth_iffq, infant_growth_all)
-#1447 376
+#1447 387
 str(linkage_mother_partner_infant, list.len=ncol(linkage_mother_partner_infant))
 
 rm(infant_growth, infant_growth_birth_measurements, infant_growth_all,
@@ -2437,21 +2613,24 @@ masterfile_cross_sectional <- linkage_mother_partner_infant %>%
          mother_delivery_within_month_hosp:infant_misc_sex,
          mother_swing_pos_work_home_inxn_avg_m10:infant_growth_standardized_head_circumf_slope_cm)
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 str(masterfile_cross_sectional, list.len=ncol(masterfile_cross_sectional))
-#1447  376
+#1447  387
 skim(masterfile_cross_sectional)
-write.table(masterfile_cross_sectional, "masterfile_cross_sectional_2023_06_12.txt", sep="\t", row.names=F, quote = F)
-#masterfile_cross_sectional <- read.delim("masterfile_cross_sectional_2023_06_12.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+write.table(masterfile_cross_sectional, "masterfile_cross_sectional_2023_09_29.txt", sep="\t", row.names=F, quote = F)
+#masterfile_cross_sectional <- read.delim("masterfile_cross_sectional_2023_09_29.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 
 colnames_cross_sectional <- as.data.frame(colnames(masterfile_cross_sectional))
 write.table(colnames_cross_sectional, "colnames_cross_sectional.txt", sep="\t", row.names=F, quote = F)
 #manually confirmed that the colnames coincided with the codebook:
 #rename: mother_health_folic_acid_use_before_during_pregnancy_p28 --> mother_healthmed_folic_acid_use_before_during_pregnancy_p28
+#rename: breakfast_foods --> mother_ffq_pattern_breakfast_foods
 masterfile_cross_sectional <- masterfile_cross_sectional %>%
-  rename(mother_healthmed_folic_acid_use_before_during_pregnancy_p28=mother_health_folic_acid_use_before_during_pregnancy_p28)
-write.table(masterfile_cross_sectional, "masterfile_cross_sectional_2023_06_12.txt", sep="\t", row.names=F, quote = F)
+  rename(mother_healthmed_folic_acid_use_before_during_pregnancy_p28=mother_health_folic_acid_use_before_during_pregnancy_p28,
+         mother_ffq_pattern_breakfast_foods = breakfast_foods)
+
+write.table(masterfile_cross_sectional, "masterfile_cross_sectional_2023_09_29.txt", sep="\t", row.names=F, quote = F)
 
         ##### =========================== 14. SUMMARY STATISTICS =========================== #####
 metadata_input <- masterfile_cross_sectional %>% select (-c(
