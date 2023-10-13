@@ -3,7 +3,7 @@
 ###     DESCRIPTION: MASTERFILE OF CLEANED LIFELINES-NEXT LONGITUDINAL QUESTIONNAIRES
 ###     PROJECT: LL-NEXT
 
-###     LAST UPDATED: 12 JUNE  2023
+###     LAST UPDATED: 29 SEPTEMBER 2023
 
 #save to:
 #setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
@@ -30,20 +30,21 @@ library(ggpubr)
 ## 9. INFANT NUTRITION 
 ## 10. INFANT CRYING BEHAVIOUR
 ## 11. INFANT GROWTH
-## 12. INFANT ROME
-## 13. INFANT IGSQ
-## 14. INFANT BITSS
-## 15. INFANT MEDICATION
-## 16. INFANT SLEEP
-## 17. INFANT LINKAGE
-## 18. MOTHER-INFANT LINKAGE
+## 12. INFANT ASQ
+## 13. INFANT ROME
+## 14. INFANT IGSQ
+## 15. INFANT BITSS
+## 16. INFANT MEDICATION
+## 17. INFANT SLEEP
+## 18. INFANT LINKAGE
+## 19. MOTHER-INFANT LINKAGE
 
         ##### =========================== 0. MOTHER PREGNANCY COMPLAINTS =========================== #####
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 mother_preg <- read.delim("2023_05_03_mother_pregnancy_complaints_RE_FORMATTED.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(mother_preg)
 #4242  7
-
         ##### =========================== 1. MOTHER BRISTOL STOOL SCALE (BSS) =========================== #####
 setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 mother_BSS <- read.delim("20230317_BSS_mother_cleaned.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
@@ -262,6 +263,7 @@ mother_med$SAMPLE_ID <- gsub("_M1", "_B", mother_med$SAMPLE_ID)
 
 #retrospectively add medication information from birthcard/delivery questionnaires
 setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_birthcard_medication/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_birthcard_medication/")
 mother_med_birthcards <- read.delim("2023_05_18_mother_med_birthcards_RE_FORMATTED.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(mother_med_birthcards)
 mother_med_updated <- full_join(mother_med, mother_med_birthcards) #Joining with `by = join_by(next_id_mother, SAMPLE_ID, timepoint)`
@@ -270,6 +272,7 @@ summary(mother_med_updated)
 
 #retrospectively complement folic acid use from mother health questionnaires with mother med folic acid use
 setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 mother_health <- read.delim("maternal_health_final_27_09_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #966 49
 str(mother_health)
@@ -302,6 +305,7 @@ str(mother_preg_BSS_rome_stool_med)
 summary(mother_preg_BSS_rome_stool_med)
 
 setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
 write.table(mother_preg_BSS_rome_stool_med, "2023_05_05_mother_preg_BSS_rome_stool_med.txt", sep="\t", row.names=F, quote = F)
 #5674 48
 #mother_preg_BSS_rome_stool_med <- read.delim("mother_preg_BSS_rome_stool_med", sep = "\t", header = TRUE, stringsAsFactors = T)
@@ -311,7 +315,8 @@ rm(mother_med, mother_med_P28, mother_med_M1, mother_med_M3, mother_med_P28_M1_M
 
         ##### =========================== 5. MOTHER STRESS  =========================== #####
 #retrospectively add mother stress to longitudinal design
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_stress//")
+setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_stress/")
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/intermediate_files/mother_stress/")
 mother_stress <- read.delim("2023_05_18_mother_ldi_stress_RE_FORMATTED.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #8920 5
 summary(mother_stress)
@@ -322,6 +327,7 @@ str(mother_longitudinal)
 summary(mother_longitudinal$timepoint)
 
 setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
+setwd("C:/Users/Siobhan Brushett//OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
 write.table(mother_longitudinal, "2023_05_24_mother_longitudinal.txt", sep="\t", row.names=F, quote = F)
 #11026 50
 #mother_longitudinal <- read.delim("2023_05_24_mother_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
@@ -731,14 +737,14 @@ setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/
 setwd("C:/Users/Siobhan Brushett//OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
 write.table(mother_long_linkage_tidy, "2023_05_24_mother_linked_longitudinal.txt", sep="\t", row.names=F, quote = F)
 #6960 57
-#mother_long_linkage_tidy <- read.delim("2023_05_24_mother_linked_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+mother_long_linkage_tidy <- read.delim("2023_05_24_mother_linked_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 
 rm(mother_linkage_mismatch, mother_LLNEXT010045_2, mother_LLNEXT100566, mother_LLNEXT200645, 
    mother_LLNEXT304268_2, mother_LLNEXT304268_2_B, mother_LLNEXT304268_2_P28_col, mother_LLNEXT304268_2_M3_col,
    mother_LLNEXT306939, mother_long_linkage, mother_long_linkage_filtered, mother_longitudinal)
 
         ##### =========================== 7. INFANT HEALTH  =========================== ##### 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 infant_health <- read.delim("INFANT_HEALTH_DYN_RE_FORMATTED_10_04_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_health)
@@ -781,7 +787,7 @@ infant_health_wide <- infant_health_wide %>%
 str(infant_health_wide)
 
   #ROME
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 infant_rome <- read.delim("ROME_INFANT_RE_FORMATTED_27_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_rome)
 summary(infant_rome)
@@ -993,7 +999,7 @@ rm(infant_health, infant_health_wide, infant_health_rome_igsq, infant_health_upd
         ##### =========================== 8. INFANT SCORAD  =========================== ##### 
 ##NOTE: Although the scorad was previously cleaned (November 2021 freeze), Soesma recently provided us with an updated file for eczema cases,
 #which included more recent scorad data: '20230227_Eczema cases and controls_longID.txt'; this file can be found in the Static folder on TEAMS
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 infant_scorad <- read.delim("20230227_Eczema cases and controls_longID.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #1167 17
@@ -1032,7 +1038,7 @@ infant_health_scorad <- infant_health_scorad %>% mutate_if(is.character, as.fact
 rm(infant_health_updated_wide, infant_scorad, infant_scorad_long, infant_scorad_wide)
 
         ##### =========================== 9. INFANT NUTRITION  =========================== ##### 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 infant_ffq <- read.delim("INFANT_FFQ_RE_FORMATTED_30_11_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_ffq)
@@ -1090,7 +1096,7 @@ infant_ffq$infant_ffq_variety_sum <- NULL
 #6335 135
 
 #retrospectively update certain FFQ variables with data acquired from matching BabyBiome data
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
 babybiome <- read.delim("metadata_LLNEXT_replication_UPDATED_CS_Baby_Biome_phenotypes_06_05_2023_early_tp_W2_M1_M2.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 #37  58
@@ -1187,7 +1193,7 @@ str(infant_health_scorad_ffq, list.len=ncol(infant_health_scorad_ffq))
 rm(infant_health_scorad, infant_ffq_updated)
 
         ##### =========================== 10. INFANT CRYING BEHAVIOUR  =========================== ##### 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 infant_cry <- read.delim("cry_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_cry)
@@ -1212,25 +1218,55 @@ str(infant_health_scorad_ffq_cry, list.len=ncol(infant_health_scorad_ffq_cry))
 rm(infant_cry, infant_cry_timepoints, infant_health_scorad_ffq)
 
         ##### =========================== 11. INFANT GROWTH =========================== ##### 
-infant_growth <- read.delim("INFANT_GROWTH_RE_FORMATTED_12_06_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#retrospectively updated with 2023_08_25 data freeze give how time sensitive this variable is with regards to missings and an ongoing cohort
+infant_growth <- read.delim("4_infant_growth_final.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_growth)
 #6536 9
 summary(infant_growth)
 
-timepoint_order <- c("B", "W2", "M1", "M2", "M3", "M6", "M9", "M12")
-infant_growth_timepoints <-infant_growth %>% 
-  group_by(timepoint) %>% 
-  summarize_all(~ sum(is.na(.))) %>%
-  arrange(factor(timepoint, levels = timepoint_order))
-#indeed asked at all time points
+#this subset has data for M4 and M5 for the Public Health study, remove to coincide with microbiome time points
+infant_growth <- infant_growth %>% filter(
+        timepoint!="M4" &
+                timepoint!="M5")
+#7528  12 (as expected 941 unique infants * 10 time points)
+
+#add sample id
+infant_growth$SAMPLE_ID<-paste0(infant_growth$next_id_infant, "_", infant_growth$timepoint)
+infant_growth <- infant_growth %>% relocate(SAMPLE_ID, .after = next_id_infant)
+str(infant_growth)
+
+summary(infant_growth)
 
 infant_health_scorad_ffq_cry_growth <- full_join(infant_health_scorad_ffq_cry, infant_growth) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
-#7709  156
+#8578  160
 str(infant_health_scorad_ffq_cry_growth, list.len=ncol(infant_health_scorad_ffq_cry_growth))
 
-rm(infant_growth, infant_growth_timepoints, infant_health_scorad_ffq_cry)
+rm(infant_growth, infant_health_scorad_ffq_cry)
 
-        ##### =========================== 12. INFANT ROME =========================== ##### 
+        ##### =========================== 12. INFANT ASQ =========================== ##### 
+#retrospectively added 2023_09_28
+infant_asq <- read.delim("infant_asq_all_cleaned.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(infant_asq)
+#2046 32
+
+infant_asq$SAMPLE_ID<-paste0(infant_asq$next_id_infant, "_", infant_asq$timepoint)
+infant_asq <- infant_asq %>% relocate(SAMPLE_ID, .after = next_id_infant) %>%
+        select(-c(FAMILY,
+                  next_id_mother,
+                  next_id_partner,
+                  infant_relations,
+                  sibling_number,
+                  twin_pair,
+                  sex,
+                  infant_asq_age_days))
+
+infant_health_scorad_ffq_cry_growth <- full_join(infant_health_scorad_ffq_cry_growth, infant_asq) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
+#8599  182
+str(infant_health_scorad_ffq_cry_growth, list.len=ncol(infant_health_scorad_ffq_cry_growth))
+
+rm(infant_asq)
+
+        ##### =========================== 13. INFANT ROME =========================== ##### 
 infant_rome <- read.delim("ROME_INFANT_RE_FORMATTED_27_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_rome)
 #4512 9
@@ -1250,12 +1286,12 @@ infant_rome <- infant_rome %>% rename(
   infant_rome_sudden_inconsolable_crying_fits = infant_rome_e32_sudden_inconsolable_crying_fits)
 
 infant_health_scorad_ffq_cry_growth_rome <- full_join(infant_health_scorad_ffq_cry_growth, infant_rome) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
-#7709  162
+#8599  188
 str(infant_health_scorad_ffq_cry_growth_rome, list.len=ncol(infant_health_scorad_ffq_cry_growth_rome))
 
 rm(infant_health_scorad_ffq_cry_growth, infant_rome, infant_rome_timepoints)
 
-        ##### =========================== 13. INFANT IGSQ =========================== ##### 
+        ##### =========================== 14. INFANT IGSQ =========================== ##### 
 infant_igsq <- read.delim("IGSQ_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_igsq)
 #1504 16
@@ -1268,7 +1304,7 @@ infant_igsq_timepoints <-infant_igsq %>%
 rm(infant_igsq_timepoints)
 
 #generate the IGSQ score (a score of gastrointestinal distress) which has a range of 13-65
-#resource: https://journals.sagepub.com/doi/10.1177/0009922815574075
+#resource: https://journals.sagepub.com/doi/10.1177/0009922815574075 and Nestle User Guide (available upon request from Soesma)
 
 #The following columns will be re-coded from a scale of 0-4 to a scale of 1-5
 columns_to_change <- c("infant_igsq_1_freq_hard_stools_past_week", 
@@ -1397,7 +1433,7 @@ infant_igsq$infant_IGSQ_score[infant_igsq$item_n<10] <- NA #NAs == 1147 as expec
 infant_igsq$infant_IGSQ_score_updated <- (13/infant_igsq$item_n) * infant_igsq$infant_IGSQ_score
 table(infant_igsq$infant_IGSQ_score_updated, useNA = "ifany")
 
-hist(infant_igsq$infant_IGSQ_score) #right skewed
+hist(infant_igsq$infant_IGSQ_score) #left skewed
 
 gghistogram(infant_igsq, x = "infant_IGSQ_score",
             add = "mean", rug = TRUE,
@@ -1450,12 +1486,12 @@ infant_igsq$infant_IGSQ_score_catg <- as.factor(infant_igsq$infant_IGSQ_score_ca
 str(infant_igsq)
 
 infant_health_scorad_ffq_cry_growth_rome_igsq <- full_join(infant_health_scorad_ffq_cry_growth_rome, infant_igsq) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
-#7709  162
+#8599  190
 str(infant_health_scorad_ffq_cry_growth_rome_igsq, list.len=ncol(infant_health_scorad_ffq_cry_growth_rome_igsq))
 
 rm(infant_health_scorad_ffq_cry_growth_rome, infant_igsq, infant_igsq_M3, infant_igsq_M12)
 
-        ##### =========================== 14. INFANT BITSS =========================== ##### 
+        ##### =========================== 15. INFANT BITSS =========================== ##### 
 infant_bitss <- read.delim("BITSS_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_bitss)
 #4200 4
@@ -1468,12 +1504,12 @@ infant_bitss_timepoints <-infant_bitss %>%
 rm(infant_bitss_timepoints)
 
 infant_health_scorad_ffq_cry_growth_rome_igsq_bitss <- full_join(infant_health_scorad_ffq_cry_growth_rome_igsq, infant_bitss) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
-#7748  165
+#8630  191
 str(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss, list.len=ncol(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss))
 
 rm(infant_health_scorad_ffq_cry_growth_rome_igsq, infant_bitss)
 
-        ##### =========================== 15. INFANT MEDICATION =========================== ##### 
+        ##### =========================== 16. INFANT MEDICATION =========================== ##### 
 infant_med <- read.delim("INFANT_MEDICATION_RE_FORMATTED_01_12_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_med)
 #5264 17
@@ -1487,12 +1523,12 @@ infant_med_timepoints <-infant_med %>%
 rm(infant_med_timepoints)
 
 infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med <- full_join(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss, infant_med) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
-#7748  179
+#8630  205
 str(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med, list.len=ncol(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med))
 
 rm(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss, infant_med)
 
-        ##### =========================== 16. INFANT SLEEP =========================== ##### 
+        ##### =========================== 17. INFANT SLEEP =========================== ##### 
 infant_sleep <- read.delim("SLEEP_RE_FORMATTED_28_10_2022.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 str(infant_sleep)
 #2256 7
@@ -1506,18 +1542,18 @@ infant_sleep_timepoints <-infant_sleep %>%
 rm(infant_sleep_timepoints)
 
 infant_long <- full_join(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med, infant_sleep) #Joining, by = c("next_id_infant", "SAMPLE_ID", "timepoint")
-#7748  183
+#8630  209
 str(infant_long, list.len=ncol(infant_long))
 
 rm(infant_health_scorad_ffq_cry_growth_rome_igsq_bitss_med, infant_sleep)
 
-        ##### =========================== 17. INFANT LINKAGE =========================== ##### 
+        ##### =========================== 18. INFANT LINKAGE =========================== ##### 
 infant_long <- infant_long %>% 
   filter(next_id_infant!="LLNEXT00000?") 
-#7741 183
+#8623 209
 
 infant_long_linkage <- full_join(linkage, infant_long) #Joining with `by = join_by(next_id_infant)`
-#8008 189
+#8887 215
 summary(infant_long_linkage)
 
 table(infant_long_linkage$infant_relations, useNA="ifany") #9 NAs
@@ -1534,81 +1570,81 @@ summary(infant_linkage_mismatch)
 
 infant_long_linkage <- infant_long_linkage %>% 
   filter(!is.na(infant_relations)) 
-#7999  189
+#8878  215
 
 #make sure that there are no duplications of the infant id's by time point
 infant_long_linkage$timepoint <- factor(infant_long_linkage$timepoint, levels=c("B", "W2", "M1", "M2", "M3", "M6", "M9", "M12"))
 table(infant_long_linkage$timepoint, useNA="ifany")
-#B   W2   M1   M2   M3   M6   M9  M12 <NA> 
-#817  911  911  911 1180  911  911 1180  267 
+#B     W2   M1   M2   M3   M6   M9  M12   <NA> 
+#941 1059 1059 1059 1180 1074 1059 1183  264 
 
 #NA's are indicative of infants for which we do not have longitudinal questionnaire data for.
 
   #B
 infant_long_linkage_B <- infant_long_linkage %>%
   filter(timepoint=="B")
-#817  189
+#941  215
 length(unique(infant_long_linkage_B$next_id_infant[duplicated(infant_long_linkage_B$next_id_infant)])) #0 duplicated infants
 rm(infant_long_linkage_B)
 
   #W2
 infant_long_linkage_W2 <- infant_long_linkage %>%
   filter(timepoint=="W2")
-#911  189
+#1059  215
 length(unique(infant_long_linkage_W2$next_id_infant[duplicated(infant_long_linkage_W2$next_id_infant)])) #0 duplicated infants
 rm(infant_long_linkage_W2)
 
   #M1
 infant_long_linkage_M1 <- infant_long_linkage %>%
   filter(timepoint=="M1")
-#911  189
+#1059  215
 length(unique(infant_long_linkage_M1$next_id_infant[duplicated(infant_long_linkage_M1$next_id_infant)])) #0 duplicated infants
 rm(infant_long_linkage_M1)
 
   #M2
 infant_long_linkage_M2 <- infant_long_linkage %>%
   filter(timepoint=="M2")
-#911  189
+#1059  215
 length(unique(infant_long_linkage_M2$next_id_infant[duplicated(infant_long_linkage_M2$next_id_infant)])) #0 duplicated infants
 rm(infant_long_linkage_M2)
 
   #M3
 infant_long_linkage_M3 <- infant_long_linkage %>%
   filter(timepoint=="M3")
-#1189  189
+#1180  215
 length(unique(infant_long_linkage_M3$next_id_infant[duplicated(infant_long_linkage_M3$next_id_infant)])) #0 duplicated infants
 rm(infant_long_linkage_M3)
 
   #M6
 infant_long_linkage_M6 <- infant_long_linkage %>%
   filter(timepoint=="M6")
-#911  189
+#1074  215
 length(unique(infant_long_linkage_M6$next_id_infant[duplicated(infant_long_linkage_M6$next_id_infant)])) #0 duplicated infants
 rm(infant_long_linkage_M6)
 
   #M9
 infant_long_linkage_M9 <- infant_long_linkage %>%
   filter(timepoint=="M9")
-#911  189
+#1059  215
 length(unique(infant_long_linkage_M9$next_id_infant[duplicated(infant_long_linkage_M9$next_id_infant)])) #0 duplicated infants
 rm(infant_long_linkage_M9)
 
   #M12
 infant_long_linkage_M12 <- infant_long_linkage %>%
   filter(timepoint=="M12")
-#1180  189
+#1183  215
 length(unique(infant_long_linkage_M12$next_id_infant[duplicated(infant_long_linkage_M12$next_id_infant)])) #0 duplicated infants
 rm(infant_long_linkage_M12)
 
 #indeed, there are no infant id duplications by time point
 
 str(infant_long_linkage, list.len=ncol(infant_long_linkage))
-#7999 189
+#8878 215
 
 #due to the longitudinal nature, it could be that for some infants, aside from the linkage file data, all other data is missing
 #tidy this up: remove rows where all columns after "timepoint" (in 9th position)
 infant_long_linkage_tidy <- infant_long_linkage[rowSums(is.na(infant_long_linkage[, 10:ncol(infant_long_linkage)])) < (ncol(infant_long_linkage) - 9), ]
-#7276 189
+#8081 215
 
 #QC:
 #check which SAMPLE_IDs are missing from infant_long_linkage in infant_long_linkage_tidy
@@ -1616,7 +1652,7 @@ missing_ids <- setdiff(infant_long_linkage$SAMPLE_ID, infant_long_linkage_tidy$S
 
 # Filter df1 to keep only rows with IDs missing from df2
 infant_long_linkage_filtered <- infant_long_linkage[infant_long_linkage$SAMPLE_ID %in% missing_ids, ]
-#723 (as expected)
+#797 (as expected)
 summary(infant_long_linkage_filtered)
 #indeed, all other data after the 'timepoint' column is missing
 
@@ -1627,24 +1663,24 @@ infant_long_linkage_tidy <- infant_long_linkage_tidy %>% relocate(
 infant_long_linkage_tidy <- infant_long_linkage_tidy %>% mutate_if(is.character, as.factor)
 str(infant_long_linkage_tidy, list.len=ncol(infant_long_linkage_tidy))
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
 setwd("C:/Users/Siobhan Brushett//OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/intermediate_files/")
-write.table(infant_long_linkage_tidy, "2023_08_23_infant_linked_longitudinal.txt", sep="\t", row.names=F, quote = F)
-#7276 190
-#infant_long_linkage_tidy <- read.delim("2023_08_23_infant_linked_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+write.table(infant_long_linkage_tidy, "2023_09_29_infant_linked_longitudinal.txt", sep="\t", row.names=F, quote = F)
+#8081 216
+#infant_long_linkage_tidy <- read.delim("2023_09_29_infant_linked_longitudinal.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 
 rm(infant_long, infant_linkage_mismatch, infant_long_linkage, infant_long_linkage_filtered)
 
-        ##### =========================== 18. MOTHER-INFANT LINKAGE =========================== ##### 
+        ##### =========================== 19. MOTHER-INFANT LINKAGE =========================== ##### 
 mother_infant_long <- full_join(mother_long_linkage_tidy, infant_long_linkage_tidy) #Joining with `by = join_by(FAMILY, Type, next_id_mother, next_id_infant, next_id_partner, infant_relations, sibling_number, twin_pair, SAMPLE_ID, timepoint)`
-#14236 237
+#15041 263
 str(mother_infant_long, list.len=ncol(mother_infant_long))
 
-setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+#setwd("~/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
 setwd("C:/Users/Siobhan Brushett//OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
-write.table(mother_infant_long, "masterfile_longitudinal_2023_06_12.txt", sep="\t", row.names=F, quote = F)
+write.table(mother_infant_long, "masterfile_longitudinal_2023_09_29.txt", sep="\t", row.names=F, quote = F)
 
-#masterfile_longitudinal <- read.delim("masterfile_longitudinal_2023_08_23.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+masterfile_longitudinal <- read.delim("masterfile_longitudinal_2023_09_29.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
 
 colnames_longitudinal <- as.data.frame(colnames(masterfile_longitudinal))
 write.table(colnames_longitudinal, "colnames_longitudinal.txt", sep="\t", row.names=F, quote = F)
