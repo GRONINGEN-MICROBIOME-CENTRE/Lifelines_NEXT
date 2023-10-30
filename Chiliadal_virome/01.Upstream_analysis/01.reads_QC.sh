@@ -1,14 +1,23 @@
 #!/bin/bash
-#SBATCH --job-name=reads_QC
-#SBATCH --error=reads_QC.err
-#SBATCH --output=reads_QC.out
+#SBATCH --job-name=Chiliadal_rQC
+#SBATCH --error=./err/Chiliadal_%A_%a.err
+#SBATCH --output=./out/Chiliadal_%A_%a.out
 #SBATCH --mem=48gb
-#SBATCH --time=4:59:00
+#SBATCH --time=12:59:00
 #SBATCH --cpus-per-task=2
 #SBATCH --open-mode=truncate
 
-SAMPLE_ID=$1
+#SAMPLE_ID=$1
+#echo "SAMPLE_ID=${SAMPLE_ID}"
+
+SAMPLE_LIST=$1
+
+echo ${SAMPLE_LIST}
+
+SAMPLE_ID=$(sed "${SLURM_ARRAY_TASK_ID}q;d" ${SAMPLE_LIST} | cut -d "_" -f1)
+
 echo "SAMPLE_ID=${SAMPLE_ID}"
+
 
 ### WORKING IN $TMPDIR
 mkdir -p ${TMPDIR}/${SAMPLE_ID}/filtering_data/
@@ -190,7 +199,7 @@ rm -r ${TMPDIR}/${SAMPLE_ID}/filtering_data
 ##### CHECKING QUALITY OF CLEAN READS
 echo "> Running FastQC on cleanreads"
 
-if [ $(grep 'Done!' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l)==3 ]; then
+if [ $(grep 'Killed' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l)==0 ]; then
 	module load FastQC
 	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq
 	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq
@@ -198,7 +207,7 @@ if [ $(grep 'Done!' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l)==3 ]
 	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq
 fi
 
-if [ $(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq|wc -l)/4|bc)==$(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq|wc -l)/4|bc) ]; then
+if [ $(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq|wc -l)/4|bc) == $(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq|wc -l)/4|bc) ]; then
 	echo "Reads seems to be paired"
 	cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq \
 	../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq > \
@@ -209,14 +218,10 @@ fi
 
 
 echo "> Generating md5sums"
-md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq.gz > /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/MD5.txt
-md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq.gz >> /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/MD5.txt
-md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq.gz >> /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/MD5.txt
-md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq.gz >> /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/MD5.txt
-
-echo "> Backuping clean reads"
-rsync -vhr ../SAMPLES/${SAMPLE_ID}/clean_reads /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/
-rm /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched.fastq.gz
+md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq.gz > ../SAMPLES/${SAMPLE_ID}/MD5.txt
+md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
+md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
+md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
 
 echo "> Launching sc assembly"
 bash runAllSamples_02.bash ${SAMPLE_ID}
