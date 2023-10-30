@@ -31,8 +31,6 @@ if [ -f ../SAMPLES/${SAMPLE_ID}/viromeqc_stat.txt ]; then
 	echo "> ViromeQC has finished"
 fi
 
-echo "> Backuping ViromeQC stat"
-cp ../SAMPLES/${SAMPLE_ID}/viromeqc_stat.txt /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/ 
 
 module list
 
