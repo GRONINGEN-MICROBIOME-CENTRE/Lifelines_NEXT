@@ -68,11 +68,9 @@ if [ -f ../SAMPLES/${SAMPLE_ID}/01_sc_assembly/${SAMPLE_ID}_contigs.fasta ]; the
 fi
 
 echo "> Generating md5sums"
-md5sum ../SAMPLES/${SAMPLE_ID}/01_sc_assembly/${SAMPLE_ID}_contigs.fasta >> /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/MD5.txt 
-md5sum ../SAMPLES/${SAMPLE_ID}/01_sc_assembly/${SAMPLE_ID}_scaffolds.fasta >> /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/MD5.txt
+md5sum ../SAMPLES/${SAMPLE_ID}/01_sc_assembly/${SAMPLE_ID}_contigs.fasta >> ../SAMPLES/${SAMPLE_ID}/MD5.txt 
+md5sum ../SAMPLES/${SAMPLE_ID}/01_sc_assembly/${SAMPLE_ID}_scaffolds.fasta >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
 
-echo "> Backuping assembly results"
-rsync -vhr ../SAMPLES/${SAMPLE_ID}/01_sc_assembly /projects/p282752/CHILIADAL_vir_discovery_base/SAMPLES/${SAMPLE_ID}/
 
 echo "> Launching ViromeQC"
 bash runAllSamples_03.bash ${SAMPLE_ID}
