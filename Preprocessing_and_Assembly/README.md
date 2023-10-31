@@ -1,7 +1,4 @@
 # General read quality control and assembly pipeline
-Gut virome analysis from metagenomic data on Lifelines NEXT Cohort.
-
-## Content
 
 We here describe the methods used to perform:
 
