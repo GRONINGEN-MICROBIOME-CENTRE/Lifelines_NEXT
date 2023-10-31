@@ -1,1 +1,1 @@
-General read quality control and assembly pipeline
+**General read quality control and assembly pipeline**
