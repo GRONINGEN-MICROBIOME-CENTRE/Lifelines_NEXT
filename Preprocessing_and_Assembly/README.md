@@ -1,4 +1,4 @@
-# General read quality control and assembly pipeline
+## General read quality control and assembly pipeline
 
 We here describe the methods used to perform:
 
