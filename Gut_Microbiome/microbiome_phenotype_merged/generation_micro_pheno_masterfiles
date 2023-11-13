@@ -1,0 +1,1357 @@
+###     SCRIPT: MERGING PHENOTYPIC AND MICROBIOME DATA
+###     AUTHOR(S): SIOBHAN BRUSHETT 
+###     DESCRIPTION: GENERATE PHENOTYPE-MICROBIOME MASTERFILES FOR MOTHERS AND INFANTS CROSS-SECTIONALLY AND LONGITUDINALLY
+###     PROJECT: LL-NEXT
+###     LAST UPDATED: 13 NOVEMBER  2023
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/Documents/PhD/NEXT/NEXT_micro_manuscript/microbiome_data/")
+
+#libraries
+library(tidyverse)
+
+#Contents 
+## 0. LOAD FILES
+## 1. CROSS-SECTIONAL PHENOTYPE AND MICROBIOME: MOTHER
+## 2. CROSS-SECTIONAL PHENOTYPE AND MICROBIOME: INFANT
+## 3. LONGITUDINAL PHENOTYPE AND MICROBIOME: MOTHER
+## 4. LONGITUDINAL PHENOTYPE AND MICROBIOME: INFANT
+
+
+        ##### =========================== 0. LOAD FILES =========================== #####
+        #phenotype data
+#cross-sectional masterfile
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+cs <- read.delim("masterfile_cross_sectional_2023_09_29.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(cs, list.len=ncol(cs))
+#1447 387
+
+#update cross-sectional masterfile with ASQ scores at M6 and M12
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+asq <- read.delim("masterfile_longitudinal_2023_09_29.txt", sep = "\t", header = TRUE, stringsAsFactors = T) 
+
+asq_M6 <- asq %>% 
+        filter(Type == "infant" &
+                       timepoint == "M6") %>%
+        select(c(
+                next_id_mother,
+                next_id_infant,
+                infant_asq_com_score,
+                infant_asq_gm_score,
+                infant_asq_fm_score,
+                infant_asq_ps_score,
+                infant_asq_psoc_score,
+                infant_asq_total_score))%>%
+        rename(infant_asq_com_score_m6 = infant_asq_com_score,
+               infant_asq_gm_score_m6 = infant_asq_gm_score,
+               infant_asq_fm_score_m6 = infant_asq_fm_score,
+               infant_asq_ps_score_m6 = infant_asq_ps_score,
+               infant_asq_psoc_score_m6 = infant_asq_psoc_score,
+               infant_asq_total_score_m6 = infant_asq_total_score)
+#988 8
+summary(asq_M6)
+
+asq_M12 <- asq %>% 
+        filter(Type == "infant" &
+                       timepoint == "M12") %>%
+        select(c(
+                next_id_mother,
+                next_id_infant,
+                infant_asq_com_score,
+                infant_asq_gm_score,
+                infant_asq_fm_score,
+                infant_asq_ps_score,
+                infant_asq_psoc_score,
+                infant_asq_total_score)) %>%
+        rename(infant_asq_com_score_m12 = infant_asq_com_score,
+               infant_asq_gm_score_m12 = infant_asq_gm_score,
+               infant_asq_fm_score_m12 = infant_asq_fm_score,
+               infant_asq_ps_score_m12 = infant_asq_ps_score,
+               infant_asq_psoc_score_m12 = infant_asq_psoc_score,
+               infant_asq_total_score_m12 = infant_asq_total_score)
+#975 8
+summary(asq_M12)
+
+asq_M6_M12 <- full_join(asq_M6, asq_M12) #Joining with `by = join_by(next_id_mother, next_id_infant)`
+#997  14
+summary(asq_M6_M12)
+
+cs <- left_join(cs, asq_M6_M12) #Joining with `by = join_by(next_id_mother, next_id_infant)`
+#1447  399
+str(cs, list.len=ncol(cs))
+
+rm(asq, asq_M6, asq_M12, asq_M6_M12)
+
+#cross-sectional variable selection (AFTER correlations)
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+cs_sel <- read.delim("masterfile_cross_sectional_selection_AFTER_correlation_2023_11_13.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(cs_sel)
+#399 9
+
+#longitudinal masterfile
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_longitudinal/")
+long <- read.delim("masterfile_longitudinal_2023_09_29.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(long, list.len=ncol(long))
+#15041  263
+
+#longitudinal variable selection (AFTER correlations)
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/")
+long_sel <- read.delim("masterfile_longitudinal_selection_AFTER_correlation_2023_11_13.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(long_sel)
+#263  4
+
+        #microbiome data
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/NEXT_micro_manuscript/microbiome_data/")
+#metadata associated with microbial data
+metadata <- read.delim("LLNEXT_metadata_03_08_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(metadata, list.len=ncol(metadata))
+#4577 29
+
+#reorder metadata
+metadata <- metadata %>% select(c(
+        NG_ID,
+        NG_ID_short,
+        FAMILY,
+        Type,
+        NEXT_ID,
+        SAMPLE_ID,
+        Timepoint_categorical,
+        exact_age_days_at_collection,
+        exact_age_months_at_collection,
+        exact_age_years_at_collection,
+        Sequenced,
+        BATCH_NUMBER,
+        raw_reads_FQ_1,
+        raw_reads_FQ_2,
+        human_reads_FQ_1,
+        human_reads_FQ_2,
+        clean_reads_FQ_1,
+        clean_reads_FQ_2,
+        reads_lost_QC,
+        sequence_control,
+        isolation_control,
+        isolation_method,
+        dna_conc,
+        metaphlan4_unclassified,
+        metaphlan4_unclassified_with_contaminants,
+        metaphlan4_unclassified_high_contaminants_factor_75,
+        contaminant_1_Sphingomonas_sp_FARSPH,
+        contaminant_2_Phyllobacterium_myrsinacearum,
+        shannon)) %>%
+        rename(timepoint = Timepoint_categorical)
+
+metadata_mother <- metadata %>% filter(
+        Type == "mother")
+#1638 29
+
+metadata_infant <- metadata %>% filter(
+        Type == "infant")
+#2939 29
+
+#micro_mother_all
+micro_mother_all <- read.delim("NEXT_metaphlan_4_CLR_transformed_fil_all_levels_mothers_03_08_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(micro_mother_all, list.len=ncol(micro_mother_all))
+#1638 1127
+micro_mother_all$NG_ID <- row.names(micro_mother_all)
+metadata_micro_mother <- full_join(metadata_mother, micro_mother_all) #Joining with `by = join_by(NG_ID)
+#1638 1156
+
+rm(metadata_mother, micro_mother_all)
+
+#micro_infant_all
+micro_infant_all <- read.delim("LLNEXT_metaphlan_4_CLR_transformed_fil_all_levels_infants_20_07_2023.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(micro_infant_all, list.len=ncol(micro_infant_all))
+#2939 347
+micro_infant_all$NG_ID <- row.names(micro_infant_all)
+metadata_micro_infant <- full_join(metadata_infant, micro_infant_all) #Joining with `by = join_by(NG_ID)
+#2939 376
+rm(metadata_infant, micro_infant_all)
+
+#linkage file
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/phr_data_freeze_2023_08_25/infant_selection/")
+linkage_file <- read.delim("20230414_Linkingfile_fam_longID_formatted_TS_SB.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(linkage_file)
+
+        ##### =========================== 1. CROSS-SECTIONAL PHENOTYPE AND MICROBIOME: MOTHER =========================== #####
+        ##### 1.1 subset by selection for mothers#####
+table(cs_sel$mother_microbiome_selection) #242 variables should be selected for cross-sectional mother microbiome
+table(cs_sel$mother_timepoint_P12) #13 - 7 (the first 7 are family IDs) == 6 birth measurements
+table(cs_sel$mother_timepoint_P28) #13 - 7 == 6 (also birth measurements)
+table(cs_sel$mother_timepoint_B) #13 - 7 == 6 (also birth measurements)
+table(cs_sel$mother_timepoint_M1[cs_sel$mother_microbiome_selection==0]) #3 birth measurements (also reflected in 6 measurements above)
+table(cs_sel$mother_timepoint_M2[cs_sel$mother_microbiome_selection==0]) #3 birth measurements
+table(cs_sel$mother_timepoint_M3[cs_sel$mother_microbiome_selection==0]) #3 birth measurements
+#248 variables should be selected for cross-sectional mother microbiome
+
+mother_cs <- cs_sel %>% select(c(
+        variable_name,
+        mother_microbiome_selection,
+        mother_timepoint_P12,
+        mother_timepoint_P28,
+        mother_timepoint_B,
+        mother_timepoint_M1,
+        mother_timepoint_M2,
+        mother_timepoint_M3)) %>%
+        filter(mother_microbiome_selection == "1" | 
+                       mother_timepoint_P12 == "1" |
+                       mother_timepoint_P28 == "1" |
+                       mother_timepoint_B == "1" |
+                       mother_microbiome_selection == "0" & mother_timepoint_M1 == 1 |
+                       mother_microbiome_selection == "0" & mother_timepoint_M2 == 1 |
+                       mother_microbiome_selection == "0" & mother_timepoint_M3 == 1 )
+#248  8
+
+#subset cross-sectional masterfile according to cross-sectional mother_microbiome_selection
+mother_cs$variable_name <- as.factor(as.character(mother_cs$variable_name)) #remove factor levels with 0
+matching_cols <- mother_cs$variable_name
+mother_cs_sel <- cs %>%
+        select(any_of(matching_cols))
+str(mother_cs_sel, list.len=ncol(mother_cs_sel))
+#1447 248
+
+#mother_cs$variable_name %in% colnames(mother_cs_sel)
+
+rm(mother_cs)
+
+#subset cross-sectional masterfile mother microbiome selection according to microbiome metadata (for linkage to available microbiome data)
+metadata_mother <- metadata %>% filter(
+        Type == "mother") %>%
+        select(NEXT_ID)
+#1638  1
+str(metadata_mother)
+metadata_mother$NEXT_ID <- as.factor(as.character(metadata_mother$NEXT_ID)) #1417 --> 703 levels for merging
+metadata_mother <- as.data.frame(unique(metadata_mother$NEXT_ID)) #obtain unique mother ids (to avoid duplication)
+metadata_mother <- metadata_mother %>% rename(
+        "next_id_mother"="unique(metadata_mother$NEXT_ID)")
+#703 1
+mother_cs_sel <- left_join(metadata_mother, mother_cs_sel) #Joining, by = "next_id_mother"
+#715  248 (6 sets of twins)
+rm(metadata_mother)
+
+        ##### 1.2 merge cross-sectional mother phenotype and microbiome data #####
+metadata_micro_mother <- metadata_micro_mother %>% rename(next_id_mother = NEXT_ID)
+#1638  1156
+mother_cs_sel$next_id_mother[duplicated(mother_cs_sel$next_id_mother)]
+length(mother_cs_sel$next_id_mother[duplicated(mother_cs_sel$next_id_mother)]) #12
+#LLNEXT001522: 5 time points in metadata
+#LLNEXT001315: 4 time points in metadata
+#LLNEXT113578: 3 time points in metadata
+#LLNEXT133589: 3 time points in metadata
+#LLNEXT008020: 3 time points in metadata
+#LLNEXT010504: 3 time points in metadata
+#LLNEXT005519: 3 time points in metadata
+#LLNEXT004727: 3 time points in metadata 
+#LLNEXT008859: 2 time points in metadata  
+#LLNEXT011558: 2 time points in metadata   
+#LLNEXT001018: 3 time points in metadata 
+#LLNEXT201327: 3 time points in metadata 
+#thus I expect 37 additional rows of mothers with unique next_id_infants due to twins
+
+#remove redundant variables from cross-sectional data
+mother_cs_sel$FAMILY <- NULL
+
+cs_micro_pheno_mother<-merge(metadata_micro_mother, mother_cs_sel, by.x= "next_id_mother", by.y="next_id_mother")
+#1675 1402
+
+cs_micro_pheno_mother <- cs_micro_pheno_mother %>% 
+        relocate(NG_ID, .before = next_id_mother) %>%
+        relocate(NG_ID_short, .after = NG_ID) %>%
+        relocate(FAMILY, .after = NG_ID_short) %>%
+        relocate(Type, .after = FAMILY) %>%
+        relocate(next_id_mother, .after = Type) %>%
+        relocate(next_id_infant, .after = next_id_mother) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+cs_micro_pheno_mother$next_id_mother <- as.factor(as.character(cs_micro_pheno_mother$next_id_mother)) #703 unique mothers
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/NEXT_micro_manuscript/micro_pheno_merged/masterfiles/")
+write.table(cs_micro_pheno_mother, "mother_cs_microbiome_phenotypes.txt", sep="\t", row.names=F, quote = F)
+str(cs_micro_pheno_mother, list.len=ncol(cs_micro_pheno_mother)) #703 unique next_id_mother
+summary(cs_micro_pheno_mother)
+
+rm(mother_cs_sel, cs_micro_pheno_mother)
+
+
+        ##### =========================== 2. CROSS-SECTIONAL PHENOTYPE AND MICROBIOME: INFANT =========================== #####
+        ##### 2.1 subset by selection for infants#####
+table(cs_sel$infant_microbiome_selection) #133
+#133 variables should be selected for cross-sectional infant microbiome
+
+infant_cs <- cs_sel %>% select(c(
+        variable_name,
+        infant_microbiome_selection)) %>%
+        filter(infant_microbiome_selection == "1")
+#133  2
+
+#subset cross-sectional masterfile according to cross-sectional infant_microbiome_selection
+infant_cs$variable_name <- as.factor(as.character(infant_cs$variable_name)) #remove factor levels with 0
+matching_cols <- infant_cs$variable_name
+infant_cs_sel <- cs %>%
+        select(any_of(matching_cols))
+str(infant_cs_sel, list.len=ncol(infant_cs_sel))
+#1447 133
+
+#there are 29 rows which are mothers unlinked to infants - thus remove these rows to reflect only available infant data
+table(infant_cs_sel$infant_relations, useNA="ifany") #29 no_mother_infant_pair
+infant_cs_sel <- infant_cs_sel[infant_cs_sel$infant_relations!="no_mother_infant_pair",]
+#1418 133
+infant_cs_sel$infant_relations <- as.factor(as.character(infant_cs_sel$infant_relations))
+table(infant_cs_sel$infant_relations, useNA="ifany")
+#singleton   twins 
+#1352        66 
+
+rm(cs, cs_sel, infant_cs)
+
+#subset cross-sectional masterfile infant microbiome selection according to microbiome metadata (for linkage to available microbiome data)
+metadata_infant <- metadata %>% filter(
+        Type == "infant") %>%
+        select(NEXT_ID)
+#2939  1
+str(metadata_infant)
+metadata_infant$NEXT_ID <- as.factor(as.character(metadata_infant$NEXT_ID)) #1417 --> 714 levels for merging
+metadata_infant <- as.data.frame(unique(metadata_infant$NEXT_ID)) #obtain unique infant ids (to avoid duplication)
+metadata_infant <- metadata_infant %>% rename(
+        "next_id_infant"="unique(metadata_infant$NEXT_ID)")
+#714 1
+infant_cs_sel <- left_join(metadata_infant, infant_cs_sel) #Joining, by = "next_id_infant"
+#714  133
+str(infant_cs_sel, list.len=ncol(infant_cs_sel))
+rm(metadata_infant)
+
+        ##### 2.2 merge cross-sectional infant phenotype and microbiome data #####
+metadata_micro_infant <- metadata_micro_infant %>% rename(next_id_infant = NEXT_ID)
+#2939  376
+infant_cs_sel$next_id_infant[duplicated(infant_cs_sel$next_id_infant)]
+length(infant_cs_sel$next_id_infant[duplicated(infant_cs_sel$next_id_infant)]) #0
+
+#remove redundant variables from cross-sectional data
+infant_cs_sel$FAMILY <- NULL
+
+cs_micro_pheno_infant<-merge(metadata_micro_infant, infant_cs_sel, by.x= "next_id_infant", by.y="next_id_infant")
+#2939 507
+
+cs_micro_pheno_infant <- cs_micro_pheno_infant %>% 
+        relocate(next_id_mother, .after = next_id_infant) %>%
+        relocate(NG_ID, .before = next_id_infant) %>%
+        relocate(NG_ID_short, .after = NG_ID) %>%
+        relocate(FAMILY, .after = NG_ID_short) %>%
+        relocate(Type, .after = FAMILY) %>%
+        relocate(next_id_infant, .after = Type) %>%
+        relocate(next_id_infant, .after = next_id_infant) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+cs_micro_pheno_infant$next_id_infant <- as.factor(as.character(cs_micro_pheno_infant$next_id_infant)) #714 unique ids infant
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/NEXT_micro_manuscript/micro_pheno_merged/masterfiles/")
+write.table(cs_micro_pheno_infant, "infant_cs_microbiome_phenotypes.txt", sep="\t", row.names=F, quote = F)
+#2939 507
+str(cs_micro_pheno_infant, list.len=ncol(cs_micro_pheno_infant)) 
+rm(infant_cs_sel, cs_micro_pheno_infant)
+
+        ##### =========================== 3. LONGITUDINAL PHENOTYPE AND MICROBIOME: MOTHER =========================== #####
+        ##### 3.1 subset by selection for mothers#####
+table(long_sel$mother_microbiome_selection) #51
+table(long_sel$mother_microbiome_timepoint_M3) #13 - 10 (metadata) = 3 (mother_stooldiary_not_well_avg, infant feeding mode (simple and complex))
+#54 variables should be selected for longitudinal mother microbiome
+
+mother_long <- long_sel %>% select(c(
+        variable_name,
+        mother_microbiome_selection,
+        mother_microbiome_timepoint_M3)) %>%
+        filter(mother_microbiome_selection == "1" |
+                       mother_microbiome_timepoint_M3=="1")
+#54  3
+
+#subset longitudinal masterfile according to longitudinal mother_microbiome_selection
+mother_long$variable_name <- as.factor(as.character(mother_long$variable_name)) #remove factor levels with 0
+matching_cols <- mother_long$variable_name
+mother_long_sel <- long %>%
+        select(any_of(matching_cols))
+str(mother_long_sel, list.len=ncol(mother_long_sel))
+#15041 54
+
+rm(mother_long)
+
+mother_long_sel$timepoint <- factor(mother_long_sel$timepoint, levels=c("P12", "P28", 
+                                                                        "B", "W2", "M1", "M2", "M3",
+                                                                        "M6", "M9", "M12"))
+table(mother_long_sel$timepoint, useNA = "ifany")
+#P12  P28    B   W2   M1   M2   M3   M6   M9  M12 
+#1085 1167 1973 1578 1570 1582 2194 1302 1301 1289 
+
+colnames(mother_long_sel)
+summary(mother_long_sel)
+
+#generate mother_next_ids available from metagenomics
+metadata_mother <- metadata %>% filter(
+        Type == "mother") %>%
+        select(NEXT_ID) %>% 
+        rename(next_id_mother = NEXT_ID)
+#1638  1
+str(metadata_mother)
+metadata_mother$next_id_mother <- as.factor(as.character(metadata_mother$next_id_mother)) #1417 --> 703 levels for merging
+metadata_mother<- distinct(metadata_mother, .keep_all = T)
+#703  1
+
+metadata_mother_linkage <- left_join(metadata_mother, linkage_file)
+#715  7
+
+#filter by time point
+        #P12
+mother_long_sel_P12 <- mother_long_sel %>% filter (
+        timepoint=="P12" & 
+                Type=="mother") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.)))) #select out columns with only NAs
+#1085  8
+str(mother_long_sel_P12) #all mother phenos
+
+mother_long_sel_P12 <- left_join(metadata_mother_linkage, mother_long_sel_P12)
+#715  13 duplications because of twin related data - thus, do not make distinct
+
+        #P28
+mother_long_sel_P28 <- mother_long_sel %>% filter (
+        timepoint=="P28" & 
+                Type=="mother") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1167  39
+str(mother_long_sel_P28) #all mother phenos
+
+mother_long_sel_P28 <- left_join(metadata_mother_linkage, mother_long_sel_P28)
+#715  44 
+
+        #B
+mother_long_sel_B <- mother_long_sel %>% filter (
+        timepoint=="B") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1973  29
+str(mother_long_sel_B) #all mother
+
+        #mother phenotypes
+mother_long_sel_B <- mother_long_sel_B %>% filter (
+        Type == "mother") %>%
+        select(-Type)
+
+#1032 28
+str(mother_long_sel_B)
+
+mother_long_sel_B <- left_join(metadata_mother_linkage, mother_long_sel_B) #Joining with `by = join_by(next_id_mother, next_id_infant)`
+#715  33
+
+        #W2: no W2 mother microbiome data available
+
+        #M1
+mother_long_sel_M1 <- mother_long_sel %>% filter (
+        timepoint=="M1") %>% select(-c(
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1570  6
+str(mother_long_sel_M1)
+
+        #mother phenotypes
+mother_long_sel_M1_mother <- mother_long_sel_M1 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#556 3
+mother_long_sel_M1_mother <- left_join(metadata_mother_linkage, mother_long_sel_M1_mother) #Joining with `by = join_by(next_id_mother, next_id_infant)`
+#715  8
+
+        #infant phenotypes
+mother_long_sel_M1_infant <- mother_long_sel_M1 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+
+str(mother_long_sel_M1_infant)
+#1014 4
+mother_long_sel_M1_infant <- left_join(metadata_mother_linkage, mother_long_sel_M1_infant)
+#715  9
+summary(mother_long_sel_M1_infant)
+
+length(unique(mother_long_sel_M1_mother$next_id_mother %in% mother_long_sel_M1_infant$next_id_mother))
+
+mother_long_sel_M1 <- full_join(mother_long_sel_M1_mother, mother_long_sel_M1_infant) #Joining with `by = join_by(next_id_mother, FAMILY, next_id_infant, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#715  10 
+mother_long_sel_M1 <- mother_long_sel_M1 %>% 
+        relocate(next_id_mother, .after = FAMILY)
+summary(mother_long_sel_M1)
+
+rm(mother_long_sel_M1_mother, mother_long_sel_M1_infant)
+
+        #M2
+mother_long_sel_M2 <- mother_long_sel %>% filter (
+        timepoint=="M2") %>% select(-c(
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1582  6
+str(mother_long_sel_M2)
+
+        #mother phenotypes
+mother_long_sel_M2_mother <- mother_long_sel_M2 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+str(mother_long_sel_M2_mother)
+#556 3
+mother_long_sel_M2_mother <- left_join(metadata_mother_linkage, mother_long_sel_M2_mother) #Joining with `by = join_by(next_id_mother, next_id_infant)`
+#715  8
+
+        #infant phenotypes
+mother_long_sel_M2_infant <- mother_long_sel_M2 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+
+str(mother_long_sel_M2_infant)
+#1026 4
+
+mother_long_sel_M2_infant <- left_join(metadata_mother_linkage, mother_long_sel_M2_infant)
+#715  9
+summary(mother_long_sel_M2_infant)
+
+length(unique(mother_long_sel_M2_mother$next_id_mother %in% mother_long_sel_M2_infant$next_id_mother))
+
+mother_long_sel_M2 <- full_join(mother_long_sel_M2_mother, mother_long_sel_M2_infant) #Joining with `by = join_by(next_id_mother, FAMILY, next_id_infant, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#715  10 
+mother_long_sel_M2 <- mother_long_sel_M2 %>% 
+        relocate(next_id_mother, .after = FAMILY)
+summary(mother_long_sel_M2)
+
+rm(mother_long_sel_M2_mother, mother_long_sel_M2_infant)
+
+        #M3
+mother_long_sel_M3 <- mother_long_sel %>% filter (
+        timepoint=="M3") %>% select(-c(
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#2194  42
+str(mother_long_sel_M3)
+
+        #mother phenotypes
+mother_long_sel_M3_mother <- mother_long_sel_M3 %>% filter (
+        Type == "mother") %>%
+        select(-c(Type,
+                  infant_ffq_feeding_mode_simple,
+                  infant_ffq_feeding_mode_complex))
+
+str(mother_long_sel_M3_mother)
+#1066 39
+mother_long_sel_M3_mother <- left_join(metadata_mother_linkage, mother_long_sel_M3_mother) #Joining with `by = join_by(next_id_mother, next_id_infant)`
+#715  44
+
+        #infant phenotypes
+mother_long_sel_M3_infant <- mother_long_sel_M3 %>% filter (
+        Type == "infant") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 infant_ffq_feeding_mode_simple,
+                 infant_ffq_feeding_mode_complex))
+str(mother_long_sel_M3_infant)
+#1128 4
+
+mother_long_sel_M3_infant <- left_join(metadata_mother_linkage, mother_long_sel_M3_infant)
+#715  9
+summary(mother_long_sel_M3_infant)
+
+length(unique(mother_long_sel_M3_mother$next_id_mother %in% mother_long_sel_M3_infant$next_id_mother))
+
+mother_long_sel_M3 <- full_join(mother_long_sel_M3_mother, mother_long_sel_M3_infant) #Joining with `by = join_by(next_id_mother, FAMILY, next_id_infant, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#715  46
+mother_long_sel_M3 <- mother_long_sel_M3 %>% 
+        relocate(next_id_mother, .after = FAMILY)
+summary(mother_long_sel_M3)
+
+rm(mother_long_sel_M3_mother, mother_long_sel_M3_infant)
+
+        #M6: no M6 mother microbiome data available
+
+        #M9: no M9 mother microbiome data available
+
+        #M12: no M12 mother microbiome data available
+
+        ##### 3.2 merge longitudinal mother phenotype and microbiome data #####
+metadata_micro_mother <- metadata_micro_mother %>% rename(next_id_mother = NEXT_ID)
+#1638  1156
+
+#P12
+metadata_micro_mother_P12 <- metadata_micro_mother %>% filter(
+        timepoint == "P12")
+#414  1156
+
+long_micro_pheno_mother_P12 <- left_join(metadata_micro_mother_P12, mother_long_sel_P12) #Joining with `by = join_by(FAMILY, next_id_mother)`
+#424  1167
+long_micro_pheno_mother_P12 <- long_micro_pheno_mother_P12 %>% 
+        relocate(next_id_infant, .after = next_id_mother) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_mother_P12)
+rm(mother_long_sel_P12, metadata_micro_mother_P12)
+
+#P28
+metadata_micro_mother_P28 <- metadata_micro_mother %>% filter(
+        timepoint == "P28")
+#406  1156
+
+long_micro_pheno_mother_P28 <- left_join(metadata_micro_mother_P28, mother_long_sel_P28) #Joining with `by = join_by(FAMILY, next_id_mother)`
+#417  1198
+long_micro_pheno_mother_P28 <- long_micro_pheno_mother_P28 %>% 
+        relocate(next_id_infant, .after = next_id_mother) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+rm(mother_long_sel_P28, metadata_micro_mother_P28)
+
+#B
+metadata_micro_mother_B <- metadata_micro_mother %>% filter(
+        timepoint == "B")
+#268  1156
+
+long_micro_pheno_mother_B <- left_join(metadata_micro_mother_B, mother_long_sel_B) #Joining with `by = join_by(FAMILY, next_id_mother)`
+#269  1187
+long_micro_pheno_mother_B <- long_micro_pheno_mother_B %>% 
+        relocate(next_id_infant, .after = next_id_mother) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(mother_long_sel_B)
+rm(mother_long_sel_B, metadata_micro_mother_B)
+
+#M1
+metadata_micro_mother_M1 <- metadata_micro_mother %>% filter(
+        timepoint == "M1")
+#24  1156
+
+long_micro_pheno_mother_M1 <- left_join(metadata_micro_mother_M1, mother_long_sel_M1) #Joining with `by = join_by(FAMILY, next_id_mother)`
+#25  1164
+long_micro_pheno_mother_M1 <- long_micro_pheno_mother_M1 %>% 
+        relocate(next_id_infant, .after = next_id_mother) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_mother_M1)
+rm(mother_long_sel_M1, metadata_micro_mother_M1)
+
+#M2
+metadata_micro_mother_M2 <- metadata_micro_mother %>% filter(
+        timepoint == "M2")
+#27  1156
+
+long_micro_pheno_mother_M2 <- left_join(metadata_micro_mother_M2, mother_long_sel_M2) #Joining with `by = join_by(FAMILY, next_id_mother)`
+#29  1164
+long_micro_pheno_mother_M2 <- long_micro_pheno_mother_M2 %>% 
+        relocate(next_id_infant, .after = next_id_mother) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_mother_M2)
+rm(mother_long_sel_M2, metadata_micro_mother_M2)
+
+#M3
+metadata_micro_mother_M3 <- metadata_micro_mother %>% filter(
+        timepoint == "M3")
+#499  1156
+
+long_micro_pheno_mother_M3 <- left_join(metadata_micro_mother_M3, mother_long_sel_M3) #Joining with `by = join_by(FAMILY, next_id_mother)`
+#511  1200
+long_micro_pheno_mother_M3 <- long_micro_pheno_mother_M3 %>% 
+        relocate(next_id_infant, .after = next_id_mother) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_mother_M3)
+rm(mother_long_sel_M3, metadata_micro_mother_M3)
+
+long_micro_pheno_mother <- bind_rows(long_micro_pheno_mother_P12,
+                                     long_micro_pheno_mother_P28,
+                                     long_micro_pheno_mother_B,
+                                     long_micro_pheno_mother_M1,
+                                     long_micro_pheno_mother_M2,
+                                     long_micro_pheno_mother_M3)
+long_micro_pheno_mother$next_id_mother <- as.factor(as.character(long_micro_pheno_mother$next_id_mother)) #703 unique next_id_mother
+#1675 1205
+
+#add birth_delivery_mode_simple and infant_ffq_ever_never_breastfed for covariates
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/merge_masterfile/masterfile_cross_sectional/")
+cs <- read.delim("masterfile_cross_sectional_2023_09_29.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+str(cs, list.len=ncol(cs))
+#1447 387
+
+delivery_everneverBF <- cs %>% select(c(
+        next_id_mother,
+        next_id_infant,
+        birth_delivery_mode_simple,
+        infant_ffq_ever_never_breastfed))
+summary(delivery_everneverBF)
+
+long_micro_pheno_mother <- left_join(long_micro_pheno_mother, delivery_everneverBF) #Joining with `by = join_by(next_id_mother, next_id_infant)`
+#1675 1207
+str(long_micro_pheno_mother, list.len=ncol(long_micro_pheno_mother))
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/NEXT_micro_manuscript/micro_pheno_merged/masterfiles/")
+write.table(long_micro_pheno_mother, "mother_long_microbiome_phenotypes.txt", sep="\t", row.names=F, quote = F)
+
+rm(long_micro_pheno_mother, long_micro_pheno_mother_B, long_micro_pheno_mother_P12, long_micro_pheno_mother_P28,
+   long_micro_pheno_mother_M1, long_micro_pheno_mother_M2, long_micro_pheno_mother_M3,
+   mother_long_sel, metadata_mother, metadata_mother_linkage, metadata_micro_mother)
+
+
+        ##### =========================== 4. LONGITUDINAL PHENOTYPE AND MICROBIOME: INFANT =========================== #####
+        ##### 4.1 subset by selection for infants#####
+table(long_sel$infant_microbiome_selection) 
+#106 variables should be selected for longitudinal infant microbiome
+
+infant_long <- long_sel %>% select(c(
+        variable_name,
+        infant_microbiome_selection)) %>%
+        filter(infant_microbiome_selection == "1")
+#106  2
+
+#subset longitudinal masterfile according to longitudinal infant_microbiome_selection
+infant_long$variable_name <- as.factor(as.character(infant_long$variable_name)) #remove factor levels with 0
+matching_cols <- infant_long$variable_name
+infant_long_sel <- long %>%
+        select(any_of(matching_cols))
+str(infant_long_sel, list.len=ncol(infant_long_sel))
+#15041 106
+
+rm(infant_long)
+
+infant_long_sel$timepoint <- factor(infant_long_sel$timepoint, levels=c("P12", "P28", 
+                                                                        "B", "W2", "M1", "M2", "M3",
+                                                                        "M6", "M9", "M12"))
+table(infant_long_sel$timepoint, useNA = "ifany")
+#P12  P28    B   W2   M1   M2   M3   M6   M9  M12 
+#1085 1167 1973 1578 1570 1582 2194 1302 1301 1289 
+
+colnames(infant_long_sel)
+summary(infant_long_sel)
+
+#generate infant_next_ids available from metagenomics
+metadata_infant <- metadata %>% filter(
+        Type == "infant") %>%
+        select(NEXT_ID) %>% 
+        rename(next_id_infant = NEXT_ID)
+#2939  1
+str(metadata_infant)
+metadata_infant$next_id_infant <- as.factor(as.character(metadata_infant$next_id_infant)) #1417 --> 714 levels for merging
+metadata_infant<- distinct(metadata_infant, .keep_all = T)
+#714  1
+
+metadata_infant_linkage <- left_join(metadata_infant, linkage_file) #Joining with `by = join_by(next_id_infant)`
+#714  7
+
+        #filter by time point
+        #P12: no P12 infant microbiome data available
+
+        #P28: no P28 infant microbiome data available
+
+        #B:   no B infant microbiome data available
+
+        #W2
+infant_long_sel_W2 <- infant_long_sel %>% filter (
+        timepoint=="W2") %>% select(-c(
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1578  30
+str(infant_long_sel_W2)
+
+        #mother phenotypes
+infant_long_sel_W2_mother <- infant_long_sel_W2 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#556 3
+infant_long_sel_W2_mother <- left_join(metadata_infant_linkage, infant_long_sel_W2_mother) #Joining with `by = join_by(next_id_infant, next_id_mother)`
+#714  8
+
+        #infant phenotypes
+infant_long_sel_W2_infant <- infant_long_sel_W2 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+
+str(infant_long_sel_W2_infant)
+#1022 28
+infant_long_sel_W2_infant <- left_join(metadata_infant_linkage, infant_long_sel_W2_infant)
+#715  33
+summary(infant_long_sel_W2_infant)
+
+length(unique(infant_long_sel_W2_mother$next_id_infant %in% infant_long_sel_W2_infant$next_id_infant))
+
+infant_long_sel_W2 <- full_join(infant_long_sel_W2_mother, infant_long_sel_W2_infant) #Joining with `by = join_by(next_id_infant, FAMILY, next_id_mother, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#715  34 
+infant_long_sel_W2 <- infant_long_sel_W2 %>% 
+        relocate(next_id_infant, .after = next_id_mother)
+summary(infant_long_sel_W2)
+
+rm(infant_long_sel_W2_mother, infant_long_sel_W2_infant)
+
+        #M1
+infant_long_sel_M1 <- infant_long_sel %>% filter (
+        timepoint=="M1") %>% select(-c(
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1570  36
+str(infant_long_sel_M1)
+
+        #mother phenotypes
+infant_long_sel_M1_mother <- infant_long_sel_M1 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+
+#556 3
+infant_long_sel_M1_mother <- left_join(metadata_infant_linkage, infant_long_sel_M1_mother) #Joining with `by = join_by(next_id_infant, next_id_mother)`
+#714  8
+
+        #infant phenotypes
+infant_long_sel_M1_infant <- infant_long_sel_M1 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+
+str(infant_long_sel_M1_infant)
+#1014 34
+infant_long_sel_M1_infant <- left_join(metadata_infant_linkage, infant_long_sel_M1_infant)
+#714 39
+summary(infant_long_sel_M1_infant)
+
+length(unique(infant_long_sel_M1_mother$next_id_infant %in% infant_long_sel_M1_infant$next_id_infant))
+
+infant_long_sel_M1 <- full_join(infant_long_sel_M1_mother, infant_long_sel_M1_infant) #Joining with `by = join_by(next_id_infant, FAMILY, next_id_mother, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#714  40 
+infant_long_sel_M1 <- infant_long_sel_M1 %>% 
+        relocate(next_id_infant, .after = next_id_mother)
+summary(infant_long_sel_M1)
+
+rm(infant_long_sel_M1_mother, infant_long_sel_M1_infant)
+
+        #M2
+infant_long_sel_M2 <- infant_long_sel %>% filter (
+        timepoint=="M2") %>% select(-c(
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1582  36
+str(infant_long_sel_M2)
+
+        #mother phenotypes
+infant_long_sel_M2_mother <- infant_long_sel_M2 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 mother_ldi_stress_past_year_preg_avg))
+str(infant_long_sel_M2_mother)
+#556 3
+infant_long_sel_M2_mother <- left_join(metadata_infant_linkage, infant_long_sel_M2_mother) #Joining with `by = join_by(next_id_infant, next_id_mother)`
+#714  8
+
+        #infant phenotypes
+infant_long_sel_M2_infant <- infant_long_sel_M2 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_preg_avg))
+
+str(infant_long_sel_M2_infant)
+#1026 34
+
+infant_long_sel_M2_infant <- left_join(metadata_infant_linkage, infant_long_sel_M2_infant)
+#714 39
+summary(infant_long_sel_M2_infant)
+
+length(unique(infant_long_sel_M2_mother$next_id_infant %in% infant_long_sel_M2_infant$next_id_infant))
+
+infant_long_sel_M2 <- full_join(infant_long_sel_M2_mother, infant_long_sel_M2_infant) #Joining with `by = join_by(next_id_infant, FAMILY, next_id_mother, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#715  40
+infant_long_sel_M2 <- infant_long_sel_M2 %>% 
+        relocate(next_id_infant, .after = next_id_mother)
+summary(infant_long_sel_M2)
+
+rm(infant_long_sel_M2_mother, infant_long_sel_M2_infant)
+
+        #M3
+infant_long_sel_M3 <- infant_long_sel %>% filter (
+        timepoint=="M3") %>% select(-c(
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#2194  51
+str(infant_long_sel_M3)
+
+        #mother phenotypes
+infant_long_sel_M3_mother <- infant_long_sel_M3 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 mother_ldi_stress_past_year_postpartum_avg))
+
+str(infant_long_sel_M3_mother)
+#1066 3
+infant_long_sel_M3_mother <- left_join(metadata_infant_linkage, infant_long_sel_M3_mother) #Joining with `by = join_by(next_id_infant, next_id_mother)`
+#714 8
+
+        #infant phenotypes
+infant_long_sel_M3_infant <- infant_long_sel_M3 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_postpartum_avg))
+str(infant_long_sel_M3_infant)
+#1128 49
+
+infant_long_sel_M3_infant <- left_join(metadata_infant_linkage, infant_long_sel_M3_infant)
+#714  49
+summary(infant_long_sel_M3_infant)
+
+length(unique(infant_long_sel_M3_infant$next_id_mother %in% infant_long_sel_M3_infant$next_id_infant))
+
+infant_long_sel_M3 <- full_join(infant_long_sel_M3_mother, infant_long_sel_M3_infant) #Joining with `by = join_by(next_id_infant, FAMILY, next_id_mother, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#714  55
+infant_long_sel_M3 <- infant_long_sel_M3 %>% 
+        relocate(next_id_infant, .after = next_id_mother)
+summary(infant_long_sel_M3)
+
+rm(infant_long_sel_M3_mother, infant_long_sel_M3_infant)
+
+        #M6
+infant_long_sel_M6 <- infant_long_sel %>% filter (
+        timepoint=="M6") %>% select(-c(
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1302  78
+str(infant_long_sel_M6)
+
+        #mother phenotypes
+infant_long_sel_M6_mother <- infant_long_sel_M6 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 mother_ldi_stress_past_year_postpartum_avg))
+str(infant_long_sel_M6_mother)
+#314 3
+infant_long_sel_M6_mother <- left_join(metadata_infant_linkage, infant_long_sel_M6_mother) #Joining with `by = join_by(next_id_infant, next_id_mother)`
+#714  8
+summary(infant_long_sel_M6_mother)
+
+        #infant phenotypes
+infant_long_sel_M6_infant <- infant_long_sel_M6 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_postpartum_avg))
+str(infant_long_sel_M6_infant)
+#988 76
+
+infant_long_sel_M6_infant <- left_join(metadata_infant_linkage, infant_long_sel_M6_infant)
+#714 81
+summary(infant_long_sel_M6_infant)
+
+length(unique(infant_long_sel_M6_mother$next_id_infant %in% infant_long_sel_M6_infant$next_id_infant))
+
+infant_long_sel_M6 <- full_join(infant_long_sel_M6_mother, infant_long_sel_M6_infant) #Joining with `by = join_by(next_id_infant, FAMILY, next_id_mother, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#714 82
+infant_long_sel_M6 <- infant_long_sel_M6 %>% 
+        relocate(next_id_infant, .after = next_id_mother)
+summary(infant_long_sel_M6)
+
+rm(infant_long_sel_M6_mother, infant_long_sel_M6_infant)
+
+        #M9
+infant_long_sel_M9 <- infant_long_sel %>% filter (
+        timepoint=="M9") %>% select(-c(
+                #metadata available for cross-sectional summary statistics
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1301  70
+str(infant_long_sel_M9)
+
+        #mother phenotypes
+infant_long_sel_M9_mother <- infant_long_sel_M9 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 mother_ldi_stress_past_year_postpartum_avg))
+str(infant_long_sel_M9_mother)
+#314 3
+
+infant_long_sel_M9_mother <- left_join(metadata_infant_linkage, infant_long_sel_M9_mother) #Joining with `by = join_by(next_id_infant, next_id_mother)`
+#714  8
+summary(infant_long_sel_M9_mother)
+
+        #infant phenotypes
+infant_long_sel_M9_infant <- infant_long_sel_M9 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_postpartum_avg))
+
+#987 68
+str(infant_long_sel_M9_infant)
+
+infant_long_sel_M9_infant <- left_join(metadata_infant_linkage, infant_long_sel_M9_infant)
+#714  73
+summary(infant_long_sel_M9_infant)
+
+length(unique(infant_long_sel_M9_mother$next_id_infant %in% infant_long_sel_M9_infant$next_id_infant))
+
+infant_long_sel_M9 <- full_join(infant_long_sel_M9_mother, infant_long_sel_M9_infant) #Joining with `by = join_by(next_id_infant, FAMILY, next_id_mother, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#714 74
+infant_long_sel_M9 <- infant_long_sel_M9 %>% 
+        relocate(next_id_infant, .after = next_id_mother)
+summary(infant_long_sel_M9)
+
+rm(infant_long_sel_M9_mother, infant_long_sel_M9_infant)
+
+        #M12
+infant_long_sel_M12 <- infant_long_sel %>% filter (
+        timepoint=="M12") %>% select(-c(
+                FAMILY,
+                #Type,
+                #next_id_mother,
+                #next_id_infant,
+                next_id_partner,
+                infant_relations,
+                sibling_number,
+                twin_pair,
+                SAMPLE_ID,
+                timepoint)) %>%
+        select(where(~ !all(is.na(.))))
+#1289  90
+str(infant_long_sel_M12)
+
+        #mother phenotypes
+infant_long_sel_M12_mother <- infant_long_sel_M12 %>% filter (
+        Type == "mother") %>%
+        select(c(next_id_mother,
+                 next_id_infant,
+                 mother_ldi_stress_past_year_postpartum_avg))
+str(infant_long_sel_M12_mother)
+#314 3
+
+infant_long_sel_M12_mother <- left_join(metadata_infant_linkage, infant_long_sel_M12_mother) #Joining with `by = join_by(next_id_infant, next_id_mother)`
+#714  8
+summary(infant_long_sel_M12_mother)
+
+        #infant phenotypes
+infant_long_sel_M12_infant <- infant_long_sel_M12 %>% filter (
+        Type == "infant") %>%
+        select(-c(Type,
+                  mother_ldi_stress_past_year_postpartum_avg))
+
+str(infant_long_sel_M12_infant)
+#975 88
+
+infant_long_sel_M12_infant <- left_join(metadata_infant_linkage, infant_long_sel_M12_infant)
+#714  93
+summary(infant_long_sel_M12_infant)
+
+length(unique(infant_long_sel_M12_mother$next_id_infant %in% infant_long_sel_M12_infant$next_id_infant))
+
+infant_long_sel_M12 <- full_join(infant_long_sel_M12_mother, infant_long_sel_M12_infant) #Joining with `by = join_by(next_id_infant, FAMILY, next_id_mother, next_id_partner, infant_relations, sibling_number, twin_pair)`
+#714  94
+infant_long_sel_M12 <- infant_long_sel_M12 %>% 
+        relocate(next_id_infant, .after = next_id_mother)
+summary(infant_long_sel_M12)
+
+rm(infant_long_sel_M12_mother, infant_long_sel_M12_infant)
+
+        ##### 4.2 merge longitudinal infant phenotype and microbiome data #####
+metadata_micro_infant <- metadata_micro_infant %>% rename(next_id_infant = NEXT_ID)
+#2939  376
+
+        #W2
+metadata_micro_infant_W2 <- metadata_micro_infant %>% filter(
+        timepoint == "W2")
+#331  376
+
+long_micro_pheno_infant_W2 <- left_join(metadata_micro_infant_W2, infant_long_sel_W2) #Joining with `by = join_by(FAMILY, next_id_infant)`
+#331  408
+long_micro_pheno_infant_W2 <- long_micro_pheno_infant_W2 %>% 
+        relocate(next_id_mother, .before = next_id_infant) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_infant_W2)
+rm(infant_long_sel_W2, metadata_micro_infant_W2)
+
+        #M1
+metadata_micro_infant_M1 <- metadata_micro_infant %>% filter(
+        timepoint == "M1")
+#466  376
+
+long_micro_pheno_infant_M1 <- left_join(metadata_micro_infant_M1, infant_long_sel_M1) #Joining with `by = join_by(FAMILY, next_id_infant)`
+#466  414
+long_micro_pheno_infant_M1 <- long_micro_pheno_infant_M1 %>% 
+        relocate(next_id_mother, .before = next_id_infant) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_infant_M1)
+rm(infant_long_sel_M1, metadata_micro_infant_M1)
+
+        #M2
+metadata_micro_infant_M2 <- metadata_micro_infant %>% filter(
+        timepoint == "M2")
+#497  376
+
+long_micro_pheno_infant_M2 <- left_join(metadata_micro_infant_M2, infant_long_sel_M2) #Joining with `by = join_by(FAMILY, next_id_infant)`
+#497  414
+long_micro_pheno_infant_M2 <- long_micro_pheno_infant_M2 %>% 
+        relocate(next_id_mother, .before = next_id_infant) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_infant_M2)
+rm(infant_long_sel_M2, metadata_micro_infant_M2)
+
+        #M3
+metadata_micro_infant_M3 <- metadata_micro_infant %>% filter(
+        timepoint == "M3")
+#553  376
+
+long_micro_pheno_infant_M3 <- left_join(metadata_micro_infant_M3, infant_long_sel_M3) #Joining with `by = join_by(FAMILY, next_id_infant)`
+#553  429
+long_micro_pheno_infant_M3 <- long_micro_pheno_infant_M3 %>% 
+        relocate(next_id_mother, .before = next_id_infant) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_infant_M3)
+rm(infant_long_sel_M3, metadata_micro_infant_M3)
+
+        #M6
+metadata_micro_infant_M6 <- metadata_micro_infant %>% filter(
+        timepoint == "M6")
+#346  376
+
+long_micro_pheno_infant_M6 <- left_join(metadata_micro_infant_M6, infant_long_sel_M6) #Joining with `by = join_by(FAMILY, next_id_infant)`
+#346  456
+long_micro_pheno_infant_M6 <- long_micro_pheno_infant_M6 %>% 
+        relocate(next_id_mother, .before = next_id_infant) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_infant_M6)
+rm(infant_long_sel_M6, metadata_micro_infant_M6)
+
+        #M9
+metadata_micro_infant_M9 <- metadata_micro_infant %>% filter(
+        timepoint == "M9")
+#337  376
+
+long_micro_pheno_infant_M9 <- left_join(metadata_micro_infant_M9, infant_long_sel_M9) #Joining with `by = join_by(FAMILY, next_id_infant)`
+#337  448
+long_micro_pheno_infant_M9 <- long_micro_pheno_infant_M9 %>% 
+        relocate(next_id_mother, .before = next_id_infant) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_infant_M9)
+rm(infant_long_sel_M9, metadata_micro_infant_M9)
+
+        #M12
+metadata_micro_infant_M12 <- metadata_micro_infant %>% filter(
+        timepoint == "M12")
+#409  376
+
+long_micro_pheno_infant_M12 <- left_join(metadata_micro_infant_M12, infant_long_sel_M12) #Joining with `by = join_by(FAMILY, next_id_infant)`
+#409  468
+long_micro_pheno_infant_M12 <- long_micro_pheno_infant_M12 %>% 
+        relocate(next_id_mother, .before = next_id_infant) %>%
+        relocate(next_id_partner, .after = next_id_infant) %>%
+        relocate(infant_relations, .after = next_id_partner) %>%
+        relocate(sibling_number, .after = infant_relations) %>%
+        relocate(twin_pair, .after = sibling_number) %>%
+        relocate(SAMPLE_ID, .after = twin_pair) %>%
+        relocate(timepoint, .after = SAMPLE_ID)
+summary(long_micro_pheno_infant_M12)
+rm(infant_long_sel_M12, metadata_micro_infant_M12)
+
+long_micro_pheno_infant <- bind_rows(long_micro_pheno_infant_W2,
+                                     long_micro_pheno_infant_M1,
+                                     long_micro_pheno_infant_M2,
+                                     long_micro_pheno_infant_M3,
+                                     long_micro_pheno_infant_M6,
+                                     long_micro_pheno_infant_M9,
+                                     long_micro_pheno_infant_M12)
+long_micro_pheno_infant$next_id_infant <- as.factor(as.character(long_micro_pheno_infant$next_id_infant)) #714 unique next_id_infant
+#2939 477
+
+#add birth_delivery_mode_simple and infant_ffq_ever_never_breastfed for covariates
+long_micro_pheno_infant <- left_join(long_micro_pheno_infant, delivery_everneverBF) #Joining with `by = join_by(next_id_mother, next_id_infant)`
+#2939 479
+str(long_micro_pheno_infant, list.len=ncol(long_micro_pheno_infant))
+
+setwd("C:/Users/Siobhan Brushett/OneDrive - UMCG/NEXT_clean_up/NEXT_micro_manuscript/micro_pheno_merged/masterfiles/")
+write.table(long_micro_pheno_infant, "infant_long_microbiome_phenotypes.txt", sep="\t", row.names=F, quote = F)
+
+rm(list=ls())
+
+#checking dataframes
+cs_mother <- read.delim("mother_cs_microbiome_phenotypes.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#1675  1402
+cs_infant <- read.delim("infant_cs_microbiome_phenotypes.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#2939 507
+long_mother <- read.delim("mother_long_microbiome_phenotypes.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#1675 1207
+long_infant <- read.delim("infant_long_microbiome_phenotypes.txt", sep = "\t", header = TRUE, stringsAsFactors = T)
+#2939 479
