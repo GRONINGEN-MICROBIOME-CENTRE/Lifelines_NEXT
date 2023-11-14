@@ -59,8 +59,6 @@ row.names(result_df) <- NULL
 
 To download the sequencing data, you need to use [EGA download client: pyEGA3](https://github.com/EGA-archive/ega-download-client). The pyEGA3 has an extensive README.md on installation and usage. Below are details on installation and usage at the HPC of the University of Groningen:
 
-**Installation of pyEGA3:**
-
 ```
 git clone https://github.com/EGA-archive/ega-download-client.git
 
@@ -84,8 +82,17 @@ wget https://raw.githubusercontent.com/EGA-archive/ega-download-client/master/py
 mv default_credential_file.json ega-download-client/credential_file.json
 
 # to check which datasets are available for you to download:
-
 python -m pyega3.pyega3 datasets
+
+# authorized datasets will be visible to you under "Dataset ID":
+# [2023-11-14 16:35:56 +0100] Dataset ID
+# [2023-11-14 16:35:56 +0100] -----------------
+# [2023-11-14 16:35:56 +0100] EGAD00001011291
+# [2023-11-14 16:35:56 +0100] EGAD00001011293
+
+# to download the datasets:
+python -m pyega3.pyega3 -cf credential_file.json fetch EGAD00001011291 --output-dir ../LLNEXT_VLP
+python -m pyega3.pyega3 -cf credential_file.json fetch EGAD00001011293 --output-dir ../LLNEXT_VLP
 
 ```
 
