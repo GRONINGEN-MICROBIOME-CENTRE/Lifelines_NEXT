@@ -20,9 +20,11 @@ to all qualified researchers and will be governed by the provisions laid out in 
 4. Upon receiving access to a dataset, you will be able to download the metadata containing phenotypes. Below is an example of parsing these files.
 
 ```
+# necessary libraries:
 library(jsonlite)
 library(data.table)
 
+# importing the metadata:
 DF <- read.table("samples.tsv", header=T, sep='\t', quote = "")
 
 # Extracting the JSON-like strings from the DataFrame
@@ -31,6 +33,7 @@ json_strings <- as.character(DF[, "extra_attributes"])
 # Parsing each JSON-like string
 parsed_json <- lapply(json_strings, function(x) jsonlite::fromJSON(x))
 
+# Reformatting each data frame
 result_list <- lapply(parsed_json, function(json_obj) {
   buffer <- as.data.frame(t(as.data.table(json_obj)))
   colnames(buffer) <- buffer[1, ]
@@ -38,10 +41,13 @@ result_list <- lapply(parsed_json, function(json_obj) {
   return(buffer)
 })
 
+# Extracted values and columns
 combined_df <- do.call(rbind, result_list)
 
+# Resulting data frame
 result_df <- cbind(DF, combined_df)
 
+# Remove row names
 row.names(result_df) <- NULL
 
 ```
