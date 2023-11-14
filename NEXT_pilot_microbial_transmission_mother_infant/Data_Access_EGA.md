@@ -92,7 +92,7 @@ python -m pyega3.pyega3 datasets
 
 # to download the datasets:
 python -m pyega3.pyega3 -cf credential_file.json fetch EGAD00001011291 --output-dir ../LLNEXT_VLP
-python -m pyega3.pyega3 -cf credential_file.json fetch EGAD00001011293 --output-dir ../LLNEXT_VLP
+python -m pyega3.pyega3 -cf credential_file.json fetch EGAD00001011293 --output-dir ../LLNEXT_MGS
 
 ```
 
