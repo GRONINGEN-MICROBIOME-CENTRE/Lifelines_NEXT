@@ -17,7 +17,8 @@ to all qualified researchers and will be governed by the provisions laid out in 
 
 3. After receiving your filled **Application Form for Access to Lifelines NEXT Data** and your **Access Request**, the Data Access Committee will evaluate your request and grant access to the data.
 
-4. Upon receiving access to a dataset, you will be able to download the metadata containing phenotypes. Below is an example of parsing these files.
+### Metadata (phenotypes):
+Upon receiving access to a dataset, you will be able to download the metadata containing phenotypes. Below is an example of parsing these files.
 
 ```
 # necessary libraries:
@@ -54,4 +55,36 @@ row.names(result_df) <- NULL
 
 (Sana to finish the parsing instructions and following steps)
 
+### Sequencing data:
+
+To download the sequencing data, you need to use [EGA download client: pyEGA3](https://github.com/EGA-archive/ega-download-client). The pyEGA3 has an extensive README.md on installation and usage. Below are details on installation and usage at the HPC of the University of Groningen:
+
+### Installation of pyEGA3:
+```
+git clone https://github.com/EGA-archive/ega-download-client.git
+
+module load Python
+# Python version: 3.11.3
+
+cd ega-download-client/
+# edit red_hat_dependency_install.sh in the following way:
+# remove all "sudo"
+sh red_hat_dependency_install.sh
+
+# testing installation:
+python -m pyega3.pyega3 --help
+
+wget https://raw.githubusercontent.com/EGA-archive/ega-download-client/master/pyega3/config/default_credential_file.json
+
+# edit default_credential_file.json in the following way:
+# "username": "e-mail used for EGA account registration",
+# "password": "password to the EGA account"
+
+mv default_credential_file.json ega-download-client/credential_file.json
+
+# to check which datasets are available:
+
+python -m pyega3.pyega3 datasets
+
+```
 
