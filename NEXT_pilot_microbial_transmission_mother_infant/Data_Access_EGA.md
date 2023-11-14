@@ -7,5 +7,9 @@ To do so, please, follow the instructions outlined below.
 Please read the [LLNEXT DATA ACCESS AGREEMENT](https://groningenmicrobiome.org/?page_id=2598). Access to the LLNEXT Project data will be granted 
 to all qualified researchers and will be governed by the provisions laid out in this data access agreement.
 
-Please, fill out the [Application Form for Access to Lifelines NEXT Data](https://docs.google.com/forms/d/e/1FAIpQLScUaLZk6Smz66EAqgb0JmzyXLPF3V9mHdvWEuL98qT4yF1j5g/viewform).
+Please, fill out the [Application Form for Access to Lifelines NEXT Data](https://docs.google.com/forms/d/e/1FAIpQLScUaLZk6Smz66EAqgb0JmzyXLPF3V9mHdvWEuL98qT4yF1j5g/viewform) to indicate that you agree with LLNEXT DATA ACCESS AGREEMENT.
+
+Lastly, to request access to the data, register an account at [EGA](https://ega-archive.org/register/).
+
+
 
