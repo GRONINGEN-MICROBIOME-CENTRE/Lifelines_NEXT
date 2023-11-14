@@ -2,8 +2,8 @@
 #SBATCH --job-name=Chiliadal_rQC
 #SBATCH --error=./err/Chiliadal_%A_%a.err
 #SBATCH --output=./out/Chiliadal_%A_%a.out
-#SBATCH --mem=48gb
-#SBATCH --time=12:59:00
+#SBATCH --mem=64gb
+#SBATCH --time=08:59:00
 #SBATCH --cpus-per-task=2
 #SBATCH --open-mode=truncate
 
@@ -156,6 +156,7 @@ clumpify.sh \
         dedupe=t \
         subs=0 \
         passes=2 \
+	repair=t \
         deletetemp=t 2>&1 \
        threads=${SLURM_CPUS_PER_TASK} \
        -Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
@@ -182,7 +183,7 @@ clumpify.sh \
 
 echo "> Moving resulting clean reads to scratch"
 
-if [ $(grep 'Done!' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l)==3 ]; then
+if [ $(grep 'Done!' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l) == 3 ]; then
 	echo "Clumpify is done"
 	mkdir -p ../SAMPLES/${SAMPLE_ID}/clean_reads/
 	mv ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_dedup_paired_1.fastq ../SAMPLES/${SAMPLE_ID}/clean_reads/
@@ -193,13 +194,18 @@ else
 	echo "Deduplication or earlier step is corrupted"
 fi
 
+if [ -s ${TMPDIR}/${SAMPLE_ID}/filtering_data/singletons.fq ]; then
+	echo "Detected singletons after repairing"
+	mv ${TMPDIR}/${SAMPLE_ID}/filtering_data/singletons.f*q ../SAMPLES/${SAMPLE_ID}/clean_reads/
+fi
+
 echo "> Removing data from tmpdir"
 rm -r ${TMPDIR}/${SAMPLE_ID}/filtering_data
 
 ##### CHECKING QUALITY OF CLEAN READS
 echo "> Running FastQC on cleanreads"
 
-if [ $(grep 'Killed' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l)==0 ]; then
+if [ $(grep 'Killed' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l) == 0 ]; then
 	module load FastQC
 	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq
 	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq
@@ -207,24 +213,29 @@ if [ $(grep 'Killed' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l)==0 
 	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq
 fi
 
-if [ $(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq|wc -l)/4|bc) == $(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq|wc -l)/4|bc) ]; then
+
+N_PAIRED_READS_1=$(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq|wc -l)/4|bc)
+N_PAIRED_READS_2=$(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq|wc -l)/4|bc)
+
+if [ -f ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq ] && [ "${N_PAIRED_READS_1}" -eq "${N_PAIRED_READS_2}" ]; then
 	echo "Reads seems to be paired"
 	cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq \
 	../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq > \
 	../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched.fastq
+	
 	echo ">Compressing reads"
 	pigz -p 2 ../SAMPLES/${SAMPLE_ID}/clean_reads/*.fastq
+	
+	echo "> Generating md5sums"
+	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq.gz > ../SAMPLES/${SAMPLE_ID}/MD5.txt
+	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
+	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
+	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
+	
+	#echo "> Launching sc assembly"
+	#bash runAllSamples_02.bash ${SAMPLE_ID}
+
 fi
-
-
-echo "> Generating md5sums"
-md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq.gz > ../SAMPLES/${SAMPLE_ID}/MD5.txt
-md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
-md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
-md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
-
-echo "> Launching sc assembly"
-bash runAllSamples_02.bash ${SAMPLE_ID}
 
 module list
 
