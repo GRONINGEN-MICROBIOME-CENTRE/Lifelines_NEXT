@@ -51,6 +51,19 @@ result_df <- cbind(DF, combined_df)
 # Remove row names
 row.names(result_df) <- NULL
 
+#### To connect the metadata and data, you will need to get the sequencing IDs:
+# sequencing IDs:
+seq_names <- read.table('sample_file.tsv', sep='\t', header=T)
+seq_names$Sequencing_ID <- gsub('_kneaddata_cleaned_pair_..fastq.gz', '', gsub('Pilot_VLP_', '',seq_names$file_name))
+seq_names <- seq_names[!duplicated(seq_names$sample_alias),c("sample_alias","Sequencing_ID")]
+colnames(seq_names)[1] <- "alias"
+
+# resulting metadata with phenotypes:
+metadata <- merge(seq_names, result_df, by='alias')
+
+# change NAs from text to NA
+metadata[metadata=="NA"] <- NA
+
 ```
 
 (Sana to finish the parsing instructions and following steps)
