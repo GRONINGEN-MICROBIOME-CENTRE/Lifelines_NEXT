@@ -60,6 +60,7 @@ row.names(result_df) <- NULL
 To download the sequencing data, you need to use [EGA download client: pyEGA3](https://github.com/EGA-archive/ega-download-client). The pyEGA3 has an extensive README.md on installation and usage. Below are details on installation and usage at the HPC of the University of Groningen:
 
 ### Installation of pyEGA3:
+
 ```
 git clone https://github.com/EGA-archive/ega-download-client.git
 
