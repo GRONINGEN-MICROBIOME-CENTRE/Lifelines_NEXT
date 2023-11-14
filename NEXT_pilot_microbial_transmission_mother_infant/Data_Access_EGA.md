@@ -72,7 +72,7 @@ cd ega-download-client/
 # remove all "sudo"
 sh red_hat_dependency_install.sh
 
-# testing installation:
+# testing installation (I needed -m option here as I am running the script as the module):
 python -m pyega3.pyega3 --help
 
 wget https://raw.githubusercontent.com/EGA-archive/ega-download-client/master/pyega3/config/default_credential_file.json
@@ -83,7 +83,7 @@ wget https://raw.githubusercontent.com/EGA-archive/ega-download-client/master/py
 
 mv default_credential_file.json ega-download-client/credential_file.json
 
-# to check which datasets are available:
+# to check which datasets are available for you to download:
 
 python -m pyega3.pyega3 datasets
 
