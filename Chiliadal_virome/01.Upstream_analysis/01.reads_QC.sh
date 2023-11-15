@@ -232,8 +232,8 @@ if [ -f ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq ] 
 	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
 	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
 	
-	#echo "> Launching sc assembly"
-	#bash runAllSamples_02.bash ${SAMPLE_ID}
+	echo "> Launching sc assembly"
+	bash runAllSamples_02.bash ${SAMPLE_ID}
 
 fi
 
