@@ -66,8 +66,6 @@ metadata[metadata=="NA"] <- NA
 
 ```
 
-(Sana to finish the parsing instructions and following steps)
-
 ### Sequencing data:
 
 To download the sequencing data, you need to use [EGA download client: pyEGA3](https://github.com/EGA-archive/ega-download-client). The pyEGA3 has an extensive README.md on installation and usage. Below are details on installation and usage at the HPC of the University of Groningen:
