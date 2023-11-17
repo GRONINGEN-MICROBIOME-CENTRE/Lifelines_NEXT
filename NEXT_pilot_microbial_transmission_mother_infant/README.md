@@ -2,7 +2,7 @@
 
 Code for our paper "Mother-Infant Gut Viruses and their Bacterial Hosts: Transmission Patterns and Dynamics during Pregnancy and Early Life".
 
-You can download the current version of the paper from [BioRxiv](https://doi.org/10.1101/2023.08.21.554108]).
+You can download the current version of the paper from [BioRxiv](https://doi.org/10.1101/2023.08.21.554108).
 
 ## One-Sentence Summary
 We studied the dynamics of the maternal virome during and after pregnancy, the infant virome during early life, with a particular focus on the transmission of viral strains from mothers to their infants. 
