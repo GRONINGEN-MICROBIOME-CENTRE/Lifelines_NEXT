@@ -9,7 +9,6 @@ setwd("~/Desktop/LLNEXT/Analysis/prediction/")
 
 library(tidyverse)
 library(vegan)
-library(MetBrewer) #Lets plot with some art :)
 library(ggrepel)
 library(tidyverse)
 library(codacore)
