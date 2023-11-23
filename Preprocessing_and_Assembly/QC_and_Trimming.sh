@@ -98,14 +98,16 @@ rm -r ${TMPDIR}/${SAMPLE_ID}/filtering_data/fastqc
 
 echo -e '\n---- Moving results to SCRATCH ----'
 
-if ! grep -qi 'error' KneadData_RESULTS/LOG_files/${SAMPLE_ID}_kneaddata.log; then
-	echo "KneadData is done"
-	mv ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_*_paired_1.fastq KneadData_RESULTS/${SAMPLE_ID}/
-	mv ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_*_paired_2.fastq KneadData_RESULTS/${SAMPLE_ID}/
-	mv ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_*_unmatched_1.fastq KneadData_RESULTS/${SAMPLE_ID}/
-	mv ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_*_unmatched_2.fastq KneadData_RESULTS/${SAMPLE_ID}/
+LOG_FILE="KneadData_RESULTS/LOG_files/${SAMPLE_ID}_kneaddata.log"
+
+if [ -f "$LOG_FILE" ] && ! grep -qi 'error' "$LOG_FILE"; then
+    echo "KneadData is done"
+    mv "${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_paired_1.fastq" "KneadData_RESULTS/${SAMPLE_ID}/"
+    mv "${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_paired_2.fastq" "KneadData_RESULTS/${SAMPLE_ID}/"
+    mv "${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_unmatched_1.fastq" "KneadData_RESULTS/${SAMPLE_ID}/"
+    mv "${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_unmatched_2.fastq" "KneadData_RESULTS/${SAMPLE_ID}/"
 else
-	echo "Previous STEP failed"
+    echo "Previous STEP failed or log file does not exist"
 fi
 
 echo "> Removing data from tmpdir"
@@ -119,16 +121,16 @@ mkdir -p QC_RESULTS/FINAL/CLEAN_READS/OUTPUT_files
 mkdir -p QC_RESULTS/FINAL/UNMATCHED_READS/${SAMPLE_ID}
 
 module purge; module load FastQC/0.11.9-Java-11
-fastqc -o QC_RESULTS/FINAL/CLEAN_READS/${SAMPLE_ID} -t 8 KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_paired_1.fastq
-fastqc -o QC_RESULTS/FINAL/CLEAN_READS/${SAMPLE_ID} -t 8 KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_paired_2.fastq
-fastqc -o QC_RESULTS/FINAL/UNMATCHED_READS/${SAMPLE_ID} -t 8 KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_unmatched_1.fastq
-fastqc -o QC_RESULTS/FINAL/UNMATCHED_READS/${SAMPLE_ID} -t 8 KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_unmatched_2.fastq
+fastqc -o QC_RESULTS/FINAL/CLEAN_READS/${SAMPLE_ID} -t 8 KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_1.fastq
+fastqc -o QC_RESULTS/FINAL/CLEAN_READS/${SAMPLE_ID} -t 8 KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_2.fastq
+fastqc -o QC_RESULTS/FINAL/UNMATCHED_READS/${SAMPLE_ID} -t 8 KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_1.fastq
+fastqc -o QC_RESULTS/FINAL/UNMATCHED_READS/${SAMPLE_ID} -t 8 KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_2.fastq
 
 # Calculate number of clean reads and bases
-N_reads_1=$( cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_paired_1.fastq | echo $((`wc -l`/4)) ) 
-N_bases_1=$( cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_paired_1.fastq  | paste - - - - | cut -f2 | wc -c )
-N_reads_2=$( cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_paired_2.fastq | echo $((`wc -l`/4)) )
-N_bases_2=$( cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_paired_2.fastq | paste - - - - | cut -f2 | wc -c )
+N_reads_1=$( cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_1.fastq | echo $((`wc -l`/4)) ) 
+N_bases_1=$( cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_2.fastq  | paste - - - - | cut -f2 | wc -c )
+N_reads_2=$( cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_1.fastq | echo $((`wc -l`/4)) )
+N_bases_2=$( cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_2.fastq | paste - - - - | cut -f2 | wc -c )
 
 echo "Clean Reads FQ1: ${N_reads_1}" > QC_RESULTS/FINAL/CLEAN_READS/OUTPUT_files/${SAMPLE_ID}.out
 echo "Clean Reads FQ2: ${N_reads_2}" >> QC_RESULTS/FINAL/CLEAN_READS/OUTPUT_files/${SAMPLE_ID}.out
@@ -139,17 +141,17 @@ echo -e '\n---- Gzipping clean FASTQ files ----'
 
 if [ $(echo $(cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_paired_1.fastq | wc -l)/4|bc)==$(echo $(cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_paired_2.fastq|wc -l)/4|bc) ]; then
 	echo "Forward and reverse clean FASTQs have the same number of lines. They seem to be paired."
-	cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*unmatched_1.fastq \
-	KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*unmatched_2.fastq > \
+	cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_1.fastq \
+	KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_2.fastq > \
 	KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched.fastq
   pigz -p 2 KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}*.fastq
 fi
 
 echo -e '\n---- Generating md5sums ----'
-md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*paired_1.fastq.gz > KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
-md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*paired_2.fastq.gz >> KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
-md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*unmatched_1.fastq.gz >> KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
-md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*unmatched_2.fastq.gz >> KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
+md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_1.fastq.gz > KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
+md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_2.fastq.gz >> KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
+md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_1.fastq.gz >> KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
+md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_2.fastq.gz >> KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
 
 echo -e '\n---- Generating folders with clean and unmatched reads. Input for assembly ----'
 
@@ -163,19 +165,25 @@ rm -r KneadData_RESULTS/${SAMPLE_ID}
 
 echo -e '\n---- Checking errors ----'
 
-mkdir -p SUMMARY_RESULTS OUTPUT_files/
+mkdir -p PREPROCESSING_SUMMARY_RESULTS OUTPUT_files/
 
-if ! grep -qi 'error' BBDuK_RESULTS/LOG_files/${SAMPLE_ID}_bbduk.log && ! grep -q 'error' KneadData_RESULTS/LOG_files/${SAMPLE_ID}_kneaddata.log; then
-    echo "BBDuK processing for sample ${SAMPLE_ID} completed successfully." > SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt
-    echo "KneadData processing for sample ${SAMPLE_ID} completed successfully." >> SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt
+BBDUK_LOG="BBDuK_RESULTS/LOG_files/${SAMPLE_ID}_bbduk.log"
+KNEADDATA_LOG="KneadData_RESULTS/LOG_files/${SAMPLE_ID}_kneaddata.log"
+
+if [ -f "$BBDUK_LOG" ] && ! grep -qi 'error' "$BBDUK_LOG" && \
+   [ -f "$KNEADDATA_LOG" ] && ! grep -qi 'error' "$KNEADDATA_LOG"; then
+    echo "BBDuK processing for sample ${SAMPLE_ID} completed successfully." > "PREPROCESSING_SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt"
+    echo "KneadData processing for sample ${SAMPLE_ID} completed successfully." >> "PREPROCESSING_SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt"
+else
+    echo "Previous step(s) failed or log file(s) do not exist."
 fi
 
 if [ $(find metaSPAdes/CLEAN_READS/${sample_dir} -type f -name "*${SAMPLE_ID}_kneaddata_paired*.fastq.gz" | wc -l) -eq 2 ]; then
-    echo "The compressed clean FASTQ files are ready for the assembly step." >> SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt
+    echo "The compressed clean FASTQ for sample ${SAMPLE_ID} files are ready for the assembly step." >> PREPROCESSING_SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt
 fi
 
 if [ $(find metaSPAdes/UNMATCHED_READS/${sample_dir} -type f -name "*${SAMPLE_ID}_kneaddata_unmatched*.fastq.gz" | wc -l) -eq 1 ]; then
-    echo -e "The compressed unmatched FASTQ files are ready for the assembly step.\n" >> SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt
+    echo -e "The compressed unmatched FASTQ files for sample ${SAMPLE_ID} are ready for the assembly step.\n" >> PREPROCESSING_SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt
 fi
 
 echo -e '\n---- Read QC, adapter/contaminant trimming and compressing DONE ----'
