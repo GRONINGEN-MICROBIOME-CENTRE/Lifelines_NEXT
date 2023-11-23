@@ -19,18 +19,18 @@ SAMPLE_ID=$(sed "${SLURM_ARRAY_TASK_ID}q;d" ${SAMPLE_LIST} | cut -d "_" -f1)
 echo "SAMPLE_ID=${SAMPLE_ID}"
 
 
-### WORKING IN $TMPDIR
+# --- WORKING IN $TMPDIR ---
 mkdir -p ${TMPDIR}/${SAMPLE_ID}/filtering_data/
 
 echo "> copying files to tmpdir"
 cp ../SAMPLES/${SAMPLE_ID}/raw_reads/${SAMPLE_ID}_1.fastq.gz ${TMPDIR}/${SAMPLE_ID}/filtering_data/
 cp ../SAMPLES/${SAMPLE_ID}/raw_reads/${SAMPLE_ID}_2.fastq.gz ${TMPDIR}/${SAMPLE_ID}/filtering_data/
 
-# --- LOAD MODULES --- 
+# --- LOADING MODULES --- 
 module purge
 module load BBMap
 
-#### TRIMMING ADAPTERS
+# --- TRIMMING ADAPTERS ---
 echo "> Trimming adapters" 
 
 bbduk.sh \
@@ -43,41 +43,77 @@ bbduk.sh \
         threads=${SLURM_CPUS_PER_TASK} \
         -Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
 
+# --- REMOVING RAW READS FASTQS---
 echo "> Removing raw reads"
 
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_1.fastq.gz
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_2.fastq.gz
 
-#### TRIMMING ADAPTASE-INTRODUCED TAILS 
+# --- CHECKING PAIREDNESS AFTER ADAPTER TRIMMING ---
+echo "> Check pairedness of adapter-trimmed fastqs"
+
+reformat.sh \
+	in=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_AdaptTr_1.fastq.gz \
+	in2=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_AdaptTr_2.fastq.gz \
+	vpair 2>&1 | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
+
+# --- TRIMMING ADAPTASE-INTRODUCED TAILS --- 
 echo "> Trimming adaptase-introduced tails"
 
 bbduk.sh \
 	in=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_AdaptTr_1.fastq.gz \
 	out=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_1.fastq.gz \
-	ftr2=11 tpe tbo 2>&1 \
+	ftr2=10 2>&1 \
         threads=${SLURM_CPUS_PER_TASK} \
 	-Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
 bbduk.sh \
         in=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_AdaptTr_2.fastq.gz \
         out=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_2.fastq.gz \
-        ftl=11 tpe tbo 2>&1 \
+        ftl=10 2>&1 \
         threads=${SLURM_CPUS_PER_TASK} \
         -Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
 
+# --- REMOVING ADAPTER-TRIMMED FASTQS ---
 echo "> Removing adapter-trimmed fastqs"
 
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_AdaptTr_1.fastq.gz
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_AdaptTr_2.fastq.gz
 
-#### FILTERING HUMAN READS & LOW QUALITY READS
+# --- CHECKING PAIREDNESS AFTER ADAPTASE-INTRODUCED TAILS ---
+echo "> Check pairedness of adaptase-introduced tailes trimmed fastqs"
+
+reformat.sh \
+        in=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_1.fastq.gz \
+        in2=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_2.fastq.gz \
+        vpair 2>&1 | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
+
+# --- REPAIRING PAIREDNESS OF READS AFTER ADAPTASE-INTRODUCED TAILS ---
+echo "> Repairing the reads"
+repair.sh \
+	in1=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_1.fastq.gz \
+	in2=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_2.fastq.gz \
+	out1=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_RP_1.fastq.gz \
+	out2=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_RP_2.fastq.gz \
+	outs=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_singletons.fastq.gz \
+	repair 2>&1 \
+	threads=${SLURM_CPUS_PER_TASK} \
+        -Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
+
+# --- REMOVING KNEADDATA BYPRODUCTS AND ADAPTASE INTRODUCED TAILS TRIMMED FASTQS ---
+echo "> Removing kneaddata byproducts and tail-trimmed fastqs"
+
+rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_1.fastq.gz
+rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_2.fastq.gz
+
+# --- FILTERING HUMAN READS & LOW QUALITY READS ---
 echo "> Loading Anaconda3 and conda environment"
 
 module load Anaconda3/2022.05
 conda activate /scratch/hb-tifn/condas/conda_biobakery3/
 
 kneaddata \
-	--input ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_1.fastq.gz \
-        --input ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_2.fastq.gz \
+	--input ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_RP_1.fastq.gz \
+        --input ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_RP_2.fastq.gz \
         --threads ${SLURM_CPUS_PER_TASK} \
         --processes 4 \
         --output-prefix ${SAMPLE_ID}_kneaddata \
@@ -92,10 +128,11 @@ kneaddata \
         --bypass-trf \
         --reorder
 
+# --- REMOVING KNEADDATA BYPRODUCTS AND ADAPTASE INTRODUCED TAILS TRIMMED FASTQS ---
 echo "> Removing kneaddata byproducts and tail-trimmed fastqs"
 
-rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_1.fastq.gz
-rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_2.fastq.gz
+rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_RP_1.fastq.gz
+rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_RP_2.fastq.gz
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_hg37dec_v0.1_bowtie2_paired_contam_1.fastq
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_hg37dec_v0.1_bowtie2_paired_contam_2.fastq
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_hg37dec_v0.1_bowtie2_unmatched_1_contam.fastq
@@ -105,7 +142,15 @@ rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata.trimmed.2.fastq
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata.trimmed.single.1.fastq
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata.trimmed.single.2.fastq
 
-#### READ ERROR CORRECTION FOR PAIRED
+# --- CHECKING PAIREDNESS OF KNEADDATA-FILTERED READS ---
+echo "> Check pairedness of kneaddata-filtered reads"
+
+reformat.sh \
+        in=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_paired_1.fastq \
+        in2=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_paired_2.fastq \
+        vpair 2>&1 | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
+
+# --- CORRECTING READ ERRORS IN PAIRED READS ---
 echo "> Correcting of read errors"
 
 tadpole.sh \
@@ -119,7 +164,8 @@ tadpole.sh \
         threads=${SLURM_CPUS_PER_TASK} \
         -Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
 
-#### READ ERROR CORRECTION FOR UNMATCHED
+# --- CORRECTING READ ERRORS IN UNMATCHED READS ---
+
 tadpole.sh \
         in=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_unmatched_1.fastq \
         out=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_ECC_unmatched_1.fastq \
@@ -138,6 +184,7 @@ tadpole.sh \
         threads=${SLURM_CPUS_PER_TASK} \
         -Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
 
+# --- REMOVING KNEADDATA PAIRED AND UNMATCHED FASTQS ---
 echo "> Removing kneaddata paired and unmatched reads"
 
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_paired_1.fastq
@@ -145,7 +192,15 @@ rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_paired_2.fastq
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_unmatched_1.fastq
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_unmatched_2.fastq
 
-#### READ DEDUPLICATION
+# --- CHECKING PAIREDNESS OF ERROR-CORRECTED READS ---
+echo "> Check pairedness of error-corrected reads"
+
+reformat.sh \
+        in=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_ECC_paired_1.fastq \
+        in2=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_ECC_paired_2.fastq \
+        vpair 2>&1 | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
+
+# --- DEDUPLICATING READS ---
 echo "> Deduplicating reads"
 
 clumpify.sh \
@@ -155,8 +210,6 @@ clumpify.sh \
         out2=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_dedup_paired_2.fastq \
         dedupe=t \
         subs=0 \
-        passes=2 \
-	repair=t \
         deletetemp=t 2>&1 \
        threads=${SLURM_CPUS_PER_TASK} \
        -Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
@@ -166,7 +219,6 @@ clumpify.sh \
         out=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_dedup_unmatched_1.fastq \
         dedupe=t \
         subs=0 \
-        passes=2 \
         deletetemp=t 2>&1 \
        	threads=${SLURM_CPUS_PER_TASK} \
        -Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
@@ -176,11 +228,19 @@ clumpify.sh \
         out=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_dedup_unmatched_2.fastq \
         dedupe=t \
         subs=0 \
-        passes=2 \
         deletetemp=t 2>&1 \
         threads=${SLURM_CPUS_PER_TASK} \
        -Xmx$((${SLURM_MEM_PER_NODE} / 1024))g | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log
 
+# --- CHECKING PAIREDNESS OF DEDUPLICATED READS ---
+echo "> Check pairedness of deduplicated reads"
+
+reformat.sh \
+        in=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_dedup_paired_1.fastq \
+        in2=${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_dedup_paired_2.fastq \
+        vpair 2>&1 | tee -a ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_reformat_clumpify.log
+
+# --- SWITCHING TO SCRATCH ---
 echo "> Moving resulting clean reads to scratch"
 
 if [ $(grep 'Done!' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l) == 3 ]; then
@@ -191,47 +251,32 @@ if [ $(grep 'Done!' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l) == 3
 	mv ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_dedup_unmatched_1.fastq ../SAMPLES/${SAMPLE_ID}/clean_reads/
 	mv ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_dedup_unmatched_2.fastq ../SAMPLES/${SAMPLE_ID}/clean_reads/
 else
-	echo "Deduplication or earlier step is corrupted"
+	echo "Deduplication or an earlier step is corrupted"
 fi
 
-if [ -s ${TMPDIR}/${SAMPLE_ID}/filtering_data/singletons.fq ]; then
-	echo "Detected singletons after repairing"
-	mv ${TMPDIR}/${SAMPLE_ID}/filtering_data/singletons.f*q ../SAMPLES/${SAMPLE_ID}/clean_reads/
-fi
-
+# --- REMOVING DATA FROM TMPDIR ---
 echo "> Removing data from tmpdir"
 rm -r ${TMPDIR}/${SAMPLE_ID}/filtering_data
 
-##### CHECKING QUALITY OF CLEAN READS
-echo "> Running FastQC on cleanreads"
 
-if [ $(grep 'Killed' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_bbduk.log | wc -l) == 0 ]; then
-	module load FastQC
-	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq
-	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq
-	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq
-	fastqc -o ../FastQC_reports/ -t ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq
-fi
-
-
-N_PAIRED_READS_1=$(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq|wc -l)/4|bc)
-N_PAIRED_READS_2=$(echo $(cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq|wc -l)/4|bc)
-
-if [ -f ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq ] && [ "${N_PAIRED_READS_1}" -eq "${N_PAIRED_READS_2}" ]; then
-	echo "Reads seems to be paired"
+if [ -f ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq ] && [ $(grep 'Names appear to be correctly paired.' ../SAMPLES/${SAMPLE_ID}/${SAMPLE_ID}_reformat_clumpify.log | wc -l) == 1 ]; then
+# --- CONCATENATING UNMATCHED READS ---	
 	cat ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq \
 	../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq > \
 	../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched.fastq
 	
+# --- COMPRESSING ALL FASTQS ---	
 	echo ">Compressing reads"
-	pigz -p 2 ../SAMPLES/${SAMPLE_ID}/clean_reads/*.fastq
-	
+	pigz -p ${SLURM_CPUS_PER_TASK} ../SAMPLES/${SAMPLE_ID}/clean_reads/*.fastq
+
+# --- GENERATING MD5SUMS FOR STORAGE --- 	
 	echo "> Generating md5sums"
 	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq.gz > ../SAMPLES/${SAMPLE_ID}/MD5.txt
 	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
 	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_1.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
 	md5sum ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_unmatched_2.fastq.gz >> ../SAMPLES/${SAMPLE_ID}/MD5.txt
-	
+
+# --- LAUNCHING ASSEMBLY --- 	
 	echo "> Launching sc assembly"
 	bash runAllSamples_02.bash ${SAMPLE_ID}
 
