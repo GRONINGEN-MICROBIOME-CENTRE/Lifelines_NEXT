@@ -16,8 +16,8 @@ echo -e '\n-------------------- WORKING WITH '${SAMPLE_ID}' SAMPLE -------------
 
 echo -e '\n---- RENAMING FASTQ files ----'
 
-mv ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_*1.fq.gz ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_1.fq.gz
-mv ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_*2.fq.gz ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_2.fq.gz
+mv ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}*1.fq.gz ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_1.fq.gz
+mv ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}*2.fq.gz ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_2.fq.gz
 
 echo -e '\n---- INITIAL Quality Check ----'
 
