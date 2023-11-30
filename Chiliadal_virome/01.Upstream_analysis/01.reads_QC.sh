@@ -2,8 +2,8 @@
 #SBATCH --job-name=Chiliadal_rQC
 #SBATCH --error=./err/01.rQC/Chiliadal_%A_%a.err
 #SBATCH --output=./out/01.rQC/Chiliadal_%A_%a.out
-#SBATCH --mem=64gb
-#SBATCH --time=08:59:00
+#SBATCH --mem=256gb
+#SBATCH --time=23:59:00
 #SBATCH --cpus-per-task=2
 #SBATCH --open-mode=truncate
 
@@ -133,10 +133,10 @@ echo "> Removing kneaddata byproducts and tail-trimmed fastqs"
 
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_RP_1.fastq.gz
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_NoTail_RP_2.fastq.gz
-rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_hg37dec_v0.1_bowtie2_paired_contam_1.fastq
-rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_hg37dec_v0.1_bowtie2_paired_contam_2.fastq
-rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_hg37dec_v0.1_bowtie2_unmatched_1_contam.fastq
-rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_hg37dec_v0.1_bowtie2_unmatched_2_contam.fastq
+rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_GRCh38p13_bowtie2_paired_contam_1.fastq
+rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_GRCh38p13_bowtie2_paired_contam_2.fastq
+rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_GRCh38p13_bowtie2_unmatched_1_contam.fastq
+rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata_GRCh38p13_bowtie2_unmatched_2_contam.fastq
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata.trimmed.1.fastq
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata.trimmed.2.fastq
 rm ${TMPDIR}/${SAMPLE_ID}/filtering_data/${SAMPLE_ID}_kneaddata.trimmed.single.1.fastq
