@@ -2,8 +2,8 @@
 #SBATCH --job-name=Chiliadal_rQC
 #SBATCH --error=./err/01.rQC/Chiliadal_%A_%a.err
 #SBATCH --output=./out/01.rQC/Chiliadal_%A_%a.out
-#SBATCH --mem=256gb
-#SBATCH --time=23:59:00
+#SBATCH --mem=64gb
+#SBATCH --time=08:59:00
 #SBATCH --cpus-per-task=2
 #SBATCH --open-mode=truncate
 
