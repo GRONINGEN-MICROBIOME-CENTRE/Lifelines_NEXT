@@ -18,7 +18,7 @@ to all qualified researchers and will be governed by the provisions laid out in 
 3. After receiving your filled **Application Form for Access to Lifelines NEXT Data** and your **Access Request**, the Data Access Committee will evaluate your request and grant access to the data.
 
 ### Metadata (phenotypes):
-Upon receiving access to a dataset, you will be able to download the metadata containing phenotypes. Below is an example of parsing these files.
+Upon receiving access to a dataset, you will be able to download the metadata containing phenotypes. Below is an example of parsing these files using R.
 
 ```
 # necessary libraries:
