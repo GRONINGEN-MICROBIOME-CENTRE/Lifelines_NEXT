@@ -70,7 +70,7 @@ bbduk.sh \
 echo -e '\n---- RUNNING KneadData ----'
 
 mkdir -p KneadData_RESULTS/${SAMPLE_ID}
-mkdir -p KneadData_RESULTS/LOG_files/
+mkdir -p KneadData_RESULTS/LOG_files/ KneadData_RESULTS/MD5/
 
 # Clean environment, load new conda environment
 module purge; ml Anaconda3; module list
@@ -148,10 +148,10 @@ if [ $(echo $(cat KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_*_paired_1.fastq |
 fi
 
 echo -e '\n---- Generating md5sums ----'
-md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_1.fastq.gz > KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
-md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_2.fastq.gz >> KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
-md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_1.fastq.gz >> KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
-md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_2.fastq.gz >> KneadData_RESULTS/${SAMPLE_ID}/MD5.txt
+md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_1.fastq.gz > KneadData_RESULTS/MD5/${SAMPLE_ID}_MD5.txt
+md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_paired_2.fastq.gz >> KneadData_RESULTS/MD5/${SAMPLE_ID}_MD5.txt
+md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_1.fastq.gz >> KneadData_RESULTS/MD5/${SAMPLE_ID}_MD5.txt
+md5sum KneadData_RESULTS/${SAMPLE_ID}/${SAMPLE_ID}_kneaddata_unmatched_2.fastq.gz >> KneadData_RESULTS/MD5/${SAMPLE_ID}_MD5.txt
 
 echo -e '\n---- Generating folders with clean and unmatched reads. Input for assembly ----'
 
@@ -160,7 +160,7 @@ mkdir -p metaSPAdes/UNMATCHED_READS/${sample_dir}
 
 rsync -av $(find KneadData_RESULTS/${SAMPLE_ID} -name "*paired*.fastq.gz" -type f) metaSPAdes/CLEAN_READS/${sample_dir}
 rsync -av $(find KneadData_RESULTS/${SAMPLE_ID} -name "*unmatched*fastq.gz" -type f) metaSPAdes/UNMATCHED_READS/${sample_dir}
-ls metaSPAdes/CLEAN_READS/${sample_dir} | cut -f1 -d "_" | uniq > metaSPAdes/CLEAN_READS/${sample_dir}/list.txt
+ls metaSPAdes/CLEAN_READS/${sample_dir} | awk -F'_kneaddata' '{print $1}' | uniq > metaSPAdes/CLEAN_READS/${sample_dir}/list.txt
 rm -r KneadData_RESULTS/${SAMPLE_ID}
 
 echo -e '\n---- Checking errors ----'
