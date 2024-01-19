@@ -15,8 +15,6 @@ SAMPLE_ID=$(sed "${SLURM_ARRAY_TASK_ID}q;d" ${SAMPLE_LIST} | cut -d "_" -f1)
 
 echo "SAMPLE_ID=${SAMPLE_ID}"
 
-mkdir -p ../SAMPLES/${SAMPLE_ID}/virome_discovery/VIBRANT
-
 # --- LOAD MODULES --- 
 module purge
 module load prodigal-gv/2.11.0-GCCcore-12.2.0 
@@ -24,6 +22,8 @@ module load Python/3.11.3-GCCcore-12.3.0
 
 # --- PREDICTING ORFs ---
 echo "> Running parallel prodigal-gv"
+
+# https://raw.githubusercontent.com/apcamargo/prodigal-gv/master/parallel-prodigal-gv.py
 
 python parallel-prodigal-gv.py \
 	-t ${SLURM_CPUS_PER_TASK} \
@@ -50,6 +50,10 @@ echo "> Running VIBRANT"
 	-l 1000 \
 	-virome \
 	-no_plot
+
+if [ $(grep 'End' ../SAMPLES/${SAMPLE_ID}/virome_discovery/VIBRANT_${SAMPLE_ID}_contigs.min1kbp.AA/VIBRANT_log_run_${SAMPLE_ID}_contigs.min1kbp.AA.log | wc -l) == 1 ]; then
+	echo "VIBRANT is done"
+fi
 
 # --- REMOVING BYPRODUCTS ---
 echo "> Removing and renaming byproducts"
