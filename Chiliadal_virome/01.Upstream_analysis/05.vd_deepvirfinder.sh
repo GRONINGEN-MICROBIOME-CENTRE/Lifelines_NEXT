@@ -3,7 +3,7 @@
 #SBATCH --error=./err/05.dvf/VD_Chiliadal_%A_%a.err
 #SBATCH --output=./out/05.dvf/VD_Chiliadal_%A_%a.out
 #SBATCH --mem=16gb
-#SBATCH --time=05:59:00
+#SBATCH --time=12:59:00
 #SBATCH --cpus-per-task=8
 #SBATCH --open-mode=truncate
 
