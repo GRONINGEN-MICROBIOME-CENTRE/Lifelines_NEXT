@@ -2,8 +2,8 @@
 #SBATCH --job-name=reads_QC
 #SBATCH --error=reads_QC.err
 #SBATCH --output=reads_QC.out
-#SBATCH --mem=64gb
-#SBATCH --time=23:59:00
+#SBATCH --mem=32gb
+#SBATCH --time=30:59:00
 #SBATCH --cpus-per-task=4
 #SBATCH --open-mode=truncate
 
