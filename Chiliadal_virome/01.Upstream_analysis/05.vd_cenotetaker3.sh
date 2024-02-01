@@ -18,6 +18,12 @@ SAMPLE_ID=$(sed "${SLURM_ARRAY_TASK_ID}q;d" ${SAMPLE_LIST} | cut -d "_" -f1)
 
 echo "SAMPLE_ID=${SAMPLE_ID}"
 
+# --- SWITCH TO TMP --- 
+mkdir -p ${TMPDIR}/${SAMPLE_ID}/CT3
+
+cd ${TMPDIR}/${SAMPLE_ID}/CT3 # since Mike has designed the logger checker this way & I do not want to rewrite his scripts
+
+echo "$(pwd)"
 # --- LOAD MODULES --- 
 module purge
 module load Anaconda3
@@ -26,24 +32,23 @@ conda activate /scratch/p282752/tools/conda_envs/ct3_env
 # --- RUNNING Cenote-Taker3 ---
 echo "> Running Cenote-Taker3"
 
-cd ../SAMPLES/${SAMPLE_ID}/virome_discovery/ # since Mike has designed the logger checker this way & I do not want to rewrite his scripts
-
 cenotetaker3 \
-	-c ../01_sc_assembly/${SAMPLE_ID}_contigs.min1kbp.fasta \
+	-c /scratch/p282752/ANALYSIS_CHILIADAL/SAMPLES/${SAMPLE_ID}/01_sc_assembly/${SAMPLE_ID}_contigs.min1kbp.fasta \
 	-r CenoteTaker3 \
 	-p F \
-	--minimum_length_circular 0 \
-	--minimum_length_linear 0 \
 	-t ${SLURM_CPUS_PER_TASK}
 
-# --minimum_length_circular 0, since we already have trimmed contigs
-# --minimum_length_linear 0, since we already have trimmed contigs
 # -p is FALSE since we have VLP-enriched data and will be prunning prophages at the later stage	
 
-# --- REMOVING BYPRODUCTS ---
-echo "> Removing byproducts"
+# --- MOVING TO /SCRATCH ---
+echo "> Moving results to /scratch"
 rm -r ./CenoteTaker3/ct_processing # intermediate
 rm -r ./CenoteTaker3/sequin_and_genome_maps # we will re-create it afterwards for selected contigs
+
+mkdir -p /scratch/p282752/ANALYSIS_CHILIADAL/SAMPLES/${SAMPLE_ID}/virome_discovery/CenoteTaker3
+cp ./CenoteTaker3/CenoteTaker3_cenotetaker.log /scratch/p282752/ANALYSIS_CHILIADAL/SAMPLES/${SAMPLE_ID}/virome_discovery/CenoteTaker3/
+cp ./CenoteTaker3/CenoteTaker3_virus_summary.tsv /scratch/p282752/ANALYSIS_CHILIADAL/SAMPLES/${SAMPLE_ID}/virome_discovery/CenoteTaker3/
+cp ./CenoteTaker3/final_genes_to_contigs_annotation_summary.tsv /scratch/p282752/ANALYSIS_CHILIADAL/SAMPLES/${SAMPLE_ID}/virome_discovery/CenoteTaker3/
 
 conda list
 conda deactivate
