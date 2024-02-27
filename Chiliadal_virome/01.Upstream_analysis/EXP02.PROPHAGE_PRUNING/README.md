@@ -13,12 +13,14 @@ Here are scripts and results for the not-very-extensive benchmark of tools offer
 **The conclusion from the experiments:**
 
 - CheckV showed the highest accuracy in the identification of prophage regions based on the coordinates for confirmed* prophages
-![](Dif_positive_control_coordiantes_log10.png =250x250)
-- CheckV reported fewer false-positive prophage regions**, but did not detect one of the confirmed prophages
-![](Compare_N_detected_CP_vs_FP.png)
-- CheckV did trim ~1.2 - 3.8% of the complete lytic*** phages, but did not trim any of complete crAssvirales genomes
-![](Compare_N_trimmed_complete_lytic_CheckV.png)
+<img src='Dif_positive_control_coordiantes_log10.png' width='600'>
 
-*Confirmed prophages: prophages identified in the genome sequences of cultured bacteria and confirmed by either induction experiments or at least read alignment from multiple VLP samples (paper under preparation). 
-**The identified prophage region was considered a false-positive if no VLP read alignment confirmation was derived for the specified region (might be a too stringent criterion).
+- CheckV reported fewer false-positive prophage regions**, but did not detect one of the confirmed prophages
+- CheckV did trim ~1.2 - 3.8% of the complete lytic*** phages, but did not trim any of complete crAssvirales genomes
+
+<img src='Compare_N_detected_CP_vs_FP.png' width='450'>   <img src='Compare_N_trimmed_complete_lytic_CheckV.png' width='270'>
+
+
+*Confirmed prophages: prophages identified in the genome sequences of cultured bacteria and confirmed by either induction experiments or at least read alignment from multiple VLP samples (paper under preparation). <br />
+**The identified prophage region was considered a false-positive if no VLP read alignment confirmation was derived for the specified region (might be a too stringent criterion).<br />
 ***Completeness of genomes was predicted by CheckV, and the lifestyle was predicted by PhaTYPE or the absence of phage integrase genes.
