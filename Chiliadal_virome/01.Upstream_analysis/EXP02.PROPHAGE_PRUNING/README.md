@@ -13,11 +13,11 @@ Here are scripts and results for the not-very-extensive benchmark of tools offer
 **The conclusion from the experiments:**
 
 - CheckV showed the highest accuracy in the identification of prophage regions based on the coordinates for confirmed* prophages
-![](Dif_positive_control_coordiantes_log10.pdf)
+![](Dif_positive_control_coordiantes_log10.png)
 - CheckV reported fewer false-positive prophage regions**, but did not detect one of the confirmed prophages
-![](Compare_N_detected_CP_vs_FP.pdf)
+![](Compare_N_detected_CP_vs_FP.png)
 - CheckV did trim ~1.2 - 3.8% of the complete lytic*** phages, but did not trim any of complete crAssvirales genomes
-![](Compare_N_trimmed_complete_lytic_CheckV.pdf)
+![](Compare_N_trimmed_complete_lytic_CheckV.png)
 
 *Confirmed prophages: prophages identified in the genome sequences of cultured bacteria and confirmed by either induction experiments or at least read alignment from multiple VLP samples (paper under preparation). 
 **The identified prophage region was considered a false-positive if no VLP read alignment confirmation was derived for the specified region (might be a too stringent criterion).
