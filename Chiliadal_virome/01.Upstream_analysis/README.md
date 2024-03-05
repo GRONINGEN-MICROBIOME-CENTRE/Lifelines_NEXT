@@ -17,7 +17,7 @@ module load R
 Rscript table_of_origin.R /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/table_of_origin/ *_table_of_origin
 ```
 
-To execute table_of_origin.R in the upstream analysis (do that after the dereplication):
+To execute combine_coverage.R in the upstream analysis (do that after the dereplication):
 
 ```
 module load R
