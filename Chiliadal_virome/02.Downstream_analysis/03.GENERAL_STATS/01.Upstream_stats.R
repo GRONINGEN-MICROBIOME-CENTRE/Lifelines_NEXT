@@ -85,6 +85,15 @@ pilot_vlp_vqc <- read.table('04.RAW_DATA/02.Read_stats/viromeqc_vlp.txt', sep='\
 pilot_fsk_vqc <- read.table('04.RAW_DATA/02.Read_stats/viromeqc_total_microbiome.txt', sep='\t', header=T)
 pilot_exp_vqc <- rbind(pilot_vlp_vqc, pilot_fsk_vqc)
 ViromeQC_pilot <- melt(pilot_exp_vqc[,c(1,4:10)])
+
+extended_tof <- read.table("04.RAW_DATA/04.Virome_discovery/Extended_table_of_origin", sep='\t', header=T)
+
+alignment_to_ext_vir <- read.table('04.RAW_DATA/02.Read_stats/bowtie2.perc.alignment.ext.vir.txt', sep='\t', header=F)
+colnames(alignment_to_ext_vir) <- c("Sequencing_ID_VLP", "ext_vir_perc_align")
+
+alignment_to_ext_prun_vir <- read.table('04.RAW_DATA/02.Read_stats/bowtie2.perc.alignment.ext.prun.vir.txt', sep='\t', header=F)
+colnames(alignment_to_ext_prun_vir) <- c("Sequencing_ID_VLP", "ext_vir_prun_perc_align")
+
 ##############################
 # ANALYSIS
 ##############################
@@ -99,7 +108,7 @@ df_list <- list(metadata, N_raw_reads[,c("Sequencing_ID_VLP", "N_raw_reads")],
                                 "Total.length.....1000.bp.", "N50")],
                 alignment_to_all,
                 N_disc_viruses, Length_disc_viruses,
-                alignment_to_1kbp, alignment_to_own_vir) 
+                alignment_to_1kbp, alignment_to_own_vir, alignment_to_ext_vir, alignment_to_ext_prun_vir) 
 
 VLP_metadata <- df_list %>% reduce(full_join, by='Sequencing_ID_VLP')
 VLP_metadata[VLP_metadata$Sequencing_ID_VLP %in% c("CHV199906F12","CHV200013F12"),"Type_VLP"] <- 'NC'
@@ -474,11 +483,137 @@ dev.off()
 # does virusness correlate with viromeqc enrichment score?
 plot(VLP_metadata$N_disc_viruses, VLP_metadata$total.enrichmnet.score)
 
-summary(lm(data = VLP_metadata, N_disc_viruses ~ sc.enrichmnet.score + Type_VLP))
+summary(lm(data = VLP_metadata, N_disc_viruses ~ sc.enrichmnet.score))
+
+# What is the length distribution of virus contigs?
+
+pdf('05.PLOTS/03.GENERAL_STATS/Virus_contigs_extended_pruned_quality_distribution.pdf', width=16/2.54, height=12/2.54)
+ggplot() + 
+  geom_histogram(data = extended_tof, aes(POST_CHV_length, color="All", fill="All"), alpha = 0.2, bins=60) + 
+  geom_histogram(data = extended_tof[extended_tof$checkv_quality=="Not-determined",], aes(POST_CHV_length, color="Not-determined", fill="Not-determined"), alpha = 0.2, bins=60) +
+  geom_histogram(data = extended_tof[extended_tof$checkv_quality=="Low-quality",], aes(POST_CHV_length, color="Low-quality", fill="Low-quality"), alpha = 0.2, bins=60) +
+  geom_histogram(data = extended_tof[extended_tof$checkv_quality=="Medium-quality",], aes(POST_CHV_length, color="Medium-quality", fill="Medium-quality"), alpha = 0.2, bins=60) +
+  geom_histogram(data = extended_tof[extended_tof$checkv_quality=="High-quality",], aes(POST_CHV_length, color="High-quality", fill="High-quality"), alpha = 0.2, bins=60) +
+  geom_histogram(data = extended_tof[extended_tof$checkv_quality=="Complete",], aes(POST_CHV_length, color="Complete", fill="Complete"), alpha = 0.2, bins=60) +
+  labs(x="Virus contig length, bp", y="Log10 N virus contigs or fragments", fill="Genome Quality", color="Genome Quality") +
+  scale_color_manual(breaks=c("All", "Not-determined", "Low-quality", "Medium-quality", "High-quality", "Complete"), 
+                     values=c("#adadad", "#FDE725FF", "#5DC863FF", "#21908CFF", "#3B528BFF", "#440154FF")) + 
+  scale_fill_manual(breaks=c("All", "Not-determined", "Low-quality", "Medium-quality", "High-quality", "Complete"), 
+                    values=c("#DDDDDD", "#FDE725FF", "#5DC863FF", "#21908CFF", "#3B528BFF", "#440154FF")) +
+  scale_x_log10(breaks=c(100, 1000, 10000, 100000, 1000000), labels=c("100", "1,000", "10,000", "100,000", "1,000,000")) +
+  scale_y_log10() +
+  theme_bw() + 
+  theme(axis.text.x = element_text(size=10, angle=45, vjust=0.5),
+        axis.title = element_text(size=10, face="bold"),
+        legend.text = element_text(size=8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = 'bottom') +
+  guides(color = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1)) + 
+  guides(fill = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1))
+dev.off()
+  
+# How many complete, high-quality etc virus genomes do we have in the redundant DB?
+quality_summary <- as.data.frame(table(extended_tof$checkv_quality))
+quality_summary$Var1 <- factor(quality_summary$Var1, 
+                               levels = c("Complete", "High-quality", "Medium-quality", "Low-quality", "Not-determined"),
+                               ordered = T)
+
+qual_lab <- c("18,937", "27,835", "1,306,382", "33,204",  "1,116,671")
+
+pdf('05.PLOTS/03.GENERAL_STATS/Virus_contigs_extended_pruned_quality.pdf', width=10/2.54, height=10/2.54)
+ggplot(quality_summary, aes(Var1, Freq, fill=Var1)) + 
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label=qual_lab), vjust=-0.25, size=3) +
+  labs(fill='CheckV quality', y="N virus contigs", x="") +
+  theme_bw() + 
+  theme(axis.text.y =element_text(size=10),
+        axis.text.x =element_text(size=10, angle = 45, vjust = 0.6),
+        axis.title = element_text(size=10, face="bold"),
+        strip.text.x = element_text(size = 8, face="bold"),
+        strip.background = element_rect(color="black", fill=NA),
+        legend.text = element_text(size=8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = 'none') +
+  guides(fill = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1))
+dev.off()
+
+extended_tof$checkv_quality <- factor(extended_tof$checkv_quality, 
+                               levels = c("Complete", "High-quality", "Medium-quality", "Low-quality", "Not-determined"),
+                               ordered = T)
+
+median(VLP_metadata$own_vir_perc_align)
+# % of reads mapped to extended virus contigs
+median(VLP_metadata$ext_vir_perc_align - VLP_metadata$own_vir_perc_align)
+summary(VLP_metadata$ext_vir_perc_align - VLP_metadata$own_vir_perc_align)
+pdf('05.PLOTS/03.GENERAL_STATS/Read_alignment_to_own_ext_vir_contigs.pdf', width=12/2.54, height=14/2.54)
+ggplot(VLP_metadata[!is.na(VLP_metadata$Type_VLP),], aes(x=Type_VLP, y=`ext_vir_perc_align`, fill=Type_VLP)) + 
+  geom_sina(aes(color=Type_VLP), maxwidth=0.5, alpha=0.7) +
+  geom_boxplot(outlier.colour = NA, width=0.5, alpha=0.5) +
+  labs(fill='Type', color='Type', y="% of reads aligned to extended virus contigs", x="") +
+  theme_bw() +
+  theme(axis.text =element_text(size=10),
+        axis.title = element_text(size=10, face="bold"),
+        strip.text.x = element_text(size = 8, face="bold"),
+        strip.background = element_rect(color="black", fill=NA),
+        legend.text = element_text(size=8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = 'bottom') + 
+  guides(color = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1)) + 
+  guides(fill = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1))
+dev.off()
+
+pdf('05.PLOTS/03.GENERAL_STATS/Increase_in_alignment_after_COBRA.pdf', width=12/2.54, height=4/2.54)
+ggplot(data=NULL, aes(x=(VLP_metadata$ext_vir_perc_align - VLP_metadata$own_vir_perc_align), y='')) + 
+  geom_sina(maxwidth=0.5, alpha=0.7, color="#3B528BFF", maxwidth=0.5) +
+  geom_boxplot(outlier.colour = NA, width=0.5, alpha=0.5, fill="#3B528BFF", width=0.5) +
+  labs(x="% increase in alignment", y="") +
+  theme_bw() +
+  theme(axis.text =element_text(size=10),
+        axis.title = element_text(size=10, face="bold"),
+        strip.text.x = element_text(size = 8, face="bold"),
+        strip.background = element_rect(color="black", fill=NA),
+        legend.text = element_text(size=8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = 'bottom') + 
+  guides(color = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1)) + 
+  guides(fill = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1))
+dev.off()
+
+# % of reads mapped to extended pruned virus contigs
+median(VLP_metadata$ext_vir_prun_perc_align)
+pdf('05.PLOTS/03.GENERAL_STATS/Read_alignment_to_own_ext_prun_vir_contigs.pdf', width=12/2.54, height=14/2.54)
+ggplot(VLP_metadata[!is.na(VLP_metadata$Type_VLP),], aes(x=Type_VLP, y=`ext_vir_prun_perc_align`, fill=Type_VLP)) + 
+  geom_sina(aes(color=Type_VLP), maxwidth=0.5, alpha=0.7) +
+  geom_boxplot(outlier.colour = NA, width=0.5, alpha=0.5) +
+  labs(fill='Type', color='Type', y="% of reads aligned to extended pruned virus contigs", x="") +
+  theme_bw() +
+  theme(axis.text =element_text(size=10),
+        axis.title = element_text(size=10, face="bold"),
+        strip.text.x = element_text(size = 8, face="bold"),
+        strip.background = element_rect(color="black", fill=NA),
+        legend.text = element_text(size=8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = 'bottom') + 
+  guides(color = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1)) + 
+  guides(fill = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1))
+dev.off()
 
 
-
-
-
-
-
+# % of reads mapped to extended pruned virus contigs
+median(VLP_metadata$ext_vir_perc_align - VLP_metadata$ext_vir_prun_perc_align)
+pdf('05.PLOTS/03.GENERAL_STATS/Decrease_in_alignment_after_pruning.pdf', width=12/2.54, height=4/2.54)
+ggplot(data=NULL, aes(x=(VLP_metadata$ext_vir_perc_align - VLP_metadata$ext_vir_prun_perc_align), y='')) + 
+  geom_sina(maxwidth=0.5, alpha=0.7, color="#3B528BFF", maxwidth=0.5) +
+  geom_boxplot(outlier.colour = NA, width=0.5, alpha=0.5, fill="#3B528BFF", width=0.5) +
+  labs(x="% decrease in alignment (after pruning)", y="") +
+  theme_bw() +
+  theme(axis.text =element_text(size=10),
+        axis.title = element_text(size=10, face="bold"),
+        strip.text.x = element_text(size = 8, face="bold"),
+        strip.background = element_rect(color="black", fill=NA),
+        legend.text = element_text(size=8),
+        legend.title = element_text(size=8, face="bold"),
+        legend.position = 'bottom') + 
+  guides(color = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1)) + 
+  guides(fill = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1))
+dev.off()
