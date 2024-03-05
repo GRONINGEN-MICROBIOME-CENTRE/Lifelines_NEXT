@@ -7,7 +7,7 @@ The scripts outside directories are the actual scripts used for the upstream dat
 - pd: post (virus) discovery
 - at: abundance table
 
-To execute table_of_origin.R in the upstream analysis:
+To execute table_of_origin.R in the upstream analysis (do that between 06. and 08. steps):
 
 ```
 # DIR: /scratch/p282752/ANALYSIS_CHILIADAL/scripts
