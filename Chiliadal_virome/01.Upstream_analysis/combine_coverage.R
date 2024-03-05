@@ -2,7 +2,7 @@
 # Combining bedtools coverage output
 # to the coverage and count tables
 ##########################################
-
+args = commandArgs(trailingOnly=TRUE)
 ##############################
 # Loading libraries
 ##############################
@@ -23,7 +23,7 @@ library(tidyverse)
 # V1: Contig names; V4: number of mapped reads; V7: breadth of coverage  
 columns_to_keep <- c("V1", "V4", "V7")
 
-temp = list.files(path="/scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/mapping/VLP_to_w_neg_der95/coverage",pattern="*.coverage.txt",full.names=T)
+temp = list.files(path=args[1], pattern=args[2], full.names=T)
 
 #myfiles = lapply(temp, 
 #		FUN = function(x){
@@ -79,5 +79,5 @@ for_coverage <- lapply(names(myfiles), function(list_name) {
 # Merge all selected and renamed dataframes into a single breadth of coverage talbe
 coverage_table <- for_coverage %>% reduce(full_join, by='V1')
 
-write.table(coverage_table, '/scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/mapping/VLP_to_w_neg_der95/coverage_table.txt', sep='\t', row.names=F, quote=F)
-write.table(count_table, '/scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/mapping/VLP_to_w_neg_der95/count_table.txt', sep='\t', row.names=F, quote=F)
+write.table(coverage_table, paste0(args[1], "coverage_table.txt"),  sep='\t', row.names=F, quote=F)
+write.table(count_table, paste0(args[1], "count_table.txt"), sep='\t', row.names=F, quote=F)
