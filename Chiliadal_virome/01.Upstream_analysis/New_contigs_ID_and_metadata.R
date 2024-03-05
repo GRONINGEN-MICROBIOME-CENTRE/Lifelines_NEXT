@@ -24,7 +24,7 @@ prophage_pruning <- read.table(paste0(args[1], 'CheckV_pruning/','contamination.
 
 quality_summary <- read.table(paste0(args[1], 'CheckV_pruning/','quality_summary.tsv'), sep='\t', header=T)
 
-virus_discovery <- read.table(paste0(args[1], strsplit(args[1], "/")[[1]][length(strsplit(args[1], "/")[[1]]) - 2], '_table_of_origin'), sep='\t', header=F)
+virus_discovery <- read.table(paste0(args[1], args[2], '_table_of_origin'), sep='\t', header=F)
 
 table_of_origin <- dcast(virus_discovery, V1~V2)
 table_of_origin[-1] <- as.integer(table_of_origin[-1] != 0)
@@ -33,6 +33,7 @@ colnames(table_of_origin)[grep('V1', colnames(table_of_origin))] <- "Original_CI
 
 # what is the max number of fragments in pruned contigs?
 if (sum(prophage_pruning$provirus=="Yes")!=0) {
+  # extract the maximum fragment number from the pruned contigs (they have a specific matching pattern "_Nfrag_startcoord-endcoord_length", where coord are given for the prophage region)
   max_frag <- max(sapply(str_split(sub("_([0-9]+)-([0-9]+)_([0-9]+)$", "", quality_summary[grep('-', quality_summary$contig_id),]$contig_id), "_"), function(x) x[[length(x)]]))
   print(paste0("Max number of fragments: ", max_frag))
 } else {
@@ -51,18 +52,22 @@ if (sum(prophage_pruning$provirus=="Yes")!=0) {
 # 6) CheckV: pruned or not?	(P1)
 # 7) fragment_number: F0 if unpruned, FX if pruned, where X - number of the fragment (F1);
 # the number of leading zeroes to be deicded when all samples will be run through CheckV, but
-# for now I baldly decide that it cannot exceed 99 fragments
+# for now I baldly decide that it cannot exceed 10 fragments
 # New name: NEXT_V2000_N28562_L1013_cov_0.285553_E0_P1_F01	
 
 ##### Contigs (postdiscovery) metadata: 
 
 VLP_contigs_PD_metadata <- quality_summary
 
+# this line prunes the post COBRA & CheckV IDs (so all potential _extended and prophage coordinates characters are trimmed away)
+# it is very dependant on the number of underscores in the contig id, so if the sample name contains underscores, change the number from 6 to smth else
 VLP_contigs_PD_metadata$Original_CID <- sub("(([^_]*_){6}[^_]*).*", "\\1", VLP_contigs_PD_metadata$contig_id)
 
+# here, the original contig length is extracted from its id, so it is also dependant on "_" in contig & sample id
 VLP_contigs_PD_metadata$Original_length <- as.numeric(sapply(str_split(VLP_contigs_PD_metadata$Original_CID, "_"), `[[`, 5))
 
-VLP_contigs_PD_metadata$POST_CBR_CID <- gsub("_[0-9]+$","", sub("_\\d+(-\\d+)?(_\\d+)?$", "", VLP_contigs_PD_metadata$contig_id))
+# trim away prophage pruning coordinates to extract post-COBRA contig ids
+VLP_contigs_PD_metadata$POST_CBR_CID <- gsub("_[0-9]+$","", sub("_([0-9]+)-([0-9]+)_([0-9]+)$", "", VLP_contigs_PD_metadata$contig_id))
 
 colnames(VLP_contigs_PD_metadata)[grep('contig_id', colnames(VLP_contigs_PD_metadata))] <- "POST_CHV_name"
 
@@ -79,6 +84,7 @@ VLP_contigs_PD_metadata <- merge(VLP_contigs_PD_metadata,
              by='POST_CBR_CID')
 
 # adding cohort name & removing box location (make sure to include it for samples themselves in the sample metadata)
+# this line is very much dependant on the ID structure; make sure to adjust it
 VLP_contigs_PD_metadata$New_CID <- gsub("CHV(\\d{4})\\d*[_A-Z]*\\d*", "NEXT_V\\1", VLP_contigs_PD_metadata$Original_CID)
 
 # shorten NODE info
