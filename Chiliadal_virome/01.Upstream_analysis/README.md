@@ -13,7 +13,14 @@ To execute table_of_origin.R in the upstream analysis (do that between 06. and 0
 # DIR: /scratch/p282752/ANALYSIS_CHILIADAL/scripts
 # DIR exists: /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/table_of_origin
 module load R
-# mind the / in the end of the first argument
+# mind the / at the end of the first argument
 Rscript table_of_origin.R /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/table_of_origin/ *_table_of_origin
 ```
 
+To execute table_of_origin.R in the upstream analysis (do that after the dereplication):
+
+```
+module load R
+# mind the / at the end of the first argument
+Rscript combine_coverage.R /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/mapping/VLP_to_w_neg_der95/coverage/ *.coverage.txt
+```
