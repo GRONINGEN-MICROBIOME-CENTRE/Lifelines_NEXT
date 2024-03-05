@@ -2,8 +2,8 @@
 #SBATCH --job-name=ViromeDiscovery
 #SBATCH --error=./err/07.cob/VD_Chiliadal_%A_%a.err
 #SBATCH --output=./out/07.cob/VD_Chiliadal_%A_%a.out
-#SBATCH --mem=64gb
-#SBATCH --time=40:59:00
+#SBATCH --mem=16gb
+#SBATCH --time=10:59:00
 #SBATCH --cpus-per-task=8
 #SBATCH --open-mode=truncate
 
@@ -80,7 +80,8 @@ module list
 source activate /scratch/hb-llnext/conda_envs/COBRA_env
 conda list
 
-python /scratch/hb-llnext/conda_envs/COBRA_env/cobra/cobra.py \
+#python /scratch/hb-llnext/conda_envs/COBRA_env/cobra/cobra.py \
+python cobra_test.py \
     -f ../SAMPLES/${SAMPLE_ID}/01_sc_assembly/${SAMPLE_ID}_contigs.fasta \
     -q ${TMPDIR}/${SAMPLE_ID}/COBRA/${SAMPLE_ID}_all_predicted_viral.fasta \
     -c ${TMPDIR}/${SAMPLE_ID}/COBRA/${SAMPLE_ID}_coverage.txt \
