@@ -57,7 +57,7 @@ mv ${TMPDIR}/${SAMPLE_ID}/CheckV_pruning/quality_summary.tsv ../SAMPLES/${SAMPLE
 
 # --- CREATE NEW VIRUS CONTIGS METADATA AND IDs ---
 module load R
-Rscript New_contigs_ID_and_metadata.R /scratch/p282752/ANALYSIS_CHILIADAL/SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/
+Rscript New_contigs_ID_and_metadata.R /scratch/p282752/ANALYSIS_CHILIADAL/SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/ ${SAMPLE_ID}
 
 # --- RENAME CONTIGS ---
 cp ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/${SAMPLE_ID}_extended_pruned_viral.fasta ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/${SAMPLE_ID}_extended_pruned_viral_renamed.fasta
