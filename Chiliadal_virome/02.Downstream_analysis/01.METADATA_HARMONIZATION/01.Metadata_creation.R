@@ -24,24 +24,39 @@ library(vegan)
 ##############################
 # Input data & data transformation
 ##############################
+### VLP datasets' metadata:
+## Chiliadal_virome_sequencing_batch_I.xlsx: list of Chiliadal VLP extractions sent for sequencing in August 2022
+## Chiliadal_virome_sequencing_batch_II.xlsx: list of Chiliadal VLP extractions sent for sequencing in December 2022
+## Samples_BaseClear_pilot_sequencing.xlsx: list of NEXT samples included in the Big Gut NEXT paper that were extracted and sequenced to test the new VLP protocol
+
+### MGS datasets' metadata
+## LLNEXT_metadata_03_01_2024.txt: metadata for NEXT samples included in the Big Gut NEXT paper
+## LLNEXT_metadata_03_03_2023.txt: metadata for NEXT samples included in the Big Gut NEXT paper that includes samples that were excluded based on Sphingomonas contamination
+## QC_MGS_TS.xlsx (sheet 3): all previously excluded from the Big Gut NEXT paper samples
+## LLNEXT_metaphlan_4_complete_10_02_2023.txt: merged MetaPhlAn4 output file for NEXT samples included in the Big Gut NEXT paper
+## DNA_CONC_ALL_WITH_DUPLICATES_MERGED_15_07_2022_TS.txt: DNA concentration measurements by Qubit received from Novogene sample QC reports
+
+
  Chiliadal_sequencing <- read_xlsx('~/Desktop/Projects_2021/NEXT_virome/06.Sequencing/Chiliadal_virome_sequencing_batch_I.xlsx')
  Chiliadal_sequencing2 <- read_xlsx('~/Desktop/Projects_2021/NEXT_virome/06.Sequencing/Chiliadal_virome_sequencing_batch_II.xlsx')
  Chiliadal_sequencing2 <- Chiliadal_sequencing2[!is.na(Chiliadal_sequencing2$NEXT_ID),]
  
- Chiliadal_sequencing <- rbind(Chiliadal_sequencing, Chiliadal_sequencing2)
+ Prechiliadal_sequencing <- read_xlsx('../../01.METADATA/Samples_BaseClear_pilot_sequencing.xlsx', sheet = 2)
+ 
+ Chiliadal_sequencing <- rbind(Chiliadal_sequencing, Chiliadal_sequencing2, Prechiliadal_sequencing)
  Chiliadal_sequencing[is.na(Chiliadal_sequencing$Sequencing_comments),]$Sequencing_comments <- 'Sequenced'
  Chiliadal_sequenced_samples <- Chiliadal_sequencing[Chiliadal_sequencing$Sequencing_comments=='Sequenced',]
  # removing unnecessary columns
  Chiliadal_sequenced_samples$ALIQUOTE_NR <- NULL
- Chiliadal_sequenced_samples$...15 <- NULL
+ Chiliadal_sequenced_samples$...17 <- NULL
  Chiliadal_sequenced_samples$ADDITION <- NULL
- Chiliadal_sequenced_samples$Sequencing_ID...20 <- NULL
+ Chiliadal_sequenced_samples$Sequencing_ID...21 <- NULL
  Chiliadal_sequenced_samples[Chiliadal_sequenced_samples$DNA_CONC=='too low',]$DNA_CONC <- '0.001'
  Chiliadal_sequenced_samples$DNA_CONC <- as.numeric(Chiliadal_sequenced_samples$DNA_CONC)
  # renaming columns for convenience
- colnames(Chiliadal_sequenced_samples)[grep("Sequencing_ID...19", colnames(Chiliadal_sequenced_samples))] <- 'Sequencing_ID'
+ colnames(Chiliadal_sequenced_samples)[grep("Sequencing_ID...22", colnames(Chiliadal_sequenced_samples))] <- 'Sequencing_ID'
  # adding "_VLP" to the column names to match with BGNP metadata
- colnames(Chiliadal_sequenced_samples)[c(1:3,7,16,17)] <- paste0(colnames(Chiliadal_sequenced_samples)[c(1:3,7,16,17)], '_VLP')
+ colnames(Chiliadal_sequenced_samples)[c(1:3,7,18,19)] <- paste0(colnames(Chiliadal_sequenced_samples)[c(1:3,7,18,19)], '_VLP')
 
  # steps to harmonize VLP metadata before merging with the metadata of Big Gut NEXT paper
  Chiliadal_sequenced_samples$NEXT_ID_VLP <- paste0('LLNEXT', Chiliadal_sequenced_samples$NEXT_ID_VLP)
@@ -97,9 +112,9 @@ bac_diversity_shannon <- data.frame(diversity(t(strains), "shannon"))
 colnames(bac_diversity_shannon) <- "diversity"
 
 # it is essential to pick either only SGB or species level:
-contaminants <- as.data.frame(t(grep('UNCLASSIFIED', row.names(metaphlan)),
-                                metaphlan[c(grep('Sphingomonas_sp_FARSPH', row.names(metaphlan))[1],
-                                grep('Phyllobacterium_myrsinacearum', row.names(metaphlan))[1]),]))
+contaminants <- as.data.frame(t(metaphlan[  c( grep('UNCLASSIFIED', row.names(metaphlan)),
+                                                grep('Sphingomonas_sp_FARSPH', row.names(metaphlan))[1],
+                                                grep('Phyllobacterium_myrsinacearum', row.names(metaphlan))[1]), ] ))
 
 contaminants$sum <- rowSums(contaminants)
 
@@ -251,7 +266,6 @@ row.names(bgnp_metadata_all) <- NULL #to harmonize row names, somewhere these we
 ##### MAIN OUTPUT: the full basic metadata for sequenced VLP samples: #####
 metadata_chiliadal <- merge(Chiliadal_sequenced_samples, bgnp_metadata_all, by='Universal_ID', all.x=T)
 
-
 # future steps: add aliquot id (if necessary? check if this could potentially affect the exact age)
 # add the weight of the fecal aliquot for VLP
 # add the aliquoting comments and isolation comments if any 
@@ -270,6 +284,134 @@ for (i in unique(metadata_chiliadal_w_imputation_all$FAMILY)) {
 }
 
 metadata_chiliadal_w_imputation <- metadata_chiliadal_w_imputation_all[metadata_chiliadal_w_imputation_all$FAMILY %in% unname(unlist(families_to_keep)),]
+
+# check how many orphan samples (only one member of the family is present among VLPs):
+N_orphans <- as.data.frame(t(data.frame(families_to_keep)))
+row.names(N_orphans) <- NULL
+colnames(N_orphans) <- "FAMILY"
+N_orphans$N_samples <- NA
+N_orphans$N_fam_members <- NA
+
+twin_families <- unique(metadata_chiliadal[metadata_chiliadal$Type_MGS=="K" & !is.na(metadata_chiliadal$Type_MGS) & metadata_chiliadal$infant_relations=='twins',"FAMILY"])
+N_orphans$Twin_pregnancy <- ifelse(N_orphans$FAMILY %in% twin_families, "Yes", "No")
+
+# second pregnancy families:
+P2_families <- unique(bgnp_metadata_all[grep('_2', bgnp_metadata_all$NEXT_ID_MGS),"FAMILY"])
+N_orphans$P2_present <- ifelse(N_orphans$FAMILY %in% P2_families, "Yes", "No")
+
+# Preset mother and infant variables for all families
+N_orphans$Mother_P1 <- "Yes" 
+N_orphans$Mother_P2 <- "No" # the majority of the families do not have 2nd pregnancies
+N_orphans$Infant_P1 <- "Yes"
+N_orphans$Infant_P2 <- "No" # the majority of the families do not have 2nd pregnancies
+
+# Loop through each family
+for (i in N_orphans$FAMILY) {
+  
+  # NUMBER OF SAMPLES PER FAMILY
+  N_orphans[N_orphans$FAMILY==i,"N_samples"] <- sum(metadata_chiliadal$FAMILY==i, na.rm = T)
+  
+  # NUMBER OF FAMILY MEMBERS
+  N_orphans[N_orphans$FAMILY==i,"N_fam_members"] <- length(unique(metadata_chiliadal[metadata_chiliadal$FAMILY==i & !is.na(metadata_chiliadal$FAMILY),]$NEXT_ID_VLP))
+  
+  # NEXT IDs OF MATERNAL SAMPLES (for infering N pregnancies present in Chiliadal)
+  maternal_samples <- unique(metadata_chiliadal[metadata_chiliadal$FAMILY==i & metadata_chiliadal$Type_VLP=="M","NEXT_ID_VLP"])
+  
+  # CHECK IF MATERNAL SAMPLES ARE PRESENT AT ALL
+  if (  length(maternal_samples) < 1 ) {
+    N_orphans[N_orphans$FAMILY==i, "Mother_P1"] <- "No"
+  } else {
+    # IF 2ND PREGNANCY IS PRESENT, CHECK IF MATERNAL SAMPLE FOR 1ST PREGNANCY IS PRESENT
+    if ( (i %in% P2_families) & length(grep('_2', maternal_samples))!=0 & length(maternal_samples) < 2 ) {
+      N_orphans[N_orphans$FAMILY==i, "Mother_P1"] <- "No"
+      N_orphans[N_orphans$FAMILY==i, "Mother_P2"] <- "Yes"
+    } else {
+      # IF BOTH 1ST AND 2ND PREGNANCY SAMPLES ARE PRESENT
+      if (length(maternal_samples) == 2) {
+        N_orphans[N_orphans$FAMILY==i, "Mother_P2"] <- "Yes"
+      }
+    }
+    
+  }
+  
+  # NEXT IDs OF INFANT SAMPLES (for infering N pregnancies present in Chiliadal)
+  infant_samples <- unique(metadata_chiliadal[metadata_chiliadal$FAMILY==i & metadata_chiliadal$Type_VLP=="K","NEXT_ID_VLP"])
+  
+  # DUE TO THE PRESENCE OF TWINS, WE ALSO NEED SAMPLE NAMES
+  infant_samples_IDs <- metadata_chiliadal[metadata_chiliadal$FAMILY==i & metadata_chiliadal$Type_VLP=="K","NG_ID_short"]
+  
+  # CHECK IF INFANT SAMPLES ARE PRESENT AT ALL
+  if (  length(infant_samples) < 1 ) {
+    N_orphans[N_orphans$FAMILY==i, "Infant_P1"] <- "No"
+  } else {
+    # IF 2ND PREGNANCY IS PRESENT, CHECK IF INFANT SAMPLE FOR 1ST PREGNANCY IS PRESENT
+    if ( (i %in% P2_families) & length(grep('C', infant_samples_IDs))<1 & length(infant_samples) < 2 ) {
+      N_orphans[N_orphans$FAMILY==i, "Infant_P1"] <- "No"
+      N_orphans[N_orphans$FAMILY==i, "Infant_P2"] <- "Yes"
+    } else {
+      # If there are two or more infant samples but the family is not marked as having twins,
+      # assume a second pregnancy exists
+      if (length(infant_samples) >=2 & !(i %in% twin_families)) {
+        N_orphans[N_orphans$FAMILY==i, "Infant_P2"] <- "Yes"
+      }
+    }
+
+  }
+  
+}
+
+# NUMBER OF MOTHER-INFANT DYADS:
+length(N_orphans[N_orphans$Twin_pregnancy=="Yes" & N_orphans$Mother_P1=="Yes", "FAMILY"]) #10 twin families
+length(N_orphans[N_orphans$Twin_pregnancy=="No" & N_orphans$Mother_P1=="Yes" & N_orphans$Infant_P1=="Yes", "FAMILY"]) # 258
+length(N_orphans[N_orphans$Twin_pregnancy=="No" & N_orphans$Mother_P2=="Yes" & N_orphans$Infant_P2=="Yes", "FAMILY"]) # 9
+# Total number of mother-infant dyads with at least 1 maternal and 1 infant sample: 10*2 + 258 + 9 = 287
+
+N_orphans$Mother_P1_MGS <- ifelse(N_orphans$FAMILY %in% unique(bgnp_metadata_all[bgnp_metadata_all$Type_MGS=="M" & bgnp_metadata_all$Modified_NEXT_ID_without_preg_number==bgnp_metadata_all$NEXT_ID_MGS,]$FAMILY), "Yes", "No")
+N_orphans$Infant_P1_MGS <- ifelse(N_orphans$FAMILY %in% unique(bgnp_metadata_all[bgnp_metadata_all$Type_MGS=="K",]$FAMILY), "Yes", "No")
+N_orphans$Mother_P2_MGS <- ifelse(N_orphans$FAMILY %in% unique(bgnp_metadata_all[bgnp_metadata_all$Type_MGS=="M" & bgnp_metadata_all$Modified_NEXT_ID_without_preg_number!=bgnp_metadata_all$NEXT_ID_MGS,]$FAMILY), "Yes", "No")
+N_orphans$Infant_P2_MGS <- ifelse(N_orphans$FAMILY %in% unique(bgnp_metadata_all[bgnp_metadata_all$Type_MGS=="K" & substr(bgnp_metadata_all$NG_ID, 1, 1)=="Y",]$FAMILY), "Yes", "No")
+
+# Total number of mother-infant dyads with at least 1 VLP sample per pair and MGS-imputable rest: 332 = 12*2 (twins) + 290 (no P2) + 8 (P1 at least mom or infant) + 10 (P2 at least mom or infant) 
+
+
+# # All these calculations of the 2nd families just confuse me, I am thinking of artificially change their family IDs
+# metadata_chiliadal$FAMILY_ed <- metadata_chiliadal$FAMILY
+# metadata_chiliadal[grep('_2', metadata_chiliadal$NEXT_ID_MGS),]$FAMILY_ed <- sub('FAM0', 'FAM2', metadata_chiliadal[grep('_2', metadata_chiliadal$NEXT_ID_MGS),]$FAMILY_ed)
+# metadata_chiliadal[grep('Y', metadata_chiliadal$NG_ID),]$FAMILY_ed <- sub('FAM0', 'FAM2', metadata_chiliadal[grep('Y', metadata_chiliadal$NG_ID),]$FAMILY_ed)
+# 
+# tmp <- data.frame(unique(metadata_chiliadal[!is.na(metadata_chiliadal$FAMILY_ed),]$FAMILY_ed))
+# row.names(tmp) <- NULL
+# colnames(tmp) <- "FAMILY"
+# tmp$N_samples <- NA
+# tmp$N_fam_members <- NA
+# tmp$Twin_pregnancy <- ifelse(tmp$FAMILY %in% twin_families, "Yes", "No")
+# tmp$Mother <- "Yes" 
+# tmp$Infant <- "Yes" 
+# 
+# for (i in tmp$FAMILY) {
+#   
+#   # NUMBER OF SAMPLES PER FAMILY
+#   tmp[tmp$FAMILY==i,"N_samples"] <- sum(metadata_chiliadal$FAMILY_ed==i, na.rm = T)
+#   
+#   # NUMBER OF FAMILY MEMBERS
+#   tmp[tmp$FAMILY==i,"N_fam_members"] <- length(unique(metadata_chiliadal[metadata_chiliadal$FAMILY_ed==i & !is.na(metadata_chiliadal$FAMILY_ed),]$NEXT_ID_VLP))
+#   
+#   # NEXT IDs OF MATERNAL SAMPLES (for infering N pregnancies present in Chiliadal)
+#   maternal_samples <- unique(metadata_chiliadal[metadata_chiliadal$FAMILY_ed==i & metadata_chiliadal$Type_VLP=="M","NEXT_ID_VLP"])
+#   
+#   # CHECK IF MATERNAL SAMPLES ARE PRESENT AT ALL
+#   if (  length(maternal_samples) < 1 ) {
+#     tmp[tmp$FAMILY==i, "Mother"] <- "No"
+#   } 
+#   
+#   # NEXT IDs OF INFANT SAMPLES (for infering N pregnancies present in Chiliadal)
+#   infant_samples <- unique(metadata_chiliadal[metadata_chiliadal$FAMILY_ed==i & metadata_chiliadal$Type_VLP=="K","NEXT_ID_VLP"])
+#   
+#    # CHECK IF INFANT SAMPLES ARE PRESENT AT ALL
+#   if (  length(infant_samples) < 1 ) {
+#     tmp[tmp$FAMILY==i, "Infant"] <- "No"
+#   } 
+# }
 
 # # spliting the metadata containing VLP samples and MGS samples:
 # 
@@ -321,8 +463,10 @@ View(bgnp_metadata[bgnp_metadata$SAMPLE_ID %in% bgnp_metadata[which(duplicated(b
 ##### OUTPUT #####
 #### RESOLVED: due to the undocumented exclusion of some BGNP samples, had to track them down
 #### write.table(metadata_chiliadal[is.na(metadata_chiliadal$sequence_control_MGS),], "../../03.OUTPUT/01.METADATA_HARMONIZATION/01.IN_PROGRESS/Missing_data_from_BGNP_03_01_2024.txt", sep='\t', row.names=F, quote=F)
-
+#### RESOLVED: due to the undocumented exclusion of some BGNP samples, previous version of metadata was not complete
+#### write.table(metadata_chiliadal, '../../01.METADATA/Chiliadal_metadata_ver_01_06042023.txt', sep='\t', quote=F, row.names=F)
 
 write.table(bgnp_metadata_all, '../../03.OUTPUT/01.METADATA_HARMONIZATION/01.IN_PROGRESS/LLNEXT_metadata_220324_with_excluded.txt', sep='\t', quote=F, row.names = F)
-write.table(metadata_chiliadal, '../../01.METADATA/Chiliadal_metadata_ver_01_06042023.txt', sep='\t', quote=F, row.names=F)
+write.table(metadata_chiliadal, '../../01.METADATA/Chiliadal_metadata_ver_03_29032024.txt', sep='\t', quote=F, row.names=F)
+
 
