@@ -2,6 +2,10 @@ library(readr)
 library(ggplot2)
 library(dplyr)
 library(reshape2)
+library(stringr)
+library(UpSetR)
+
+
 
 setwd("C:\\Users\\Natal\\Documents\\UMCG\\amg_paper\\data")
 
@@ -75,7 +79,7 @@ df_shah_qc <- as.data.frame(read_tsv("shah_qc_stats.tsv"))
 df_shah_qc <- df_shah_qc %>%
   mutate(cohort = "shah",
          input_files = "pe + um",
-         clean_reads_comb = NA,
+         clean_reads_comb = in_reads_comb,
          clean_reads_se = NA,
          in_reads_se = NA,
          dedup_efficiency = NA
@@ -120,9 +124,9 @@ names(variable.labs) <- c("in_reads_comb", "clean_reads_comb", "contigs_total", 
 
 
 ggplot(qc_assembly_stats_melt[qc_assembly_stats_melt$variable %in% c("in_reads_comb", "clean_reads_comb"), ], aes(x=value, fill=cohort)) +
-  geom_density(alpha = 0.2) +
-  geom_histogram(aes(y = ..density..), alpha = 0.2, binwidth = 0.05) + 
-  labs(x = "Number of reads per sample combined (log10)", y = "Density") +
+  geom_histogram(alpha = 0.2, binwidth = 0.05) +
+  geom_density(aes(y = ..count../15), alpha = 0.2) +
+  labs(x = "Number of reads per sample combined (log10)", y = "Sample number") +
   scale_x_log10() +
   facet_grid(variable ~ ., 
              labeller = labeller(variable = variable.labs)) +
@@ -134,9 +138,9 @@ ggplot(qc_assembly_stats_melt[qc_assembly_stats_melt$variable %in% c("in_reads_c
         axis.text.y = element_text(size = 16))
 
 ggplot(qc_assembly_stats_melt[qc_assembly_stats_melt$variable %in% c("contigs_total", "contigs_1000"), ], aes(x=value, fill=cohort)) +
-  geom_density(alpha = 0.2) +
-  geom_histogram(aes(y = ..density..), alpha = 0.2, binwidth = 0.05) + 
-  labs(x = "Number of contigs per sample (log10)", y = "Density") +
+  geom_histogram(alpha = 0.2, binwidth = 0.05) +
+  geom_density(aes(y = ..count../15), alpha = 0.2) + 
+  labs(x = "Number of contigs per sample (log10)", y = "Sample number") +
   scale_x_log10() +
   facet_grid(variable ~ ., 
              labeller = labeller(variable = variable.labs)) +
@@ -148,12 +152,56 @@ ggplot(qc_assembly_stats_melt[qc_assembly_stats_melt$variable %in% c("contigs_to
         axis.text.y = element_text(size = 16))
 
 ggplot(qc_assembly_stats, aes(x=dedup_efficiency, fill=cohort)) +
-  geom_density(alpha = 0.2) +
-  geom_histogram(aes(y = ..density..), alpha = 0.2, binwidth = 0.01) + 
-  labs(x = "Deduplication efficiency", y = "Density") +
+  geom_histogram(alpha = 0.2, binwidth = 0.01) + 
+  geom_density(aes(y = ..count../100), alpha = 0.2) +
+  labs(x = "Deduplication efficiency", y = "Sample number") +
   theme_bw() +
   theme(plot.title = element_text(size=20),
         axis.title.x = element_text(size = 16),
         axis.title.y = element_text(size = 16),
         axis.text.x = element_text(size = 16),
         axis.text.y = element_text(size = 16))
+
+
+## Adding the number of discovered viruses per sample
+
+to_garmaeva <- as.data.frame(read_tsv("table_of_origin_garmaeva"))
+to_shah <- as.data.frame(read_tsv("table_of_origin_shah"))
+to_walters <- as.data.frame(read_tsv("table_of_origin_walters"))
+to_liang <- as.data.frame(read_tsv("table_of_origin_liang"))
+to_maqsood <- as.data.frame(read_tsv("table_of_origin_maqsood"))
+to_full <- rbind(to_garmaeva, to_shah, to_walters, to_liang, to_maqsood)
+
+
+to_full_per_sample <- to_full
+to_full_per_sample$total_viruses_discovered <- 1
+to_full_per_sample$V1 <- sub("_NODE.*", "", to_full_per_sample$V1)
+to_full_per_sample <- summarise_all(group_by(to_full_per_sample, V1), sum)
+
+colnames(to_full_per_sample)[1] <- "sample_id"
+
+qc_assembly_vd_stats <- merge(x=qc_assembly_stats, y=to_full_per_sample, by="sample_id", all = T)
+qc_assembly_vd_stats[c("DeepVirFinder", "geNomad", "VIBRANT", "VirSorter2", 
+                       "total_viruses_discovered")][is.na(qc_assembly_vd_stats[c("DeepVirFinder", "geNomad", "VIBRANT", "VirSorter2", 
+                                                                                 "total_viruses_discovered")])] <- 0
+
+
+summary_per_tool <- as.data.frame(matrix(NA, nrow=4, ncol=2))
+summary_per_tool$V1 <- colnames(to_full[,c(2:5)])
+for (i in summary_per_tool$V1) {
+  summary_per_tool[summary_per_tool$V1==i,]$V2 <- sum(to_full[,i])
+}
+
+
+
+listInput <- list(geNomad=to_full[to_full$geNomad==1,]$V1,
+                  VIBRANT=to_full[to_full$VIBRANT==1,]$V1,
+                  DeepVirFinder=to_full[to_full$DeepVirFinder==1,]$V1,
+                  VirSorter2=to_full[to_full$VirSorter2==1,]$V1)
+
+pdf('C:\\Users\\Natal\\Documents\\UMCG\\amg_paper\\plots\\VD_redundant_tools_overlap.pdf', width=18/2.54, height=10/2.54)
+upset(fromList(listInput), order.by = "freq", sets.bar.color = "#C00000", 
+      number.angles = 20,
+      sets.x.label = "N detected virus contigs", scale.sets = "identity",
+      text.scale = c(1, 1, 1, 1, 1, 0.75))
+dev.off()
