@@ -28,6 +28,7 @@ library(vegan)
 ## Chiliadal_virome_sequencing_batch_I.xlsx: list of Chiliadal VLP extractions sent for sequencing in August 2022
 ## Chiliadal_virome_sequencing_batch_II.xlsx: list of Chiliadal VLP extractions sent for sequencing in December 2022
 ## Samples_BaseClear_pilot_sequencing.xlsx: list of NEXT samples included in the Big Gut NEXT paper that were extracted and sequenced to test the new VLP protocol
+## Controls_BaseClear_sequencing.xlsx: list of all sequencing control samples from BaseClear
 
 ### MGS datasets' metadata
 ## LLNEXT_metadata_03_01_2024.txt: metadata for NEXT samples included in the Big Gut NEXT paper
@@ -43,7 +44,9 @@ library(vegan)
  
  Prechiliadal_sequencing <- read_xlsx('../../01.METADATA/Samples_BaseClear_pilot_sequencing.xlsx', sheet = 2)
  
- Chiliadal_sequencing <- rbind(Chiliadal_sequencing, Chiliadal_sequencing2, Prechiliadal_sequencing)
+ BaseClear_controls <- read_xlsx('../../01.METADATA/Controls_BaseClear_sequencing.xlsx')
+ 
+ Chiliadal_sequencing <- rbind(Chiliadal_sequencing, Chiliadal_sequencing2, Prechiliadal_sequencing,  BaseClear_controls)
  Chiliadal_sequencing[is.na(Chiliadal_sequencing$Sequencing_comments),]$Sequencing_comments <- 'Sequenced'
  Chiliadal_sequenced_samples <- Chiliadal_sequencing[Chiliadal_sequencing$Sequencing_comments=='Sequenced',]
  # removing unnecessary columns
@@ -51,7 +54,7 @@ library(vegan)
  Chiliadal_sequenced_samples$...17 <- NULL
  Chiliadal_sequenced_samples$ADDITION <- NULL
  Chiliadal_sequenced_samples$Sequencing_ID...21 <- NULL
- Chiliadal_sequenced_samples[Chiliadal_sequenced_samples$DNA_CONC=='too low',]$DNA_CONC <- '0.001'
+ Chiliadal_sequenced_samples[Chiliadal_sequenced_samples$DNA_CONC=='too low' & !is.na(Chiliadal_sequenced_samples$DNA_CONC),]$DNA_CONC <- '0.001'
  Chiliadal_sequenced_samples$DNA_CONC <- as.numeric(Chiliadal_sequenced_samples$DNA_CONC)
  # renaming columns for convenience
  colnames(Chiliadal_sequenced_samples)[grep("Sequencing_ID...22", colnames(Chiliadal_sequenced_samples))] <- 'Sequencing_ID'
@@ -467,6 +470,6 @@ View(bgnp_metadata[bgnp_metadata$SAMPLE_ID %in% bgnp_metadata[which(duplicated(b
 #### write.table(metadata_chiliadal, '../../01.METADATA/Chiliadal_metadata_ver_01_06042023.txt', sep='\t', quote=F, row.names=F)
 
 write.table(bgnp_metadata_all, '../../03.OUTPUT/01.METADATA_HARMONIZATION/01.IN_PROGRESS/LLNEXT_metadata_220324_with_excluded.txt', sep='\t', quote=F, row.names = F)
-write.table(metadata_chiliadal, '../../01.METADATA/Chiliadal_metadata_ver_03_29032024.txt', sep='\t', quote=F, row.names=F)
+write.table(metadata_chiliadal, '../../01.METADATA/Chiliadal_metadata_ver_04_03042024.txt', sep='\t', quote=F, row.names=F)
 
 
