@@ -79,4 +79,6 @@ seqtk \
         ../VIR_DB/initial_dereplication/NEXT_vOTU_representatives \
         > ../VIR_DB/virus_contigs/NEXT_vOTU_representatives_w_neg_der95.fasta
 
+#Rscript under_dev_dereplication_stat.R /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/initial_dereplication/NEXT_viral_clusters.tsv
+
 module purge
