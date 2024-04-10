@@ -7,6 +7,10 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --open-mode=truncate
 
+##############################################
+# Use-cases: in-house negative controls only #
+##############################################
+
 FRAG_LIST=$1
 
 echo ${FRAG_LIST}

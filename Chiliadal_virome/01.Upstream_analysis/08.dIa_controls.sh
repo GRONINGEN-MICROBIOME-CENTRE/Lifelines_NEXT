@@ -7,6 +7,10 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --open-mode=truncate
 
+##############################################
+# Use-cases: in-house negative controls only #
+##############################################
+
 SAMPLE_LIST=$1
 
 echo ${SAMPLE_LIST}
