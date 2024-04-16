@@ -331,3 +331,12 @@ ggplot(Diff_predictions, aes(x=ADD, y = Count, fill = Category)) +
   guides(fill = guide_legend(title.position = "top",label.position = "left", title.hjust = 0.5, nrow = 1))
 
 dev.off()
+
+#### ! Sometimes, CheckV overtrims seemingly complete genomes (those with high confidence DTRs). 
+#### Current solution: since we keep all extended contigs & the overall completeness drop is not substantial,
+#### keep overtrimmed sequences (even though they are often VC representatives) & later, in case it is needed
+#### to follow-up something with them, try to curate these genomes, there are not that many of them (10-20 of those)
+prepruned_quality <- read.table('04.RAW_DATA/04.Virome_discovery/prophage_benchmark/prepruned_contigs_quality_summary.tsv', sep='\t', header=T)
+extended_tof <- extended_tof <- read.table("04.RAW_DATA/04.Virome_discovery/Extended_table_of_origin", sep='\t', header=T)
+prepruned_quality$new_quality <- extended_tof$checkv_quality[match(prepruned_quality$contig_id, extended_tof$POST_CBR_CID)]
+prepruned_quality$new_completeness <- extended_tof$completeness[match(prepruned_quality$contig_id, extended_tof$POST_CBR_CID)]
