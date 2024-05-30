@@ -3,7 +3,7 @@
 #SBATCH --error=./err/08.pru/PP_Chiliadal_%A_%a.err
 #SBATCH --output=./out/08.pru/PP_Chiliadal_%A_%a.out
 #SBATCH --mem=32gb
-#SBATCH --time=04:00:00
+#SBATCH --time=10:00:00
 #SBATCH --cpus-per-task=2
 
 SAMPLE_LIST=$1
@@ -58,11 +58,19 @@ grep -E "(DTR|ITR)" \
 	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_DTR_ITR_vIDs
 
 # 2. Get the provirus sequences:
-awk -F '\t' '{print $2}' \
-	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_viral_find_proviruses/${SAMPLE_ID}_extended_viral_provirus.tsv | \
-	tail -n +2 | \
-	sort | \
-	uniq > ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_source_vIDs
+## We have to take it from the sample virus summary, because some proviruses might be discarded by the post-classification filtering process
+grep "Provirus" \
+	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_viral_summary/${SAMPLE_ID}_extended_viral_virus_summary.tsv | \
+	awk -F '\t' '{print $1}' | \
+	sort |
+	uniq \
+	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_vIDs
+
+awk -F '\|' '{print $1}' \
+	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_vIDs \
+	sort | 
+	uniq \
+	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_source_vIDs
 
 # 3. Get the rest of putative virus contigs (including those not recognized by geNomad as viral)
 grep '>' ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/${SAMPLE_ID}_extended_viral.fasta | \
@@ -77,8 +85,8 @@ cat ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_DTR_ITR_vIDs \
        > ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_DTR_ITR_provirus_vIDs
 
 comm -23 \
-	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_viral_IDs \
-	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_DTR_ITR_provirus_vIDs \
+	<(sort ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_viral_IDs) \
+	<(sort ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_DTR_ITR_provirus_vIDs) \
 	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_rest_vIDs
 
 # --- LOAD MODULES ---
@@ -97,11 +105,18 @@ seqtk \
 seqtk \
         subseq \
         -l60 \
+	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_viral_find_proviruses/${SAMPLE_ID}_extended_viral_provirus.fna \
+	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_vIDs \
+	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus.fasta
+
+seqtk \
+        subseq \
+        -l60 \
         ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/${SAMPLE_ID}_extended_viral.fasta \
 	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_rest_vIDs \
 	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_rest.fasta
 
-cat ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_viral_find_proviruses/${SAMPLE_ID}_extended_viral_provirus.fna \
+cat ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus.fasta \
 	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_rest.fasta \
 	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/POST_GND.fasta
 
