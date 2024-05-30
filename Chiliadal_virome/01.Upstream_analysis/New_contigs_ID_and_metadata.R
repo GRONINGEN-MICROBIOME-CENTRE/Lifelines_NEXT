@@ -201,12 +201,23 @@ VLP_contigs_PD_metadata <- VLP_contigs_PD_metadata[,c("New_CID", "provirus", "PO
 
 # getting plasmid info:
 VLP_contigs_PD_metadata$plasmid <- "No"
-VLP_contigs_PD_metadata[VLP_contigs_PD_metadata$POST_GND_CID %in% plasmids$seq_name,]$plasmid <- "Yes"
-VLP_contigs_PD_metadata[VLP_contigs_PD_metadata$POST_GND_CID %in% plasmids$seq_name,]$GND_topology <- plasmids$topology[match(VLP_contigs_PD_metadata[VLP_contigs_PD_metadata$POST_GND_CID %in% plasmids$seq_name,]$POST_GND_CID, plasmids$seq_name)]
-VLP_contigs_PD_metadata$conjugation_genes <- plasmids$conjugation_genes[match(VLP_contigs_PD_metadata$POST_GND_CID, plasmids$seq_name)]
-VLP_contigs_PD_metadata$amr_genes <- plasmids$amr_genes[match(VLP_contigs_PD_metadata$POST_GND_CID, plasmids$seq_name)]
-VLP_contigs_PD_metadata$plasmid_score <- plasmids$plasmid_score[match(VLP_contigs_PD_metadata$POST_GND_CID, plasmids$seq_name)]
-VLP_contigs_PD_metadata$plasmid_fdr <- plasmids$fdr[match(VLP_contigs_PD_metadata$POST_GND_CID, plasmids$seq_name)]
+
+if (dim(plasmids)[1] != 0) {
+  
+  VLP_contigs_PD_metadata[VLP_contigs_PD_metadata$POST_GND_CID %in% plasmids$seq_name,]$plasmid <- "Yes"
+  VLP_contigs_PD_metadata[VLP_contigs_PD_metadata$POST_GND_CID %in% plasmids$seq_name,]$GND_topology <- plasmids$topology[match(VLP_contigs_PD_metadata[VLP_contigs_PD_metadata$POST_GND_CID %in% plasmids$seq_name,]$POST_GND_CID, plasmids$seq_name)]
+  VLP_contigs_PD_metadata$conjugation_genes <- plasmids$conjugation_genes[match(VLP_contigs_PD_metadata$POST_GND_CID, plasmids$seq_name)]
+  VLP_contigs_PD_metadata$amr_genes <- plasmids$amr_genes[match(VLP_contigs_PD_metadata$POST_GND_CID, plasmids$seq_name)]
+  VLP_contigs_PD_metadata$plasmid_score <- plasmids$plasmid_score[match(VLP_contigs_PD_metadata$POST_GND_CID, plasmids$seq_name)]
+  VLP_contigs_PD_metadata$plasmid_fdr <- plasmids$fdr[match(VLP_contigs_PD_metadata$POST_GND_CID, plasmids$seq_name)]
+} else {
+  
+  VLP_contigs_PD_metadata$conjugation_genes <- NA
+  VLP_contigs_PD_metadata$amr_genes <- NA
+  VLP_contigs_PD_metadata$plasmid_score <- NA
+  VLP_contigs_PD_metadata$plasmid_fdr <- NA
+  
+}
 ##############################
 # OUTPUT
 ##############################
