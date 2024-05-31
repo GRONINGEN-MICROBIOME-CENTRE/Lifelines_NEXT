@@ -67,7 +67,7 @@ grep "Provirus" \
 	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_vIDs
 
 awk -F '\|' '{print $1}' \
-	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_vIDs \
+	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_vIDs | \
 	sort | \
 	uniq \
 	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_source_vIDs
