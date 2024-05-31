@@ -62,7 +62,7 @@ grep -E "(DTR|ITR)" \
 grep "Provirus" \
 	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_viral_summary/${SAMPLE_ID}_extended_viral_virus_summary.tsv | \
 	awk -F '\t' '{print $1}' | \
-	sort |
+	sort | \
 	uniq \
 	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_provirus_vIDs
 
