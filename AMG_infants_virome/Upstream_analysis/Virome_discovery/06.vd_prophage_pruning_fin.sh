@@ -163,23 +163,32 @@ module load CheckV/1.0.1-foss-2021b-DIAMOND-2.1.8
 module list
 
 # 1. Running CheckV
-checkv end_to_end \
-	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/POST_GND.fasta \
-	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV \
-	-t ${SLURM_CPUS_PER_TASK} \
-    	-d /scratch/hb-llnext/databases/checkv-db-v1.5
+if [ ! -s "${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/POST_GND.fasta" ]; then
+	echo "POST_GND.fasta is empty. Concatenating only geNomad_DTR_ITR.fasta."
 
-# --- CONCATENATING VIRUSES WITH PRUNED PROVIRUSES ---
-sed -i 's/\ /_/g' ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/proviruses.fna
-sed -i 's/\//_/g' ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/proviruses.fna
+	cat ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_DTR_ITR.fasta \
+		> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_pruned_viral.fasta
+else
+	echo "POST_GND.fasta is not empty. Proceeding with full script."
+	checkv end_to_end \
+		${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/POST_GND.fasta \
+		${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV \
+		-t ${SLURM_CPUS_PER_TASK} \
+		-d /scratch/hb-llnext/databases/checkv-db-v1.5
 
-# --- RUNNING CheckV for quality assessment ---
+	# --- CONCATENATING VIRUSES WITH PRUNED PROVIRUSES ---
+	sed -i 's/\ /_/g' ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/proviruses.fna
+	sed -i 's/\//_/g' ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/proviruses.fna
 
-# 1. Concatenating complete genomes & CheckV-pruned seqeunces & CheckV-untouched sequences
-cat ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_DTR_ITR.fasta \
-	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/proviruses.fna \
-	${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/viruses.fna \
-	> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_pruned_viral.fasta
+	# --- RUNNING CheckV for quality assessment ---
+
+	# 1. Concatenating complete genomes & CheckV-pruned seqeunces & CheckV-untouched sequences
+	cat ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/geNomad_DTR_ITR.fasta \
+		${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/proviruses.fna \
+		${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/viruses.fna \
+		> ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_pruned_viral.fasta
+
+fi
 
 # 2. Running CheckV
 checkv end_to_end \
@@ -192,7 +201,17 @@ checkv end_to_end \
 cp ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_extended_pruned_viral.fasta ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/Prophage_pruning
 cp ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_${FILE}_summary/${SAMPLE_ID}_${FILE}_plasmid_summary.tsv ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/Prophage_pruning
 cp ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/${SAMPLE_ID}_${FILE}_summary/${SAMPLE_ID}_${FILE}_virus_summary.tsv ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/Prophage_pruning
-cp ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/contamination.tsv ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/Prophage_pruning
+
+if [ -f "${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/contamination.tsv" ]; then
+	echo "contamination.tsv exists. Copying the file."
+	cp ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV/contamination.tsv \
+		../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/Prophage_pruning/
+else
+	echo "contamination.tsv does not exist. Creating a new file with header."
+	echo -e "contig_id\tcontig_length\ttotal_genes\tviral_genes\thost_genes\tprovirus\tproviral_length\thost_length\tregion_types\tregion_lengths\tregion_coords_bp\tregion_coords_genes\tregion_viral_genes\tregion_host_genes" \
+		> ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/Prophage_pruning/contamination.tsv
+fi
+
 cp ${TMPDIR}/${SAMPLE_ID}/Prophage_pruning/CHV_new/quality_summary.tsv ../SAMPLES/${SAMPLE_ID}/virome_discovery/tidy/Prophage_pruning
 
 # --- CREATE NEW VIRUS CONTIGS METADATA AND IDs ---

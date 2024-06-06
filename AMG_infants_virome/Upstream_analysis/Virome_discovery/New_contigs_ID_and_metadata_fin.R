@@ -127,7 +127,9 @@ VLP_contigs_PD_metadata <- merge(VLP_contigs_PD_metadata,
                                  by="POST_GND_CID", all=T)
 
 # since not all contigs were recognized by geNomad as viral:
-VLP_contigs_PD_metadata[is.na(VLP_contigs_PD_metadata$GND_pruned), ]$GND_pruned <- "No"
+if (any(is.na(VLP_contigs_PD_metadata$GND_pruned))) {
+	VLP_contigs_PD_metadata[is.na(VLP_contigs_PD_metadata$GND_pruned), ]$GND_pruned <- "No"
+}	
 
 VLP_contigs_PD_metadata$POST_CBR_CID <- sub("\\|.*", "", VLP_contigs_PD_metadata$POST_GND_CID)   
 
