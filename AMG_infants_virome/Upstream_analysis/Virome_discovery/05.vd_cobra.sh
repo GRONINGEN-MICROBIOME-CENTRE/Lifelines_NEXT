@@ -42,7 +42,7 @@ bowtie2-build \
 bowtie2 \
 	--very-sensitive \
 	-x ${TMPDIR}/${SAMPLE_ID}/COBRA/${SAMPLE_ID} \
-	-1 ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq.gz \
+	-1 ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_1.fastq.gz \  # filenames with clean reads should be adjusted per study
 	-2 ../SAMPLES/${SAMPLE_ID}/clean_reads/${SAMPLE_ID}_dedup_paired_2.fastq.gz \
 	--no-unal \
 	--threads ${SLURM_CPUS_PER_TASK} \
@@ -92,7 +92,7 @@ cobra-meta \
     -m ${TMPDIR}/${SAMPLE_ID}/COBRA/${SAMPLE_ID}_sorted.bam \
     -a metaspades \
     -mink 21 \
-    -maxk 127 \
+    -maxk 127 \  # 55 for Garmaeva et al; used different assembly mode (meta), thus different kmer length
     -o ${TMPDIR}/${SAMPLE_ID}/COBRA/RESULT
 
 # --- MOVING TO SCRATCH --- 
