@@ -33,6 +33,13 @@ table_of_origin <- dcast(virus_discovery, V1~V2)
 table_of_origin[-1] <- as.integer(table_of_origin[-1] != 0)
 table_of_origin[is.na(table_of_origin)] <- 0
 colnames(table_of_origin)[grep('V1', colnames(table_of_origin))] <- "Original_CID"
+
+if (ncol(table_of_origin) < 6) {
+  
+  missing <- c("DeepVirFinder", "geNomad", "VIBRANT", "VirSorter2", "CenoteTaker3")[ ! c("DeepVirFinder", "geNomad", "VIBRANT", "VirSorter2", "CenoteTaker3") %in% colnames(table_of_origin)]
+  
+  table_of_origin[, missing] <- NA
+}
 ##############################
 # ANALYSIS
 ##############################
