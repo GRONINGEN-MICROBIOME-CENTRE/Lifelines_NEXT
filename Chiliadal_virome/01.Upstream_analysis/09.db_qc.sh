@@ -2,7 +2,7 @@
 #SBATCH --job-name=VirusDiscovery
 #SBATCH --output=./out/09.dbs/DB_prep_%A_%a.out
 #SBATCH --mem=32gb
-#SBATCH --time=11:59:00
+#SBATCH --time=15:59:00
 #SBATCH --cpus-per-task=2
 
 DB_LIST=$1
@@ -186,6 +186,11 @@ cp ${DB_DIR}/Prophage_pruning/${DB_ID}_pruned.fasta ${DB_DIR}/Prophage_pruning/$
 awk 'NR>1' ${DB_DIR}/Prophage_pruning/Extended_TOF | awk -F '\t' '{print $35"\t"$1}' | while IFS=$'\t' read -r old_id new_id; do
 	sed "s/>$old_id\b/>$new_id/" -i ${DB_DIR}/Prophage_pruning/${DB_ID}_pruned_renamed.fasta
 done
+
+if [ "$(wc -l < "${DB_LIST}")" -ge 1 ]; then
+cat ${DB_DIR}/Prophage_pruning/${DB_ID}_pruned_renamed.fasta >> $(dirname ${DB_DIR})/$(basename ${DB_LIST})_pruned_renamed.fasta
+awk 'NR>1' ${DB_DIR}/Prophage_pruning/Extended_TOF >> $(dirname ${DB_DIR})/Extended_TOF
+fi
 
 # --- CLEANING output ---
 rm ${DB_DIR}/Prophage_pruning/${DB_ID}_plasmid_summary.tsv
