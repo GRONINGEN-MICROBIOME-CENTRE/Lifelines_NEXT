@@ -35,9 +35,9 @@ table_of_origin[is.na(table_of_origin)] <- 0
 colnames(table_of_origin)[grep('V1', colnames(table_of_origin))] <- "Original_CID"
 
 if (ncol(table_of_origin) < 6) {
-  
+
   missing <- c("DeepVirFinder", "geNomad", "VIBRANT", "VirSorter2", "CenoteTaker3")[ ! c("DeepVirFinder", "geNomad", "VIBRANT", "VirSorter2", "CenoteTaker3") %in% colnames(table_of_origin)]
-  
+
   table_of_origin[, missing] <- NA
 }
 ##############################
@@ -225,7 +225,6 @@ if (dim(plasmids)[1] != 0) {
   VLP_contigs_PD_metadata$plasmid_fdr <- NA
   
 }
-
 ##############################
 # OUTPUT
 ##############################
