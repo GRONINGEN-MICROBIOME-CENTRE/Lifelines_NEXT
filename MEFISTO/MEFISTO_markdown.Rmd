@@ -1,7 +1,7 @@
 ---
 title: "MEFISTO Analysis"
 author: "Cyrus A. Mallon"
-date: "22 June 2024"
+date: "16 July 2024"
 output:
   html_document:
     toc: true
@@ -11,6 +11,11 @@ output:
     toc: true
     number_sections: true
 ---
+
+```{r setup, include=FALSE}
+# Set global chunk options
+knitr::opts_chunk$set(echo = TRUE, results = 'console')
+```
 
 # Intro
 This is the downstream plotting and analysis, showcasing the results of the MEFISTO analysis. Factor trajectories are first plotted, then their scatter plots, and finally the weights that most influence each trajectory.
@@ -52,11 +57,11 @@ for (pkg in packages) {
 Make sure to change directories if running on your own machine.
 ```{r, warning=FALSE, message=FALSE}
 # load model and data ----
-load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024/MOFAobject_untrained_26_01_2024.rda"))
-load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024/feature_matrix_26_01_2024.rda"))
-load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024/data_for_MOFA_26_01_2024.rda"))
+load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/MOFAobject_untrained_26_01_2024.rda"))
+load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/feature_matrix_26_01_2024.rda"))
+load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/data_for_MOFA_26_01_2024.rda"))
 
-MOFAobject <- load_model(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024/LLNEXT_microbiome_model_26_01_2024.hdf5"), load_interpol_Z = FALSE)
+MOFAobject <- load_model(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/LLNEXT_microbiome_model_26_01_2024.hdf5"), load_interpol_Z = FALSE)
 ```
 
 # Plot Variance Explained By MEFISTO Model
@@ -178,20 +183,20 @@ data %>%
 # fac 2 ----
 fac2_trajectory_sp <-
   data %>%
-  filter(birth_deliverybirthcard_place_delivery_simple != "nan") %>%
-  ggplot(aes(x = time, y = Factor2, group = birth_deliverybirthcard_place_delivery_simple, color = birth_deliverybirthcard_place_delivery_simple)) +
+  filter(birth_deliverybirthcard_mode_binary != "nan") %>%
+  ggplot(aes(x = time, y = Factor2, group = birth_deliverybirthcard_mode_binary, color = birth_deliverybirthcard_mode_binary)) +
   geom_point(size = 0.5) +
   scale_color_manual(values = fac1_colors) +
   stat_summary(
     fun = mean,   
     geom = "line",  
-    aes(group = birth_deliverybirthcard_place_delivery_simple), 
+    aes(group = birth_deliverybirthcard_mode_binary), 
     size = 1  # 
   ) +
   theme_classic() +
   xlab("time (month)") +
   ylab("factor 2 score") +
-  labs(color = "birth place")
+  labs(color = "birth mode")
 
 fac2_trajectory_bp <-
   data %>%
@@ -281,14 +286,121 @@ fac4_trajectory_bp <-
 # fac 5 ----
 fac5_trajectory_sp <-
   data %>%
+  filter(birth_deliverybirthcard_place_delivery_simple != "nan") %>%
+  ggplot(aes(x = time, y = Factor5, group = birth_deliverybirthcard_place_delivery_simple, color = birth_deliverybirthcard_place_delivery_simple)) +
+  geom_point(size = 0.5) +
+  scale_color_manual(values = fac1_colors) +
+  stat_summary(
+    fun = mean,  
+    geom = "line",  
+    aes(group = birth_deliverybirthcard_place_delivery_simple),  
+    size = 1  # Set line size
+  ) +
+  theme_classic() +
+  xlab("time (month)") +
+  ylab("factor 5 score") +
+  labs(color = "delivery place")
+
+fac5_trajectory_bp <-
+  data %>%
+  filter(birth_deliverybirthcard_place_delivery_simple != "nan") %>%
+  ggplot(aes(x = birth_deliverybirthcard_place_delivery_simple, y = Factor4, group = birth_deliverybirthcard_place_delivery_simple, color = birth_deliverybirthcard_place_delivery_simple, fill = birth_deliverybirthcard_place_delivery_simple, alpha = 0.5)) +
+  geom_boxplot(fill = fac1_colors) +
+  scale_color_manual(values = fac1_colors) +
+  scale_fill_manual(values = fac1_colors) +
+  theme_void() +
+  labs(fill = "delivery place",
+       y = "Factor 5 Scores",
+       x = "delivery place") +
+  guides(color = "none") +
+  scale_fill_discrete(guide="none") +
+  scale_alpha(guide = 'none')
+
+# fac 6 ----
+fac3_colors <- c("#D98481", "#91B5A9", "#7892B5")
+
+fac6_trajectory_sp <-
+data %>%
+  filter(infant_birthcard_feeding_mode_after_birth != "nan") %>%
+  mutate(infant_birthcard_feeding_mode_after_birth = factor(infant_birthcard_feeding_mode_after_birth, levels = c("BF", "MF", "FF") )) %>%
+  ggplot(aes(x = time, y = Factor6, group = infant_birthcard_feeding_mode_after_birth, color = infant_birthcard_feeding_mode_after_birth)) +
+  geom_point(size = 0.5) +
+  scale_color_manual(values = fac3_colors) +
+  stat_summary(
+    fun = mean,  
+    geom = "line",  
+    aes(group = infant_birthcard_feeding_mode_after_birth), 
+    size = 1  
+  ) +
+  labs(color = "feeding mode",
+      y = "Factor 6 Scores",
+      x = "time (month)") +
+  theme_classic() 
+  
+fac6_trajectory_bp <-
+  data %>%
+  filter(infant_birthcard_feeding_mode_after_birth != "nan") %>%
+  mutate(infant_birthcard_feeding_mode_after_birth = factor(infant_birthcard_feeding_mode_after_birth, levels = c("BF", "MF", "FF") )) %>%
+  ggplot(aes(x = infant_birthcard_feeding_mode_after_birth, y = Factor6, group = infant_birthcard_feeding_mode_after_birth, color = infant_birthcard_feeding_mode_after_birth, fill = infant_birthcard_feeding_mode_after_birth, alpha = 0.5)) +
+  geom_boxplot(fill = fac3_colors) +
+  scale_color_manual(values = fac3_colors) +
+  #scale_fill_manual(values = fac3_colors) +
+  theme_void() +
+  #labs(fill = "feeding mode",
+  #     y = "Factor 3 Scores",
+  #     x = "birthmode") +
+  guides(color = "none") +
+  scale_fill_discrete(guide="none") +
+  scale_alpha(guide = 'none')
+
+# fac 8 ----
+fac3_colors <- c("#D98481", "#91B5A9", "#7892B5")
+
+fac8_trajectory_sp <-
+data %>%
+  filter(infant_birthcard_feeding_mode_after_birth != "nan") %>%
+  mutate(infant_birthcard_feeding_mode_after_birth = factor(infant_birthcard_feeding_mode_after_birth, levels = c("BF", "MF", "FF") )) %>%
+  ggplot(aes(x = time, y = Factor8, group = infant_birthcard_feeding_mode_after_birth, color = infant_birthcard_feeding_mode_after_birth)) +
+  geom_point(size = 0.5) +
+  scale_color_manual(values = fac3_colors) +
+  stat_summary(
+    fun = mean,  
+    geom = "line",  
+    aes(group = infant_birthcard_feeding_mode_after_birth), 
+    size = 1  
+  ) +
+  labs(color = "feeding mode",
+      y = "Factor 8 Scores",
+      x = "time (month)") +
+  theme_classic() 
+  
+fac8_trajectory_bp <-
+  data %>%
+  filter(infant_birthcard_feeding_mode_after_birth != "nan") %>%
+  mutate(infant_birthcard_feeding_mode_after_birth = factor(infant_birthcard_feeding_mode_after_birth, levels = c("BF", "MF", "FF") )) %>%
+  ggplot(aes(x = infant_birthcard_feeding_mode_after_birth, y = Factor6, group = infant_birthcard_feeding_mode_after_birth, color = infant_birthcard_feeding_mode_after_birth, fill = infant_birthcard_feeding_mode_after_birth, alpha = 0.5)) +
+  geom_boxplot(fill = fac3_colors) +
+  scale_color_manual(values = fac3_colors) +
+  #scale_fill_manual(values = fac3_colors) +
+  theme_void() +
+  #labs(fill = "feeding mode",
+  #     y = "Factor 3 Scores",
+  #     x = "birthmode") +
+  guides(color = "none") +
+  scale_fill_discrete(guide="none") +
+  scale_alpha(guide = 'none')
+
+# fac 10 ----
+fac10_trajectory_sp <-
+  data %>%
   mutate(mother_birthcard_parity = case_when( # categorize parity
     mother_birthcard_parity == 0 ~ "First",
     mother_birthcard_parity == 1 ~ "Second",
-    mother_birthcard_parity == 2 ~ "Third+",
+    mother_birthcard_parity > 2 ~ "Third+",
     TRUE ~ NA
   )) %>% 
   filter(!is.na(mother_birthcard_parity)) %>%
-  ggplot(aes(x = time, y = Factor5, group = mother_birthcard_parity, color = mother_birthcard_parity)) +
+  ggplot(aes(x = time, y = Factor10, group = mother_birthcard_parity, color = mother_birthcard_parity)) +
   geom_point(size = 0.5) +
   scale_color_manual(values = fac3_colors) +
   stat_summary(
@@ -299,15 +411,15 @@ fac5_trajectory_sp <-
   ) +
   theme_classic() +
   xlab("time (month)") +
-  ylab("factor 5 score") +
+  ylab("factor 10 score") +
   labs(color = "pairity")
 
-fac5_trajectory_bp <-
+fac10_trajectory_bp <-
   data %>%
   mutate(mother_birthcard_parity = case_when( # categorize parity
     mother_birthcard_parity == 0 ~ "First",
     mother_birthcard_parity == 1 ~ "Second",
-    mother_birthcard_parity == 2 ~ "Third+",
+    mother_birthcard_parity > 2 ~ "Third+",
     TRUE ~ NA
   )) %>% 
   filter(!is.na(mother_birthcard_parity)) %>%
@@ -318,52 +430,22 @@ fac5_trajectory_bp <-
   scale_fill_manual(values = fac3_colors) +
   theme_void() +
   labs(fill = "pairity",
-       y = "Factor 4 Scores",
+       y = "Factor 10 Scores",
        x = "birthplace") +
   guides(color = "none") +
   scale_fill_discrete(guide="none") +
   scale_alpha(guide = 'none')
 
-# fac 6 ----
-fac6_trajectory_sp <-
-  data %>%
-  filter(!is.na(infant_misc_sex)) %>%
-  ggplot(aes(x = time, y = Factor6, group = infant_misc_sex, color = infant_misc_sex)) +
-  geom_point(size = 0.5) +
-  scale_color_manual(values = fac1_colors) +
-  stat_summary(
-    fun = mean,   # Calculate mean
-    geom = "line",  # Use line geometry
-    aes(group = infant_misc_sex),  # Ensure lines are drawn for each group
-    size = 1  # Set line size
-  ) +
-  theme_classic() +
-  xlab("time (month)") +
-  ylab("factor 6 score") +
-  labs(color = "sex")
-
-fac6_trajectory_bp <-
-  data %>%
-  mutate(mother_birthcard_parity = case_when( # categorize parity
-    mother_birthcard_parity == 0 ~ "First",
-    mother_birthcard_parity == 1 ~ "Second",
-    mother_birthcard_parity == 2 ~ "Third+",
-    TRUE ~ NA
-  )) %>% 
-  ggplot(aes(x = infant_misc_sex, y = Factor6, group = infant_misc_sex, color = infant_misc_sex, fill = infant_misc_sex, alpha = 0.5)) +
-  geom_boxplot(fill = fac1_colors) +
-  scale_color_manual(values = fac1_colors) +
-  scale_fill_manual(values = fac1_colors) +
-  theme_void() +
-  labs(fill = "birth place",
-       y = "Factor 6 Scores",
-       x = "birthplace") +
-  guides(color = "none") +
-  scale_fill_discrete(guide="none") +
-  scale_alpha(guide = 'none')
 
 # plot all together ----
-p_all_trajects <- fac1_trajectory_sp + fac2_trajectory_sp + fac3_trajectory_sp + fac4_trajectory_sp + fac5_trajectory_sp + fac6_trajectory_sp
+p_all_trajects <- fac1_trajectory_sp + 
+                  fac2_trajectory_sp + 
+                  fac3_trajectory_sp + 
+                  fac4_trajectory_sp + 
+                  fac5_trajectory_sp + 
+                  fac6_trajectory_sp + 
+                  fac8_trajectory_sp + 
+                  fac10_trajectory_sp
 
 # save plot
 # set dims
@@ -378,7 +460,7 @@ width_mm <- (height_mm * aspect_ratio) - (indentation_mm * aspect_ratio)
 
 
 # Save the plot as a PDF with the specified dimensions
-ggsave("trajectories.pdf", plot = p_all_trajects, width = width_mm, height = height_mm, units = "mm")
+ggsave("trajectories_16July2024.pdf", plot = p_all_trajects, width = width_mm, height = height_mm, units = "mm")
 ```
 
 # Plot scatter plots of factor values
@@ -394,7 +476,7 @@ plot_factors(MOFAobject, color_by = "time", show_missing = FALSE) +
       x = "Factor 1 Scores")
 
 
-## birth mode ----
+## Fac1: birth mode ----
 MOFAobject@samples_metadata$birth_deliverybirthcard_mode_binary <- 
   replace(MOFAobject@samples_metadata$birth_deliverybirthcard_mode_binary, MOFAobject@samples_metadata$birth_deliverybirthcard_mode_binary == "nan", NA)
 
@@ -406,19 +488,19 @@ plot_factors(MOFAobject, factors = c(2,1), color_by = "birth_deliverybirthcard_m
        y = "Factor 1 Scores",
        x = "Factor 2 Scores")
 
-## birth place ----
+## Fac2: birth place ----
 MOFAobject@samples_metadata$birth_deliverybirthcard_place_delivery_simple <- 
   replace(MOFAobject@samples_metadata$birth_deliverybirthcard_place_delivery_simple, MOFAobject@samples_metadata$birth_deliverybirthcard_place_delivery_simple == "nan", NA)
 
 p_bp <-
-plot_factors(MOFAobject, factors = c(1,2), color_by = "birth_deliverybirthcard_place_delivery_simple", show_missing = FALSE) +
+plot_factors(MOFAobject, factors = c(1,2), color_by = "birth_deliverybirthcard_mode_binary", show_missing = FALSE) +
   scale_fill_manual(values = fac1_colors) +
   scale_color_manual(values = fac1_colors) +
   labs(fill = "birth place",
        y = "Factor 2 Scores",
        x = "Factor 1 Scores")
 
-## feeding mode ----
+## Fac3: feeding mode ----
 MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth <- 
   replace(MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth, MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth == "nan", NA)
 
@@ -430,7 +512,7 @@ p_fm <-
        y = "Factor 3 Scores",
        x = "Factor 1 Scores")
 
-## smoking ----
+## Fac4: smoking ----
 MOFAobject@samples_metadata$mother_health_smoked_one_whole_year_p18 <- 
   replace(MOFAobject@samples_metadata$mother_health_smoked_one_whole_year_p18, MOFAobject@samples_metadata$mother_health_smoked_one_whole_year_p18 == "nan", NA)
 
@@ -442,37 +524,59 @@ p_smk <-
        y = "Factor 4 Scores",
        x = "Factor 1 Scores")
 
-## parity ----
+## Fac5: delivery place ----
+MOFAobject@samples_metadata$birth_deliverybirthcard_place_delivery_simple <- 
+  replace(MOFAobject@samples_metadata$birth_deliverybirthcard_place_delivery_simple, MOFAobject@samples_metadata$birth_deliverybirthcard_place_delivery_simple == "nan", NA)
+
+p_dp <-
+  plot_factors(MOFAobject, factors = c(1,5), color_by = "birth_deliverybirthcard_place_delivery_simple", show_missing = FALSE) +
+  scale_fill_manual(values = fac1_colors) +
+  scale_color_manual(values = fac1_colors) +
+  labs(fill = "delivery place",
+       y = "Factor 5 Scores",
+       x = "Factor 1 Scores")
+
+## Fac6: delivery place ----
+MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth <- 
+  replace(MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth, MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth == "nan", NA)
+
+p_fm_f6 <-
+  plot_factors(MOFAobject, factors = c(1,6), color_by = "infant_birthcard_feeding_mode_after_birth", show_missing = FALSE) +
+  scale_fill_manual(values = fac3_colors) +
+  scale_color_manual(values = fac3_colors) +
+  labs(fill = "feeding mode",
+       y = "Factor 6 Scores",
+       x = "Factor 1 Scores")
+
+## Fac8: delivery place ----
+MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth <- 
+  replace(MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth, MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth == "nan", NA)
+
+p_fm_f8 <-
+  plot_factors(MOFAobject, factors = c(1,8), color_by = "infant_birthcard_feeding_mode_after_birth", show_missing = FALSE) +
+  scale_fill_manual(values = fac3_colors) +
+  scale_color_manual(values = fac3_colors) +
+  labs(fill = "feeding mode",
+       y = "Factor 6 Scores",
+       x = "Factor 1 Scores")
+
+## Fac10: parity ----
 # Replace values in the vector directly
 MOFAobject@samples_metadata$mother_birthcard_parity <- 
   ifelse(MOFAobject@samples_metadata$mother_birthcard_parity == 0, "First",
          ifelse(MOFAobject@samples_metadata$mother_birthcard_parity == 1, "Second",
-                ifelse(MOFAobject@samples_metadata$mother_birthcard_parity == 2, "Third+", NA)))
+                ifelse(MOFAobject@samples_metadata$mother_birthcard_parity > 2, "Third+", NA)))
 
 p_par <-
-  plot_factors(MOFAobject, factors = c(1,5), color_by = "mother_birthcard_parity", show_missing = FALSE) +
+  plot_factors(MOFAobject, factors = c(1,10), color_by = "mother_birthcard_parity", show_missing = FALSE) +
   scale_fill_manual(values = fac3_colors) +
   scale_color_manual(values = fac3_colors) +
   labs(fill = "pairity",
-       y = "Factor 5 Scores",
-       x = "Factor 1 Scores")
-
-## sex ----
-# Replace values in the vector directly
-MOFAobject@samples_metadata$infant_misc_sex <- 
-  replace(MOFAobject@samples_metadata$infant_misc_sex, MOFAobject@samples_metadata$infant_misc_sex == "nan", NA)
-
-
-p_sex <-
-  plot_factors(MOFAobject, factors = c(1,5), color_by = "infant_misc_sex", show_missing = FALSE) +
-  scale_fill_manual(values = fac1_colors) +
-  scale_color_manual(values = fac1_colors) +
-  labs(fill = "sex",
-       y = "Factor 6 Scores",
+       y = "Factor 10 Scores",
        x = "Factor 1 Scores")
 
 
-# plot trajectories with box plots ----
+# plot trajectories as box plots ----
 
 ########
 #
@@ -527,7 +631,7 @@ p4 <-
 
 p5 <-
   (guide_area()) + 
-  p_par + 
+  p_dp + 
   guide_area() + 
   fac5_trajectory_bp +
   plot_layout(
@@ -538,7 +642,7 @@ p5 <-
 
 p6 <-
   (guide_area()) + 
-  p_sex + 
+  p_fm_f6 + 
   guide_area() + 
   fac6_trajectory_bp +
   plot_layout(
@@ -547,7 +651,29 @@ widths = c(1, 0.125),
     design = design
   )
 
-p7 <-
+p8 <-
+  (guide_area()) + 
+  p_fm_f8 + 
+  guide_area() + 
+  fac8_trajectory_bp +
+  plot_layout(
+widths = c(1, 0.125),
+    heights = c(0.125, 1),
+    design = design
+  )
+
+p10 <-
+  (guide_area()) + 
+  p_par + 
+  guide_area() + 
+  fac10_trajectory_bp +
+  plot_layout(
+widths = c(1, 0.125),
+    heights = c(0.125, 1),
+    design = design
+  )
+
+p11 <-
   (guide_area()) + 
   p_time + 
   guide_area() + 
@@ -558,7 +684,7 @@ p7 <-
     design = design
   ) 
 
-p_scatters <- (p1 | p2 | p3) / (p4 | p5 | p6)  # with patchwork library
+p_scatters <- (p1 | p2 | p3) / (p4 | p5 | p6) / (p8 | p10 | p11) # with patchwork library
 
 # save plot
 # set dims
@@ -573,7 +699,7 @@ width_mm <- (height_mm * aspect_ratio) - (indentation_mm * aspect_ratio)
 
 
 # save as .pdf
-ggsave("scatterplots.pdf", plot = p_scatters, width = width_mm, height = height_mm, units = "mm")
+ggsave("scatterplots_16July2024.pdf", plot = p_scatters, width = width_mm, height = height_mm, units = "mm")
 ```
 
 # plot weights 
@@ -588,7 +714,7 @@ features_metadata(MOFAobject) <- features_metadata(MOFAobject) %>%
   left_join(.,feature_matrix, by = c("feature")) %>%
   separate(col = feature_description, sep = "\\.",
            into = c("kingdom", "phylum", "class",
-                    "order", "family", "genus", "species"),
+                    "order", "family", "genus", "species","taxon"),
            remove = FALSE)
 
 # Fac 1 weights----
@@ -598,16 +724,19 @@ df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 1) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
 
 # filter out genera with missing genera information and shorten name
-df_weights1 %<>% filter(!is.na(genus), species != "s__")
-df_weights1 %<>% mutate(species = gsub("s__","", species))
-df_weights1 %<>% mutate(species = gsub("\\[","", species))
-df_weights1 %<>% mutate(species = gsub("\\]","", species))
+df_weights1 %<>%
+  filter(is.na(taxon) | !str_detect(taxon, "^t__")) %>% 
+  select(-taxon) %>% 
+  filter(!is.na(genus)) %>% 
+  filter(!is.na(species)) %>%
+  mutate(species = gsub("s__","", species)) 
+
 
 # summarize by mean weights across all species in the genus and 
 # filter to top 10 positive and negative ones
 df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>% 
   summarize(mean_weight = mean(value), n_spec = n()) %>% 
-  ungroup() %>% filter(n_spec >= 2 ) %>%
+  ungroup() %>%
   # cesarean is linked to higher latent values
   mutate(type = ifelse(mean_weight < 0, "Negative Weights", "Positive Weights")) %>%
   group_by(type) %>%
@@ -647,30 +776,33 @@ df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 2) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
 
 # filter out genera with missing genera information and shorten name
-df_weights1 %<>% filter(!is.na(genus), species != "s__")
-df_weights1 %<>% mutate(species = gsub("s__","", species))
-df_weights1 %<>% mutate(species = gsub("\\[","", species))
-df_weights1 %<>% mutate(species = gsub("\\]","", species))
+df_weights1 %<>%
+  filter(is.na(taxon) | !str_detect(taxon, "^t__")) %>% 
+  select(-taxon) %>% 
+  filter(!is.na(genus)) %>% 
+  filter(!is.na(species)) %>%
+  mutate(species = gsub("s__","", species)) 
+
 
 # summarize by mean weights across all species in the genus and 
 # filter to top 10 positive and negative ones
 df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>% 
   summarize(mean_weight = mean(value), n_spec = n()) %>% 
-  ungroup() %>% filter(n_spec >= 2 ) %>%
+  ungroup() %>%
+  # cesarean is linked to higher latent values
   mutate(type = ifelse(mean_weight < 0, "Negative Weights", "Positive Weights")) %>%
   group_by(type) %>%
   slice_max(abs(mean_weight), n= 5) %>% ungroup() %>% arrange(mean_weight) %>%
   mutate(species = factor(species, levels = .$species))
 
-# plot
 fac2_weights <-
   df_top %>% 
-  mutate(birthplace = case_when(
-    type == "Negative Weights" ~ "home",
-    type == "Positive Weights" ~ "hospital",
-    TRUE ~ "undetermined"  # Defaults to "undetermined" if other conditions fail
+  mutate(birthmode = case_when(
+    type == "Negative Weights" ~ "VG",
+    type == "Positive Weights" ~ "CS",
+    TRUE ~ "undetermined"  
   )) %>%
-  ggplot(aes(x= species, y = mean_weight, fill = birthplace)) + 
+  ggplot(aes(x= species, y = mean_weight, fill = birthmode)) + 
   geom_bar(stat="identity") +
   coord_flip() + 
   #theme_bw()  + 
@@ -680,7 +812,7 @@ fac2_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac2_colors_weights) +
+  scale_fill_manual(values = fac1_colors_weights) +
   ylab("Weight (Factor 2)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -694,16 +826,20 @@ df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 3) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
 
 # filter out genera with missing genera information and shorten name
-df_weights1 %<>% filter(!is.na(genus), species != "s__")
-df_weights1 %<>% mutate(species = gsub("s__","", species))
-df_weights1 %<>% mutate(species = gsub("\\[","", species))
-df_weights1 %<>% mutate(species = gsub("\\]","", species))
+df_weights1 %<>%
+  filter(is.na(taxon) | !str_detect(taxon, "^t__")) %>% 
+  select(-taxon) %>% 
+  filter(!is.na(genus)) %>% 
+  filter(!is.na(species)) %>%
+  mutate(species = gsub("s__","", species)) 
+
 
 # summarize by mean weights across all species in the genus and 
 # filter to top 10 positive and negative ones
 df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>% 
   summarize(mean_weight = mean(value), n_spec = n()) %>% 
-  ungroup() %>% filter(n_spec >= 2 ) %>%
+  ungroup() %>%
+  # cesarean is linked to higher latent values
   mutate(type = ifelse(mean_weight < 0, "Negative Weights", "Positive Weights")) %>%
   group_by(type) %>%
   slice_max(abs(mean_weight), n= 5) %>% ungroup() %>% arrange(mean_weight) %>%
@@ -712,9 +848,9 @@ df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>%
 fac3_weights <-
   df_top %>% 
   mutate(feedingmode = case_when(
-    type == "Negative Weights" ~ "Formula Fed",
-    type == "Positive Weights" ~ "Breast Fed",
-    TRUE ~ "undetermined"  # Defaults to "undetermined" if other conditions fail
+    type == "Negative Weights" ~ "FF",
+    type == "Positive Weights" ~ "BF",
+    TRUE ~ "undetermined"  
   )) %>%
   ggplot(aes(x= species, y = mean_weight, fill = feedingmode)) + 
   geom_bar(stat="identity") +
@@ -726,7 +862,7 @@ fac3_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac3_colors) +
+  scale_fill_manual(values = fac1_colors_weights) +
   ylab("Weight (Factor 3)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -736,20 +872,26 @@ fac3_weights <-
 fac3_weights
 
 # fac4 weights ----
+fac4_colors_weights  <- c("#fdb863", "#8073ac")
+
 df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 4) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
 
 # filter out genera with missing genera information and shorten name
-df_weights1 %<>% filter(!is.na(genus), species != "s__")
-df_weights1 %<>% mutate(species = gsub("s__","", species))
-df_weights1 %<>% mutate(species = gsub("\\[","", species))
-df_weights1 %<>% mutate(species = gsub("\\]","", species))
+df_weights1 %<>%
+  filter(is.na(taxon) | !str_detect(taxon, "^t__")) %>% 
+  select(-taxon) %>% 
+  filter(!is.na(genus)) %>% 
+  filter(!is.na(species)) %>%
+  mutate(species = gsub("s__","", species)) 
+
 
 # summarize by mean weights across all species in the genus and 
 # filter to top 10 positive and negative ones
 df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>% 
   summarize(mean_weight = mean(value), n_spec = n()) %>% 
-  ungroup() %>% filter(n_spec >= 2 ) %>%
+  ungroup() %>%
+  # cesarean is linked to higher latent values
   mutate(type = ifelse(mean_weight < 0, "Negative Weights", "Positive Weights")) %>%
   group_by(type) %>%
   slice_max(abs(mean_weight), n= 5) %>% ungroup() %>% arrange(mean_weight) %>%
@@ -760,7 +902,7 @@ fac4_weights <-
   mutate(smoking = case_when(
     type == "Negative Weights" ~ "yes",
     type == "Positive Weights" ~ "no",
-    TRUE ~ "undetermined"  # Defaults to "undetermined" if other conditions fail
+    TRUE ~ "undetermined"  
   )) %>%
   ggplot(aes(x= species, y = mean_weight, fill = smoking)) + 
   geom_bar(stat="identity") +
@@ -772,8 +914,8 @@ fac4_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors) +
-  ylab("Weight (Factor 3)") +
+  scale_fill_manual(values = fac1_colors_weights) +
+  ylab("Weight (Factor 4)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
     text = element_text(size = 10),
@@ -782,20 +924,26 @@ fac4_weights <-
 fac4_weights
 
 # fac5 weights ----
+fac5_colors_weights  <- c("#fdb863", "#8073ac")
+
 df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 5) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
 
 # filter out genera with missing genera information and shorten name
-df_weights1 %<>% filter(!is.na(genus), species != "s__")
-df_weights1 %<>% mutate(species = gsub("s__","", species))
-df_weights1 %<>% mutate(species = gsub("\\[","", species))
-df_weights1 %<>% mutate(species = gsub("\\]","", species))
+df_weights1 %<>%
+  filter(is.na(taxon) | !str_detect(taxon, "^t__")) %>% 
+  select(-taxon) %>% 
+  filter(!is.na(genus)) %>% 
+  filter(!is.na(species)) %>%
+  mutate(species = gsub("s__","", species)) 
+
 
 # summarize by mean weights across all species in the genus and 
 # filter to top 10 positive and negative ones
 df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>% 
   summarize(mean_weight = mean(value), n_spec = n()) %>% 
-  ungroup() %>% filter(n_spec >= 2 ) %>%
+  ungroup() %>%
+  # cesarean is linked to higher latent values
   mutate(type = ifelse(mean_weight < 0, "Negative Weights", "Positive Weights")) %>%
   group_by(type) %>%
   slice_max(abs(mean_weight), n= 5) %>% ungroup() %>% arrange(mean_weight) %>%
@@ -803,12 +951,12 @@ df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>%
 
 fac5_weights <-
   df_top %>% 
-  mutate(pairity = case_when(
-    type == "Negative Weights" ~ "first",
-    type == "Positive Weights" ~ "second+",
-    TRUE ~ "undetermined"  # Defaults to "undetermined" if other conditions fail
+  mutate(deliveryplace = case_when(
+    type == "Negative Weights" ~ "hospital",
+    type == "Positive Weights" ~ "home",
+    TRUE ~ "undetermined"  
   )) %>%
-  ggplot(aes(x= species, y = mean_weight, fill = pairity)) + 
+  ggplot(aes(x= species, y = mean_weight, fill = deliveryplace)) + 
   geom_bar(stat="identity") +
   coord_flip() + 
   #theme_bw()  + 
@@ -818,7 +966,7 @@ fac5_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors) +
+  scale_fill_manual(values = fac1_colors_weights) +
   ylab("Weight (Factor 5)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -832,18 +980,20 @@ df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 6) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
 
 # filter out genera with missing genera information and shorten name
-df_weights1 %<>% filter(!is.na(genus), species != "s__")
-df_weights1 %<>% mutate(species = gsub("s__","", species))
-df_weights1 %<>% mutate(species = gsub("\\[","", species))
-df_weights1 %<>% mutate(species = gsub("\\]","", species))
+df_weights1 %<>%
+  filter(is.na(taxon) | !str_detect(taxon, "^t__")) %>% 
+  select(-taxon) %>% 
+  filter(!is.na(genus)) %>% 
+  filter(!is.na(species)) %>%
+  mutate(species = gsub("s__","", species)) 
+
 
 # summarize by mean weights across all species in the genus and 
 # filter to top 10 positive and negative ones
-df_top <- df_weights1 %>% group_by(species) %>%
-  select(-feature_description) %>% 
-  #print(n = nrow(.))
+df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>% 
   summarize(mean_weight = mean(value), n_spec = n()) %>% 
-  ungroup() %>% filter(n_spec >= 2 ) %>%
+  ungroup() %>%
+  # cesarean is linked to higher latent values
   mutate(type = ifelse(mean_weight < 0, "Negative Weights", "Positive Weights")) %>%
   group_by(type) %>%
   slice_max(abs(mean_weight), n= 5) %>% ungroup() %>% arrange(mean_weight) %>%
@@ -851,12 +1001,12 @@ df_top <- df_weights1 %>% group_by(species) %>%
 
 fac6_weights <-
   df_top %>% 
-  mutate(sex = case_when(
-    type == "Negative Weights" ~ "female",
-    type == "Positive Weights" ~ "male",
+  mutate(feedingmode = case_when(
+    type == "Negative Weights" ~ "BF",
+    type == "Positive Weights" ~ "FF",
     TRUE ~ "undetermined"  
   )) %>%
-  ggplot(aes(x= species, y = mean_weight, fill = sex)) + 
+  ggplot(aes(x= species, y = mean_weight, fill = feedingmode)) + 
   geom_bar(stat="identity") +
   coord_flip() + 
   #theme_bw()  + 
@@ -866,7 +1016,7 @@ fac6_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors) +
+  scale_fill_manual(values = fac1_colors_weights) +
   ylab("Weight (Factor 6)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -875,7 +1025,109 @@ fac6_weights <-
 
 fac6_weights
 
-p_weights <- fac1_weights + fac2_weights + fac3_weights + fac4_weights + fac5_weights + fac6_weights
+# fac8 weights ----
+df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 8) %>%
+  left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
+
+# filter out genera with missing genera information and shorten name
+df_weights1 %<>%
+  filter(is.na(taxon) | !str_detect(taxon, "^t__")) %>% 
+  select(-taxon) %>% 
+  filter(!is.na(genus)) %>% 
+  filter(!is.na(species)) %>%
+  mutate(species = gsub("s__","", species)) 
+
+
+# summarize by mean weights across all species in the genus and 
+# filter to top 10 positive and negative ones
+df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>% 
+  summarize(mean_weight = mean(value), n_spec = n()) %>% 
+  ungroup() %>%
+  # cesarean is linked to higher latent values
+  mutate(type = ifelse(mean_weight < 0, "Negative Weights", "Positive Weights")) %>%
+  group_by(type) %>%
+  slice_max(abs(mean_weight), n= 5) %>% ungroup() %>% arrange(mean_weight) %>%
+  mutate(species = factor(species, levels = .$species))
+
+fac8_weights <-
+  df_top %>% 
+  mutate(feedingmode = case_when(
+    type == "Negative Weights" ~ "BF",
+    type == "Positive Weights" ~ "FF",
+    TRUE ~ "undetermined"  
+  )) %>%
+  ggplot(aes(x= species, y = mean_weight, fill = feedingmode)) + 
+  geom_bar(stat="identity") +
+  coord_flip() + 
+  #theme_bw()  + 
+  #theme(legend.position = "top") + 
+  xlab("") + 
+  #guides(fill = guide_legend(title="")) +
+  ggtitle("Influence of Species Across Factor") +
+  geom_point(data = filter(df_weights1, species %in% df_top$species),
+             aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
+  scale_fill_manual(values = fac1_colors_weights) +
+  ylab("Weight (Factor 8)") +
+  theme_classic() +
+  theme(#plot.title = element_text(hjust = 0.5),
+    text = element_text(size = 10),
+    plot.title = element_blank())
+
+fac8_weights
+
+# fac10 weights ----
+df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 10) %>%
+  left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
+
+# filter out genera with missing genera information and shorten name
+df_weights1 %<>%
+  filter(is.na(taxon) | !str_detect(taxon, "^t__")) %>% 
+  select(-taxon) %>% 
+  filter(!is.na(genus)) %>% 
+  filter(!is.na(species)) %>%
+  mutate(species = gsub("s__","", species)) 
+
+
+# summarize by mean weights across all species in the genus and 
+# filter to top 10 positive and negative ones
+df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>% 
+  summarize(mean_weight = mean(value), n_spec = n()) %>% 
+  ungroup() %>%
+  # cesarean is linked to higher latent values
+  mutate(type = ifelse(mean_weight < 0, "Negative Weights", "Positive Weights")) %>%
+  group_by(type) %>%
+  slice_max(abs(mean_weight), n= 5) %>% ungroup() %>% arrange(mean_weight) %>%
+  mutate(species = factor(species, levels = .$species))
+
+fac10_weights <-
+  df_top %>% 
+  mutate(parity = case_when(
+    type == "Negative Weights" ~ "Third+",
+    type == "Positive Weights" ~ "First",
+    TRUE ~ "undetermined"  
+  )) %>%
+  ggplot(aes(x= species, y = mean_weight, fill = parity)) + 
+  geom_bar(stat="identity") +
+  coord_flip() + 
+  #theme_bw()  + 
+  #theme(legend.position = "top") + 
+  xlab("") + 
+  #guides(fill = guide_legend(title="")) +
+  ggtitle("Influence of Species Across Factor") +
+  geom_point(data = filter(df_weights1, species %in% df_top$species),
+             aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
+  scale_fill_manual(values = fac1_colors_weights) +
+  ylab("Weight (Factor 10)") +
+  theme_classic() +
+  theme(#plot.title = element_text(hjust = 0.5),
+    text = element_text(size = 10),
+    plot.title = element_blank())
+
+fac10_weights
+
+
+
+p_weights <- fac1_weights + fac2_weights + fac3_weights + fac4_weights + fac5_weights + fac6_weights + fac8_weights + fac10_weights
 
 # save plot
 # set dims
@@ -890,15 +1142,19 @@ width_mm <- (height_mm * aspect_ratio) - (indentation_mm * aspect_ratio)
 
 
 # save as .pdf
-ggsave("weights.pdf", plot = p_weights, width = width_mm, height = height_mm, units = "mm")
+ggsave("weights_16July2024.pdf", plot = p_weights, width = width_mm, height = height_mm, units = "mm")
 ```
 
 # Mixed Modelling: factors ~ phenotypes
-The purpose of this analysis is to associate latent variables (i.e, factors) with phenotypes. This was employed in a mixed modelling strategy where factor scores were associated with high priority phenotypes from LL-NEXT. I did remove three phenotypes (birth_delivery_mode_complex, birth_delivery_mode_simple, infant_ffq_ever_never_breastfed) because they  are likely cocorrelated with other phenotypes, such as delivery_mode_binary and feeding mode. 
+The purpose of this analysis is to associate latent variables (i.e, factors) with phenotypes. This was employed in a mixed modelling strategy where factor scores were associated with high priority phenotypes from LL-NEXT. I did remove three phenotypes (birth_delivery_mode_complex, birth_delivery_mode_simple, infant_ffq_ever_never_breastfed) because they  are likely co-correlated with other phenotypes, namely delivery_mode_binary and infant_birthcard_feeding_mode_after_birth. 
 
-Phenotypes were associated with factors by creating two models. The first model predicted factor scores using time (as a factor) and phenotype as interacting variables. The second model only use time as a predictor of factor scores. These two models were then compared via a Likelihood Ratio Test (LRT). A significant p-value did not necessarily indicate that the model with phenotype and time was a better fit, but it does suggest that after holding time constant, the phenotype effect is statistically significant. 
 
-Furthermore, The modelling strategy I employed was to first associate factor one with all phenotypes. I then assigned the lowest p-value from the LRT as the strongest association for the factor one, which happened to be birth mode. I then repeated this modelling procedure for factor two; however, I removed birthmode from the list of phenotypes to associate with factor two. This procedure was followed for all following factors. The idea behind this is that every factor should be an independent source of variation, so it would be unnecessary to test its association with other factors. 
+The modelling strategy I employed can be described as a _sequential association analysis with a stepwise correction_. Such a strategy aligns well with a _fine mapping_ strategy used in genetics to identify genetic variants associated with phenotypes. This strategy involved running mixed models for phenotypes individually, while adjusting for covariates and time. Then, after fitting these initial models, the phenotype with the lowest p-value (i.e., strongest association) is identified and used as an additional covariate in another round of associations with all other phenotypes. 
+
+The goal is to control for confounding effects driven by the strongest phenotype association. This allows more precise estimations of variance and p-value calculations that include less strongly associated but nonetheless important phenotypes that drive variation across factors. We expect that if the adjusted p-value of a corrected phenotype is lower that the adjusted p-value of the most strongly associated phenotype in the first round, then we would have identified a model that contains more precise variance and pvalue estimations. Furthermore, the corrected phenotype in question would then replace the phenotype found to be the strongest association in the first round. Although this strategy does not correct for most strongly associated phenotype _per se_, it does allow one to tease apart independent effects of less strongly associated phenotypes on factor scores.
+
+Except on factor 10, the execution of this strategy did not alter the most strongly associated phenotype.  
+
 
 # Clear Env and Load Libraries and Data
 ```{r, warning=FALSE, message = FALSE}
@@ -908,6 +1164,7 @@ rm(list = ls())
 # load libraries
 library(kableExtra)
 library(lme4)
+library(lmerTest)
 library(broom)
 library(broom.mixed)
 library(tidyverse)
@@ -915,139 +1172,296 @@ library(MOFA2)
 library(here)
 
 # load data used for MEFISTO ----
-load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024/data_for_MOFA_26_01_2024.rda"))
+load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/data_for_MOFA_26_01_2024.rda"))
 head(data_for_MOFA)
 
 # load data phenotypes
-source(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024/prep_phenotypes.R")) # script that prep phenotypes
+source(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/prep_phenotypes.R")) # script that prep phenotypes
+data_phenos <- 
+  phenos %>%
+  rename(sample = NG_ID)
+head(data_phenos)
 
 # load MEFISTO results ----
-MOFAobject <- load_model(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024/LLNEXT_microbiome_model_26_01_2024.hdf5"), load_interpol_Z = FALSE)
+MOFAobject <- load_model(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/LLNEXT_microbiome_model_26_01_2024.hdf5"), load_interpol_Z = FALSE)
 ```
 
 # Tidy Data for Modelling
 ```{r}
-# join data and high priority phenotypes
-data_for_MOFA <-
-data_for_MOFA %>%
-  select(-c(40:419)) %>% # drop all phenotypes that were previously added
-  left_join(., phenos, by = "NG_ID_short") # add high priority phenotypes from Trishla's selection (but take away some that are likely co correlated)
+# make vector of phenotypes---
+phenotypes_and_covariates <- names(data_phenos)[c(3:19)]
+phenotypes_to_test <- phenotypes_and_covariates[5:17]
 
-# make vector of phenotypes
-phenotypes <- names(data_for_MOFA)[41:53]
+data_factors <-
+  get_factors(MOFAobject, as.data.frame = TRUE, factors = c(1:10)) 
 
-# nest the data to loop over later----
-nested_data <- 
-  phenotypes %>%
-  map(~ data_for_MOFA %>% 
-        mutate(Timepoint_categorical = factor(Timepoint_categorical, levels = c("W2", "M1", "M2","M3","M6","M9","M12"))) %>%
-        group_by(Timepoint_categorical, sample) %>%
-        slice(1) %>% # extract row and sample for all timepoints
-        mutate(NEXT_ID = str_extract(SAMPLE_ID, ".*(?=_)")) %>% # extract NEXT_ID
-        select(matches(.x),Timepoint_categorical, sample, NEXT_ID) %>% # select entry from phenotype list (looping though via map) 
-        right_join(.,get_factors(MOFAobject, as.data.frame = TRUE), by = c("sample")) %>% # join factor values, for all factors, across all samples.
-        select(-group) %>%
-        nest(data = c(matches(.x),Timepoint_categorical, sample, value, factor, NEXT_ID))) %>% # next data by phenotype
-  bind_cols()
-
-# get names of factors ----
-factor_names <- colnames(get_factors(MOFAobject)[[1]])
+data_to_test <-
+  data_phenos %>% 
+  left_join(., data_factors, by = "sample") %>%
+  ungroup()
 ```
 
 
 # Model Function
+Combined function to run mixed models. An initial set of associations is run. Then a second set of associations is run, correcting for the most significant phenotype in the initial set of associations. 
 ```{r}
-# function to run mixed model with different params ----
-run_MM <- 
+# function to run mixed models with stepwise correction 
+run_and_correct_MM <- function(df, phenotypes, factor_name) {
+  initial_results <- list()
+  corrected_results <- list()
   
-function(df, phenotype, factor_name){
+  # run initial mixed models
+  for (i in seq_along(phenotypes)) {
+    phenotype <- phenotypes[i]
+    
+    # remove NAs from data and select needed data 
+    df_filtered <- df %>%
+      ungroup() %>%
+      filter(factor == factor_name) %>%
+      select(value, clean_reads_FQ_1, dna_conc, BATCH_NUMBER, all_of(phenotype), Timepoint_categorical, NEXT_ID) %>%
+      mutate(Timepoint_categorical = factor(Timepoint_categorical, levels = c("W2", "M1", "M2","M3","M6","M9","M12"))) %>%
+      filter(if_all(everything(), ~ !is.na(.)))
+    
+    # fit model with phenotype
+    fit1 <- tryCatch({
+      model <- lmerTest::lmer(as.formula(paste("value ~", "clean_reads_FQ_1 + dna_conc + BATCH_NUMBER +", phenotype, "* Timepoint_categorical + (1|NEXT_ID)")), data = df_filtered, REML = FALSE)
+      list(success=TRUE, model=model, summary=broom::glance(model), tidied=broom::tidy(model) %>% mutate(phenotype = phenotype, factor = factor_name))
+    }, error=function(e) {
+      list(success=FALSE, error_message=conditionMessage(e), model=NULL, summary=NULL, tidied=NULL)
+    }, warning = function(w) {
+      list(success=FALSE, warning_message=conditionMessage(w), model=NULL, summary=NULL, tidied=NULL)
+    })
+    
+    # fit model without phenotype
+    fit0 <- tryCatch({
+      model <- lmerTest::lmer(as.formula(paste("value ~", "clean_reads_FQ_1 + dna_conc + BATCH_NUMBER + Timepoint_categorical + (1|NEXT_ID)")), data = df_filtered, REML = FALSE)
+      list(success=TRUE, model=model, summary=broom::glance(model), tidied=broom::tidy(model) %>% mutate(phenotype = phenotype, factor = factor_name))
+    }, error=function(e) {
+      list(success=FALSE, error_message=conditionMessage(e), model=NULL, summary=NULL, tidied=NULL)
+    }, warning = function(w) {
+      list(success=FALSE, warning_message=conditionMessage(w), model=NULL, summary=NULL, tidied=NULL)
+    })
+    
+    # compare models if both were successfully fitted
+    if (fit1$success && fit0$success) {
+      model_comparison <- anova(fit1$model, fit0$model, test = "LRT")
+      model_comparison_tidied <- broom::tidy(model_comparison) %>% mutate(phenotype = phenotype, factor = factor_name)
+    } else {
+      model_comparison <- NULL
+      model_comparison_tidied <- NULL
+    }
+    
+    # store all results 
+    initial_results[[i]] <- list(fit1=fit1, fit0=fit0, model_comparison=model_comparison, model_comparison_tidied=model_comparison_tidied)
+  }
   
-  # remove NAs from data
-  df <- df %>% ungroup() %>% filter(factor == factor_name) %>% filter(!is.na(.[[1]]))
+  # summarize the initial model comparisons 
+  summary_df <- data.frame()
+  for (i in seq_along(initial_results)) {
+    model_comparison_tidied <- initial_results[[i]]$model_comparison_tidied
+    
+    if (!is.null(model_comparison_tidied)) {
+      summary_df <- bind_rows(summary_df, model_comparison_tidied) %>%  filter(!is.na(p.value)) %>%  mutate(p.adj = p.adjust(p.value, method = "bonferroni")) 
+    }
+  }
   
-  # fit model with phenotype
-  fit0 <- lmerTest::lmer(as.formula(paste("value ~", phenotype, "* Timepoint_categorical + (1|NEXT_ID)")), data = df, REML = FALSE)
-  summary0 <- glance(fit0)
-  tidied0 <- tidy(fit0) %>% mutate(phenotype = phenotype, factor = factor_name)
+  # identify the phenotype with the lowest p-value
+  lowest_p_phenotype <- summary_df %>% filter(!is.na(p.value)) %>% arrange(p.adj) %>% slice(1) %>% pull(phenotype)
   
-  # fit model without phenotype
-  fit1 <- lmerTest::lmer(as.formula(paste("value ~ Timepoint_categorical + (1|NEXT_ID)")), data = df, REML = FALSE)
-  summary1 <- glance(fit1)
-  tidied1 <- tidy(fit1) %>% mutate(phenotype = phenotype, factor = factor_name)
+  # corrected Associations: correct other phenotypes using the phenotype with the lowest p-value
+  for (phenotype in phenotypes) {
+    if (phenotype != lowest_p_phenotype) {
+      # Remove NAs from data
+      df_filtered <- df %>%
+        ungroup() %>%
+        filter(factor == factor_name) %>%
+        select(value, clean_reads_FQ_1, dna_conc, BATCH_NUMBER, all_of(lowest_p_phenotype), all_of(phenotype), Timepoint_categorical, NEXT_ID) %>%
+        mutate(Timepoint_categorical = factor(Timepoint_categorical, levels = c("W2", "M1", "M2","M3","M6","M9","M12"))) %>%
+        filter(if_all(everything(), ~ !is.na(.)))
+      
+      # fit model with phenotype
+      fit1 <- tryCatch({
+        model <- lmerTest::lmer(as.formula(paste("value ~", "clean_reads_FQ_1 + dna_conc + BATCH_NUMBER +", lowest_p_phenotype, "+", phenotype, "* Timepoint_categorical + (1|NEXT_ID)")), data = df_filtered, REML = FALSE)
+        list(success=TRUE, model=model, summary=broom::glance(model), tidied=broom::tidy(model) %>% mutate(corrected_phenotype = phenotype, factor = factor_name))
+      }, error=function(e) {
+        list(success=FALSE, error_message=conditionMessage(e), model=NULL, summary=NULL, tidied=NULL)
+      }, warning = function(w) {
+        list(success=FALSE, warning_message=conditionMessage(w), model=NULL, summary=NULL, tidied=NULL)
+      })
+      
+      # fit model without phenotype
+      fit0 <- tryCatch({
+        model <- lmerTest::lmer(as.formula(paste("value ~", "clean_reads_FQ_1 + dna_conc + BATCH_NUMBER +", lowest_p_phenotype, "+ Timepoint_categorical + (1|NEXT_ID)")), data = df_filtered, REML = FALSE)
+        list(success=TRUE, model=model, summary=broom::glance(model), tidied=broom::tidy(model) %>% mutate(corrected_phenotype = phenotype, factor = factor_name))
+      }, error=function(e) {
+        list(success=FALSE, error_message=conditionMessage(e), model=NULL, summary=NULL, tidied=NULL)
+      }, warning = function(w) {
+        list(success=FALSE, warning_message=conditionMessage(w), model=NULL, summary=NULL, tidied=NULL)
+      })
+      
+      # compare models if both were successfully fitted
+      if (fit1$success && fit0$success) {
+        model_comparison <- anova(fit1$model, fit0$model, test = "LRT")
+        model_comparison_tidied <- broom::tidy(model_comparison) %>% mutate(corrected_phenotype = phenotype, factor = factor_name)
+      } else {
+        model_comparison <- NULL
+        model_comparison_tidied <- NULL
+      }
+      
+      # store the result
+      corrected_results[[phenotype]] <- list(fit1=fit1, fit0=fit0, model_comparison=model_comparison, model_comparison_tidied=model_comparison_tidied)
+    }
+  }
   
-  #compare
-  model_comparison <- anova(fit0,fit1, model = "LRT")
-  model_comparison_tidied <- tidy(model_comparison) %>% mutate(phenotype = phenotype, factor = factor_name)
+  # return results
+  return(list(initial_results=initial_results, corrected_results=corrected_results, lowest_p_phenotype=lowest_p_phenotype))
+}
+
+# helper function to summarize model comparisons
+summarize_model_comparisons <- function(results) {
+  summary_df <- data.frame()
   
-  # store all results in list
-  res <- list(fit0,summary0,tidied0,fit1,summary1,tidied1, model_comparison, model_comparison_tidied)
+  for (i in seq_along(results)) {
+    model_comparison_tidied <- results[[i]]$model_comparison_tidied
+    
+    if (!is.null(model_comparison_tidied)) {
+      summary_df <- bind_rows(summary_df, model_comparison_tidied) %>% filter(!is.na(p.value)) %>%  mutate(p.adj = p.adjust(p.value, method = "bonferroni")) %>%
+        select(npar,df,p.value,matches("pheno*"),factor,p.adj) %>% arrange(p.adj)
+    }
+  }
   
-  return(res)
-  
+  return(summary_df)
 }
 ```
 
 # Run Models
 This is fast and can be done on a personal machine.
 ```{r}
-# run models----
-model_results <- list()
-cnt <- 0
-phenotypes_to_exclude <- c()
+# Factor 1 ----
+Fac1_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor1")
 
-for (j in seq_along(factor_names)) { # for each factor
-  p_values <- numeric()
-  
-  for (i in seq_along(nested_data)) { # for each phenotype
-    phenotype_name <- colnames(nested_data[[i]][[1]])[1]
-    
-    if (phenotype_name %in% phenotypes_to_exclude) { # exclude lowest phenotype from last factor
-      next
-    }
-    
-    cnt <- cnt + 1
-    res <- run_MM(df = nested_data[[i]][[1]], factor_name = factor_names[[j]], phenotype = phenotype_name)
-    
-    # extract p-value from model comparison
-    if (!is.null(res[[8]]$`p.value`[2])) {
-      p_value <- res[[8]]$`p.value`[2]
-      p_values <- c(p_values, p_value)
-      names(p_values)[length(p_values)] <- phenotype_name
-    }
-    
-    model_results[[cnt]] <- res
-  }
-  
-  # identify the phenotype with the lowest p-value
-  if (length(p_values) > 0) {
-    phenotype_to_exclude <- names(p_values)[which.min(p_values)]
-    phenotypes_to_exclude <- c(phenotypes_to_exclude, phenotype_to_exclude)
-  }
-}
+# summarize results
+Fac1_initial_summary <- summarize_model_comparisons(Fac1_models$initial_results) %>% mutate(source = "initial_model")
+Fac1_corrected_summary <- summarize_model_comparisons(Fac1_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac1_combined_summary <- bind_rows(Fac1_initial_summary, Fac1_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac1_combined_summary, format = "html", table.attr = "class='table table-bordered'")
+
+# Factor 2 ----
+Fac2_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor2")
+
+# summarize results
+Fac2_initial_summary <- summarize_model_comparisons(Fac2_models$initial_results) %>% mutate(source = "initial_model")
+Fac2_corrected_summary <- summarize_model_comparisons(Fac2_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac2_combined_summary <- bind_rows(Fac2_initial_summary, Fac2_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac2_combined_summary, format = "html", table.attr = "class='table table-bordered'")
+
+
+# Factor 3 ----
+Fac3_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor3")
+
+# summarize results
+Fac3_initial_summary <- summarize_model_comparisons(Fac3_models$initial_results) %>% mutate(source = "initial_model")
+Fac3_corrected_summary <- summarize_model_comparisons(Fac3_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac3_combined_summary <- bind_rows(Fac3_initial_summary, Fac3_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac3_combined_summary, format = "html", table.attr = "class='table table-bordered'")
+
+# Factor 4 ----
+Fac4_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor4")
+
+# summarize results
+Fac4_initial_summary <- summarize_model_comparisons(Fac4_models$initial_results) %>% mutate(source = "initial_model")
+Fac4_corrected_summary <- summarize_model_comparisons(Fac4_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac4_combined_summary <- bind_rows(Fac4_initial_summary, Fac4_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac4_combined_summary, format = "html", table.attr = "class='table table-bordered'")
+
+# Factor 5 ----
+Fac5_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor5")
+
+# summarize results
+Fac5_initial_summary <- summarize_model_comparisons(Fac5_models$initial_results) %>% mutate(source = "initial_model")
+Fac5_corrected_summary <- summarize_model_comparisons(Fac5_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac5_combined_summary <- bind_rows(Fac5_initial_summary, Fac5_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac5_combined_summary, format = "html", table.attr = "class='table table-bordered'")
+
+# Factor 6 ----
+Fac6_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor6")
+
+# summarize results
+Fac6_initial_summary <- summarize_model_comparisons(Fac6_models$initial_results) %>% mutate(source = "initial_model")
+Fac6_corrected_summary <- summarize_model_comparisons(Fac6_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac6_combined_summary <- bind_rows(Fac6_initial_summary, Fac6_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac6_combined_summary, format = "html", table.attr = "class='table table-bordered'")
+
+# Factor 7 ----
+Fac7_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor7")
+
+# summarize results
+Fac7_initial_summary <- summarize_model_comparisons(Fac7_models$initial_results) %>% mutate(source = "initial_model")
+Fac7_corrected_summary <- summarize_model_comparisons(Fac7_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac7_combined_summary <- bind_rows(Fac7_initial_summary, Fac7_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac7_combined_summary, format = "html", table.attr = "class='table table-bordered'")
+
+# Factor 8 ----
+Fac8_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor8")
+
+# summarize results
+Fac8_initial_summary <- summarize_model_comparisons(Fac8_models$initial_results) %>% mutate(source = "initial_model")
+Fac8_corrected_summary <- summarize_model_comparisons(Fac8_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac8_combined_summary <- bind_rows(Fac8_initial_summary, Fac8_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac8_combined_summary, format = "html", table.attr = "class='table table-bordered'")
+
+# Factor 9 ----
+Fac9_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor9")
+
+# summarize results
+Fac9_initial_summary <- summarize_model_comparisons(Fac9_models$initial_results) %>% mutate(source = "initial_model")
+Fac9_corrected_summary <- summarize_model_comparisons(Fac9_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac9_combined_summary <- bind_rows(Fac9_initial_summary, Fac9_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac9_combined_summary, format = "html", table.attr = "class='table table-bordered'")
+
+# Factor 10 ----
+Fac10_models <-run_and_correct_MM(df = data_to_test, phenotypes = phenotypes_to_test, factor_name = "Factor10")
+
+# summarize results
+Fac10_initial_summary <- summarize_model_comparisons(Fac10_models$initial_results) %>% mutate(source = "initial_model")
+Fac10_corrected_summary <- summarize_model_comparisons(Fac10_models$corrected_results) %>%   mutate(source = "corrected_model")
+Fac10_combined_summary <- bind_rows(Fac10_initial_summary, Fac10_corrected_summary) %>%  mutate_all(~ ifelse(is.na(.), "", .)) %>% select(factor, source, npar, df, phenotype, corrected_phenotype, p.value, p.adj)
+
+# table of results
+kable(Fac10_combined_summary, format = "html", table.attr = "class='table table-bordered'")
 ```
 
 
 # Table of Results
 ```{r}
-factor_levels <- 
-  c(
-    "Factor1",
-    "Factor2",
-    "Factor3",
-    "Factor4",
-    "Factor5",
-    "Factor6",
-    "Factor7",
-    "Factor8",
-    "Factor9",
-    "Factor10"
-  )
+# put it all together
+Fac_summaries_vec <- paste0("Fac", 1:10, "_combined_summary")
 
-subset_list <- lapply(model_results, function(x) x[[8]]) # extract summary of model comparison
+# Access each variable dynamically and store in a list
+summaries_list <- lapply(Fac_summaries_vec, get)
 
-# view results in table
-bind_rows(subset_list) %>% 
-  mutate(phenotype =
+# final table of results
+final_table <-
+bind_rows(summaries_list) %>% 
+    mutate(phenotype =
            case_when(phenotype == "birth_birthcard_total_duration_delivery_min" ~ "delivery_duration",
                      phenotype == "birth_deliverybirthcard_mode_binary" ~ "birth_mode",
                      phenotype == "infant_birthcard_feeding_mode_after_birth" ~ "feeding_mode",
@@ -1062,63 +1476,181 @@ bind_rows(subset_list) %>%
                      phenotype == "mother_birthcard_duration_water_broken_min" ~ "water_broken_duration",
                      phenotype == "mother_health_smoked_one_whole_year_p18" ~ "smoked",
                      TRUE ~ phenotype)) %>%
-    group_by(factor, phenotype) %>%
-    filter(!is.na(p.value)) %>%
-    ungroup() %>%
-    mutate(padj = p.adjust(p.value, method = "BH")) %>% 
-    filter(padj < 0.05) %>%
-    arrange(factor, padj) %>%
-  mutate(factor = factor(factor, levels = factor_levels)) %>%
-  select(factor, phenotype, npar, df, p.value, padj) %>%
-  arrange(factor, padj) %>% 
-  #print(n = nrow(.))
-  kable(format = "latex") %>%
-  kable_styling() %>%
-  cat(collapse = "\n") %>%
-  cat("\n\\hline\n")
+    mutate(corrected_phenotype =
+           case_when(corrected_phenotype == "birth_birthcard_total_duration_delivery_min" ~ "delivery_duration",
+                     corrected_phenotype == "birth_deliverybirthcard_mode_binary" ~ "birth_mode",
+                     corrected_phenotype == "infant_birthcard_feeding_mode_after_birth" ~ "feeding_mode",
+                     corrected_phenotype == "birth_deliverybirthcard_place_delivery_simple" ~ "delivery_place",
+                     corrected_phenotype == "mother_birthcard_parity" ~ "parity",
+                     corrected_phenotype == "family_pets_any" ~ "pets",
+                     corrected_phenotype == "infant_health_eczema_diagnosis_strict" ~ "eczema",
+                     corrected_phenotype == "infant_growth_birth_weight_kg" ~ "birth_weight",
+                     corrected_phenotype == "infant_health_food_allergy" ~ "food_allergy",
+                     corrected_phenotype == "infant_misc_sex" ~ "sex",
+                     corrected_phenotype == "mother_birthcard_age_at_delivery" ~ "mother_age",
+                     corrected_phenotype == "mother_birthcard_duration_water_broken_min" ~ "water_broken_duration",
+                     corrected_phenotype == "mother_health_smoked_one_whole_year_p18" ~ "smoked",
+                     TRUE ~ corrected_phenotype)) %>%
+  group_by(factor, source) %>%
+  filter(p.adj < 0.05)
+
+# create latex table
+kable(final_table, "latex", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  pack_rows("Factor1", 1, 10, bold = TRUE, italic = TRUE) %>%
+  pack_rows("Factor2", 11, 16, bold = TRUE, italic = TRUE) %>%
+  pack_rows("Factor3", 17, 21, bold = TRUE, italic = TRUE) %>%
+  pack_rows("Factor4", 22, 23, bold = TRUE, italic = TRUE) %>%
+  pack_rows("Factor5", 24, 24, bold = TRUE, italic = TRUE) %>%
+  pack_rows("Factor6", 25, 25, bold = TRUE, italic = TRUE) %>%
+  pack_rows("Factor8", 26, 26, bold = TRUE, italic = TRUE) %>%
+  pack_rows("Factor10", 27, 29, bold = TRUE, italic = TRUE)
 ```
 
 # Examine Top Associations Per Factor
 ```{r}
-# function to extract data from list  
-source(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024/extract_entry_from_list.R"))
-
-# factor 1  
-phenotype <- "birth_deliverybirthcard_mode_binary"
-factor <- "Factor1"
-
-extract_list_entry(phenotype = phenotype, factor = factor)
-
-# factor 2  
-phenotype <- "birth_deliverybirthcard_place_delivery_simple"
-factor <- "Factor2"
-
-extract_list_entry(phenotype = phenotype, factor = factor)
-
-# factor 3  
-phenotype <- "infant_birthcard_feeding_mode_after_birth"
-factor <- "Factor3"
-
-extract_list_entry(phenotype = phenotype, factor = factor)[[3]] %>% print(n = nrow(.))
-
-# factor 4  
-phenotype <- "mother_health_smoked_one_whole_year_p18"
-factor <- "Factor4"
-
-extract_list_entry(phenotype = phenotype, factor = factor)
-
-# factor 5  
-phenotype <- "mother_birthcard_parity"
-factor <- "Factor5"
-
-extract_list_entry(phenotype = phenotype, factor = factor)
-
-# factor 6  
-phenotype <- "infant_misc_sex"
-factor <- "Factor6"
-
-extract_list_entry(phenotype = phenotype, factor = factor)
+# helper functionto search through models
+find_matching_model_initial <- function(model_results, search_phenotype, search_factor) {
+  for (i in seq_along(model_results[[1]])) {
+    # access the model comparison tidied tibble
+    model_comparison_tidied <- model_results[[1]][[i]]$model_comparison_tidied
+    
+    if (!is.null(model_comparison_tidied)) {
+      # check if there is a match for the given phenotype and factor
+      match <- model_comparison_tidied %>%
+        filter(phenotype == search_phenotype, factor == search_factor)
+      
+      if (nrow(match) > 0) {
+        return(
+          list(tib = 
+          model_results[[1]][[i]]$fit1$tidied %>%
+          select(factor, term, df, estimate, p.value) %>%
+            mutate(term = str_replace_all(term, "Timepoint_categorical", "")) %>%
+            mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
+             str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
+             str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
+             str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
+             str_replace_all("mother_birthcard_parity", "parity") %>%
+             str_replace_all("family_pets_any", "pets") %>%
+             str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
+             str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
+             str_replace_all("infant_health_food_allergy", "food_allergy") %>%
+             str_replace_all("infant_misc_sex", "sex") %>%
+             str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
+             str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
+             str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")),
+          
+          table =  model_results[[1]][[i]]$fit1$tidied %>%
+          select(factor, term, df, estimate, p.value) %>%
+            mutate(term = str_replace_all(term, "Timepoint_categorical", "")) %>%
+            mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
+             str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
+             str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
+             str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
+             str_replace_all("mother_birthcard_parity", "parity") %>%
+             str_replace_all("family_pets_any", "pets") %>%
+             str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
+             str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
+             str_replace_all("infant_health_food_allergy", "food_allergy") %>%
+             str_replace_all("infant_misc_sex", "sex") %>%
+             str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
+             str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
+             str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")) %>% 
+            filter(!term %in% c("sd__(Intercept)", "sd__Observation")) %>%
+            kable(format = "latex", caption = "Model Results", booktabs = TRUE) %>%
+            kable_styling(latex_options = c( "hold_position"))
+          )
+  )
+        #return(model_results[[1]][[i]])
+      }
+    }
+  }
   
+  return(NULL)  # Return NULL if no match is found
+}
+
+find_matching_model_corrected <- function(model_results, search_phenotype, search_factor) {
+  for (i in seq_along(model_results[[2]])) {
+    # access the model comparison tidied tibble
+    model_comparison_tidied <- model_results[[2]][[i]]$model_comparison_tidied
+    
+    if (!is.null(model_comparison_tidied)) {
+      # check if there is a match for the given phenotype and factor
+      match <- model_comparison_tidied %>%
+        filter(corrected_phenotype == search_phenotype, factor == search_factor)
+      
+      if (nrow(match) > 0) { return(
+          list(tib = 
+          model_results[[2]][[i]]$fit1$tidied %>%
+          select(factor, term, df, estimate, p.value) %>%
+            mutate(term = str_replace_all(term, "Timepoint_categorical", "")) %>%
+            mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
+             str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
+             str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
+             str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
+             str_replace_all("mother_birthcard_parity", "parity") %>%
+             str_replace_all("family_pets_any", "pets") %>%
+             str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
+             str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
+             str_replace_all("infant_health_food_allergy", "food_allergy") %>%
+             str_replace_all("infant_misc_sex", "sex") %>%
+             str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
+             str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
+             str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")),
+          
+          table =  model_results[[2]][[i]]$fit1$tidied %>%
+          select(factor, term, df, estimate, p.value) %>%
+            mutate(term = str_replace_all(term, "Timepoint_categorical", "")) %>%
+            mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
+             str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
+             str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
+             str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
+             str_replace_all("mother_birthcard_parity", "parity") %>%
+             str_replace_all("family_pets_any", "pets") %>%
+             str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
+             str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
+             str_replace_all("infant_health_food_allergy", "food_allergy") %>%
+             str_replace_all("infant_misc_sex", "sex") %>%
+             str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
+             str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
+             str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")) %>% 
+            filter(!term %in% c("sd__(Intercept)", "sd__Observation")) %>%
+            kable(format = "latex", caption = "Model Results", booktabs = TRUE) %>%
+            kable_styling(latex_options = c( "hold_position"))
+          )
+  )
+      }
+    }
+  }
+  
+  return(NULL)  # Return NULL if no match is found
+}
+
+## Factor 1
+mod <- find_matching_model_initial(Fac1_models, "birth_deliverybirthcard_mode_binary", "Factor1")
+
+## Factor 2
+mod <- find_matching_model_initial(Fac2_models, "birth_deliverybirthcard_mode_binary", "Factor2")
+
+## Factor 3
+mod <- find_matching_model_initial(Fac3_models, "infant_birthcard_feeding_mode_after_birth", "Factor3")
+
+## Factor 4
+mod <- find_matching_model_initial(Fac4_models, "mother_health_smoked_one_whole_year_p18", "Factor4")
+
+## Factor 5
+mod <- find_matching_model_initial(Fac5_models, "birth_deliverybirthcard_place_delivery_simple", "Factor5")
+
+## Factor 6
+mod <- find_matching_model_initial(Fac6_models, "infant_birthcard_feeding_mode_after_birth", "Factor6")
+
+## Factor 8
+mod <- find_matching_model_initial(Fac8_models, "infant_birthcard_feeding_mode_after_birth", "Factor8")
+
+## Factor 10
+mod <- find_matching_model_corrected(Fac10_models, "mother_birthcard_parity", "Factor10") # this is where the corrected phenotype had a lower p-value the the most significant association in the first series of models.
+
+
 ```
 
 
