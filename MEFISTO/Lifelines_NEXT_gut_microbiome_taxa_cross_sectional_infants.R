@@ -193,14 +193,14 @@ infant_metadata_cross_phenotypes_2$NEXT_ID=as.factor(infant_metadata_cross_pheno
 
 
 # Select and normalize phenotypes 
-metadata_columns <- c("NEXT_ID", "FAMILY", "raw_reads_FQ_1", "raw_reads_FQ_2",
-                      "human_reads_FQ_1", "human_reads_FQ_2", "clean_reads_FQ_1", "clean_reads_FQ_2",
-                      "reads_lost_QC", "dna_conc", "isolation_method", "NG_ID_short",
+metadata_columns <- c("FAMILY", "raw_reads_FQ_1", "raw_reads_FQ_2",
+                      "human_reads_FQ_1", "human_reads_FQ_2", "clean_reads_FQ_2",
+                      "reads_lost_QC", "isolation_method", "NG_ID_short",
                       "exact_age_days_at_collection", "exact_age_months_at_collection",
-                      "exact_age_years_at_collection", "Timepoint_categorical", "SAMPLE_ID",
+                      "exact_age_years_at_collection", "SAMPLE_ID",
                       "metaphlan4_unclassified", "contaminant_1_Sphingomonas_sp_FARSPH",
                       "contaminant_2_Phyllobacterium_myrsinacearum", "metaphlan4_unclassified_with_contaminants",
-                      "shannon", "BATCH_NUMBER", "next_id_mother", "next_id_partner", "sibling_number", "timepoint") # I took out NG_ID so that it stays.
+                      "shannon", "next_id_mother", "next_id_partner", "sibling_number", "timepoint") # I took out "NG_ID", "clean_reads_FQ_1","dna_conc", "BATCH_NUMBER", "NEXT_ID", "Timepoint_categorical" so that it stays.
 
 
 phenos <- infant_metadata_cross_phenotypes_2[, !(colnames(infant_metadata_cross_phenotypes_2) %in% metadata_columns)] 

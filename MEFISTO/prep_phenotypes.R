@@ -1,8 +1,9 @@
-source(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024/Lifelines_NEXT_gut_microbiome_taxa_cross_sectional_infants.R"))
+source(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/Lifelines_NEXT_gut_microbiome_taxa_cross_sectional_infants.R"))
 
 head(phenos)
+names(phenos)
 
-pheno_parity <- names(phenos)[16] #parity
+pheno_parity <- names(phenos)[19] #parity
 
 #examine phenos if needed
 as_tibble(phenos) %>%
