@@ -141,7 +141,7 @@ data <-
   mutate(birth_deliverybirthcard_mode_binary = as.factor(birth_deliverybirthcard_mode_binary))
 ```
 
-# Plot Factor 1 through 6 trajectories.
+# Plot Factors with Significant Phenotype Associations.
 These factors had significant associations with phenotypes in association_analysis.
 All trajectories are amalgamated in the same plot at the end of this code chunk.
 ```{r}
@@ -378,7 +378,7 @@ fac8_trajectory_bp <-
   data %>%
   filter(infant_birthcard_feeding_mode_after_birth != "nan") %>%
   mutate(infant_birthcard_feeding_mode_after_birth = factor(infant_birthcard_feeding_mode_after_birth, levels = c("BF", "MF", "FF") )) %>%
-  ggplot(aes(x = infant_birthcard_feeding_mode_after_birth, y = Factor6, group = infant_birthcard_feeding_mode_after_birth, color = infant_birthcard_feeding_mode_after_birth, fill = infant_birthcard_feeding_mode_after_birth, alpha = 0.5)) +
+  ggplot(aes(x = infant_birthcard_feeding_mode_after_birth, y = Factor8, group = infant_birthcard_feeding_mode_after_birth, color = infant_birthcard_feeding_mode_after_birth, fill = infant_birthcard_feeding_mode_after_birth, alpha = 0.5)) +
   geom_boxplot(fill = fac3_colors) +
   scale_color_manual(values = fac3_colors) +
   #scale_fill_manual(values = fac3_colors) +
@@ -419,7 +419,7 @@ fac10_trajectory_bp <-
   mutate(mother_birthcard_parity = case_when( # categorize parity
     mother_birthcard_parity == 0 ~ "First",
     mother_birthcard_parity == 1 ~ "Second",
-    mother_birthcard_parity > 2 ~ "Third+",
+    mother_birthcard_parity >= 2 ~ "Third+",
     TRUE ~ NA
   )) %>% 
   filter(!is.na(mother_birthcard_parity)) %>%
@@ -504,6 +504,10 @@ plot_factors(MOFAobject, factors = c(1,2), color_by = "birth_deliverybirthcard_m
 MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth <- 
   replace(MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth, MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth == "nan", NA)
 
+MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth <- 
+  factor(MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth, 
+         levels = c("BF", "MF", "FF", NA))
+
 p_fm <-
   plot_factors(MOFAobject, factors = c(1,3), color_by = "infant_birthcard_feeding_mode_after_birth", show_missing = FALSE) +
   scale_fill_manual(values = fac3_colors) +
@@ -548,7 +552,7 @@ p_fm_f6 <-
        y = "Factor 6 Scores",
        x = "Factor 1 Scores")
 
-## Fac8: delivery place ----
+## Fac8: feeding mode----
 MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth <- 
   replace(MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth, MOFAobject@samples_metadata$infant_birthcard_feeding_mode_after_birth == "nan", NA)
 
@@ -557,7 +561,7 @@ p_fm_f8 <-
   scale_fill_manual(values = fac3_colors) +
   scale_color_manual(values = fac3_colors) +
   labs(fill = "feeding mode",
-       y = "Factor 6 Scores",
+       y = "Factor 8 Scores",
        x = "Factor 1 Scores")
 
 ## Fac10: parity ----
@@ -565,7 +569,7 @@ p_fm_f8 <-
 MOFAobject@samples_metadata$mother_birthcard_parity <- 
   ifelse(MOFAobject@samples_metadata$mother_birthcard_parity == 0, "First",
          ifelse(MOFAobject@samples_metadata$mother_birthcard_parity == 1, "Second",
-                ifelse(MOFAobject@samples_metadata$mother_birthcard_parity > 2, "Third+", NA)))
+                ifelse(MOFAobject@samples_metadata$mother_birthcard_parity >= 2, "Third+", NA)))
 
 p_par <-
   plot_factors(MOFAobject, factors = c(1,10), color_by = "mother_birthcard_parity", show_missing = FALSE) +
@@ -1002,7 +1006,7 @@ df_top <- df_weights1 %>% group_by(species) %>% select(-feature_description) %>%
 fac6_weights <-
   df_top %>% 
   mutate(feedingmode = case_when(
-    type == "Negative Weights" ~ "BF",
+    type == "Negative Weights" ~ "MF",
     type == "Positive Weights" ~ "FF",
     TRUE ~ "undetermined"  
   )) %>%
