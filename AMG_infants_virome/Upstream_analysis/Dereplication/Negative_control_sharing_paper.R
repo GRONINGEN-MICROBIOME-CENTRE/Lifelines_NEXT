@@ -20,6 +20,7 @@ library(ggtext)
 library(VennDiagram)
 library(lmerTest)
 library(patchwork)
+library(MuMIn)
 #######################################################################################################################################
 
 ## Set the working directory
@@ -283,7 +284,7 @@ summarized_df2_frac_melt$variable <- as.factor(summarized_df2_frac_melt$variable
 summarized_df2_frac_melt$variable <- factor(summarized_df2_frac_melt$variable, levels = c("RNA", "ssDNA", "dsDNA", "Unclassified"))
 #######################################################################################################################################
 
-## Analysis for the virus host richness -> redo procaryotes vs eucaryotes and add stats
+## Analysis for the virus host richness -> prokaryotes vs eukaryotes + stats
 #######################################################################################################################################
 RPKM_count_ch3 <- RPKM_count[row.names(RPKM_count) %in% CHM_viruses, ]
 RPKM_count_ch3 <- merge(RPKM_count_ch3, extended_tof[colnames(extended_tof) %in% c("host_group")], by="row.names")
@@ -318,10 +319,14 @@ summary(lmer(value ~ ncvssample + (1|nc_subject_group), REML = F, data = summari
 
 summary(lmer(value ~ ncvssample + (1|nc_subject_group), REML = F, data = summarized_df3_frac_stats[summarized_df3_frac_stats$cohort == "shah" & summarized_df3_frac_stats$variable == "Eukaryotes", ]))
 summary(lmer(value ~ ncvssample + (1|nc_subject_group), REML = F, data = summarized_df3_frac_stats[summarized_df3_frac_stats$cohort == "shah" & summarized_df3_frac_stats$variable == "Prokaryotes", ]))
-
-
 p.adjust(c(0.235, 0.195, 0.355, 0.159, 0.3878, 5.05e-05), method="BH")
 
+# Answering if prokaryotes dominating eukaryotes
+
+summary(lmer(Prokaryotes ~ Eukaryotes + (1|nc_subject_group), REML = F, data = summarized_df3_frac[summarized_df3_frac_stats$cohort == "liang", ]))
+summary(lmer(Prokaryotes ~ Eukaryotes + (1|nc_subject_group), REML = F, data = summarized_df3_frac[summarized_df3_frac_stats$cohort == "maqsood", ]))
+summary(lmer(Prokaryotes ~ Eukaryotes + (1|nc_subject_group), REML = F, data = summarized_df3_frac[summarized_df3_frac_stats$cohort == "shah", ]))
+p.adjust(c(2e-16, 2.16e-11, 2e-16), method="BH")
 
 summarized_df3_frac <- summarized_df3_frac %>%
   group_by(ncvssample, cohort) %>%
@@ -334,7 +339,6 @@ summarized_df3_frac_melt <- melt(summarized_df3_frac, id.vars = c("ncvssample", 
 summarized_df3_frac_melt$variable <- as.factor(summarized_df3_frac_melt$variable)
 summarized_df3_frac_melt$variable <- factor(summarized_df3_frac_melt$variable, levels = c("Prokaryotes", "Eukaryotes", "Unclassified"))
 #######################################################################################################################################
-
 
 ## Analysis for the phages host richness
 #######################################################################################################################################
@@ -405,10 +409,10 @@ figure_1A <- ggplot(meta_working, aes(x=ncvssample, y=clean_reads_comb)) +
   geom_jitter(width = 0.3, aes(fill = timepoint_type), size=0.75, shape = 21, stroke = 0.1, color = "white") +
   facet_grid(. ~ cohort, labeller = labeller(
     cohort = c(
-      "garmaeva" = "Samples Garmaeva *et al.* <br>",
-      "liang" = "Samples Liang *et al.* <br>",
-      "maqsood" = "Samples Maqsood *et al.* <br>",
-      "shah" = "Samples Shah *et al.* <br>"))) +
+      "garmaeva" = "Garmaeva *et al.* <br>",
+      "liang" = "Liang *et al.* <br>",
+      "maqsood" = "Maqsood *et al.* <br>",
+      "shah" = "Shah *et al.* <br>"))) +
   scale_fill_manual(values = c("#fcbf49", "#f77f00", "#d62828", "#4C6E7F")) +
   scale_y_log10() +
   labs(y = "Number of clean reads", tag="a") +
@@ -430,10 +434,10 @@ figure_1B <- ggplot(meta_working[!(meta_working$Sample_name %in% c("bctrl4633v",
   geom_jitter(width = 0.3, aes(fill = timepoint_type), size=0.75, shape = 21, stroke = 0.1, color = "white") +
   facet_grid(. ~ cohort, labeller = labeller(
     cohort = c(
-      "garmaeva" = "Samples Garmaeva *et al.* <br>",
-      "liang" = "Samples Liang *et al.* <br>",
-      "maqsood" = "Samples Maqsood *et al.* <br>",
-      "shah" = "Samples Shah *et al.* <br>"))) +
+      "garmaeva" = "Garmaeva *et al.* <br>",
+      "liang" = "Liang *et al.* <br>",
+      "maqsood" = "Maqsood *et al.* <br>",
+      "shah" = "Shah *et al.* <br>"))) +
   scale_fill_manual(values = c("#fcbf49", "#f77f00", "#d62828", "#4C6E7F")) +
   theme_bw() +
   theme(
@@ -455,10 +459,10 @@ figure_1C <- ggplot(summarized_df2_frac_melt, aes(x = ncvssample, y = value, fil
   scale_fill_manual(values = c("#a1c181", "#fcca46", "#fe7f2d", "#233d4d")) +
   facet_grid(. ~ cohort, labeller = labeller(
     cohort = c(
-      "garmaeva" = "Samples Garmaeva *et al.* <br>",
-      "liang" = "Samples Liang *et al.* <br>",
-      "maqsood" = "Samples Maqsood *et al.* <br>",
-      "shah" = "Samples Shah *et al.* <br>"))) +
+      "garmaeva" = "Garmaeva *et al.* <br>",
+      "liang" = "Liang *et al.* <br>",
+      "maqsood" = "Maqsood *et al.* <br>",
+      "shah" = "Shah *et al.* <br>"))) +
   labs(tag="c") +
   theme(
     strip.text = ggtext::element_markdown(size=5),
@@ -480,10 +484,10 @@ figure_1D <- ggplot(summarized_df3_frac_melt, aes(x = ncvssample, y = value, fil
   scale_fill_manual(values = c("#619b8a", "#f4a261", "#233d4d")) +
   facet_grid(. ~ cohort, labeller = labeller(
     cohort = c(
-      "garmaeva" = "Samples Garmaeva *et al.* <br>",
-      "liang" = "Samples Liang *et al.* <br>",
-      "maqsood" = "Samples Maqsood *et al.* <br>",
-      "shah" = "Samples Shah *et al.* <br>"))) +
+      "garmaeva" = "Garmaeva *et al.* <br>",
+      "liang" = "Liang *et al.* <br>",
+      "maqsood" = "Maqsood *et al.* <br>",
+      "shah" = "Shah *et al.* <br>"))) +
   labs(tag="d")+
   theme(
     strip.text = ggtext::element_markdown(size=5),
@@ -508,10 +512,10 @@ figure_1E <- ggplot(summarized_df4_frac_melt, aes(x = ncvssample, y = value, fil
                                "navajowhite", "firebrick", "purple", "violetred1", "red", "darkblue", "black")) +
   facet_grid(. ~ cohort, labeller = labeller(
     cohort = c(
-      "garmaeva" = "Samples Garmaeva *et al.* <br>",
-      "liang" = "Samples Liang *et al.* <br>",
-      "maqsood" = "Samples Maqsood *et al.* <br>",
-      "shah" = "Samples Shah *et al.* <br>"))) +
+      "garmaeva" = "Garmaeva *et al.* <br>",
+      "liang" = "Liang *et al.* <br>",
+      "maqsood" = "Maqsood *et al.* <br>",
+      "shah" = "Shah *et al.* <br>"))) +
   labs(tag="e") +
   theme(
     strip.text = ggtext::element_markdown(size=5),
@@ -541,6 +545,7 @@ ggsave("combined_figure.png", combined_plot, width = 22/2.54, height = 30/2.54)
 summary(lmer(clean_reads_comb ~ cohort + (1|nc_subject_group), REML = F, data = meta_all_with_qc_curated))
 summary(lmer(contigs_1000 ~ cohort + clean_reads_comb + (1|nc_subject_group), REML = F, data = meta_all_with_qc_curated))
 summary(lmer(total_viruses_discovered ~ cohort + clean_reads_comb + (1|nc_subject_group), REML = F, data = meta_all_with_qc_curated))
+summary(lmer(total_viruses_discovered ~ cohort + clean_reads_comb + (1|nc_subject_group), REML = F, data = meta_all_with_qc_curated[meta_all_with_qc_curated$ncvssample == "NCs", ]))
 summary(lmer(CHM_LU_richness_discovered_ratio ~ cohort + clean_reads_comb + (1|nc_subject_group), REML = F, data = meta_working))
 
 summary(lmer(clean_reads_comb ~  ncvssample + (1|nc_subject_group), REML = F, data = meta_all_with_qc_curated[meta_all_with_qc_curated$cohort == "liang", ]))
@@ -599,7 +604,7 @@ p.adjust(c(0.00244, 0.540, 0.00723), method="BH")
 bray_dist_matrix_full <- as.matrix(vegdist(t(RPKM), method="bray"))
 bray_dist_matrix_full_rev <- 1 - bray_dist_matrix_full
 
-write.table(bray_dist_matrix_full_rev, "bray_dist_matrix_full_rev.tsv", sep='\t', row.names=T, col.names=T, quote=F)
+#write.table(bray_dist_matrix_full_rev, "bray_dist_matrix_full_rev.tsv", sep='\t', row.names=T, col.names=T, quote=F)
 
 upper_tri <- upper.tri(bray_dist_matrix_full_rev)
 
@@ -657,6 +662,77 @@ df_distances_nc <- rbind(df_distances_nc, switched_df)
 df_distances_nc <- df_distances_nc %>%
   mutate(cohort_nc = ifelse(category == "NCs" & type_cohort == "different",  Sample1_cohort, cohort_nc))
 
+# Permutation analysis
+
+
+# Initialize a list to store the results for each combination
+results <- list()
+
+# Define the unique values in cohort_nc
+cohort_values <- c("garmaeva", "liang", "maqsood", "shah")
+
+# Loop over each cohort_nc value
+for (cohort in cohort_values) {
+  
+  # Filter the dataframe for the current cohort
+  df_filtered <- df_distances_nc[df_distances_nc$cohort_nc == cohort, ]
+  
+  # Apply the two conditions for Sample1_ncvssample
+  conditions <- list(
+    "Condition_1" = df_filtered[df_filtered$Sample1_ncvssample == df_filtered$Sample2_ncvssample, ],
+    "Condition_2" = df_filtered[df_filtered$Sample1_ncvssample != df_filtered$Sample2_ncvssample, ]
+  )
+  
+  # Loop over each condition
+  for (condition_name in names(conditions)) {
+    
+    # Skip the combination cohort == "garmaeva" and Condition_1
+    if (cohort == "garmaeva" && condition_name == "Condition_1") {
+      next
+    }
+    
+    # Get the filtered data for the current condition
+    df_condition <- conditions[[condition_name]]
+    
+    # Perform the initial Wilcoxon test to get the baseline p-value
+    baseline_result <- wilcox.test(Distance ~ type_cohort, data = df_condition)
+    baseline_pvalue <- baseline_result$p.value
+    
+    # Set up the permutation test
+    set.seed(123)  # Set seed for reproducibility
+    n_permutations <- 10000
+    ppermute <- numeric(n_permutations)
+    
+    # Perform permutations
+    for (i in 1:n_permutations) {
+      # Shuffle the "Distance" column
+      shuffled_distances <- sample(df_condition$Distance)
+      
+      # Create a new dataframe with the shuffled "Distance" column
+      df_shuffled <- df_condition
+      df_shuffled$Distance <- shuffled_distances
+      
+      # Perform Wilcoxon test on the shuffled data
+      result <- wilcox.test(Distance ~ type_cohort, data = df_shuffled)
+      
+      # Store the p-value in the ppermute vector
+      ppermute[i] <- result$p.value
+    }
+    
+    # Calculate the final p-value
+    final_pvalue <- sum(ppermute <= baseline_pvalue) / n_permutations
+    
+    # Save the results in the list
+    results[[paste(cohort, condition_name, sep = "_")]] <- list(
+      baseline_pvalue = baseline_pvalue,
+      final_pvalue = final_pvalue
+    )
+  }
+}
+
+# Output the results
+results
+
 #CHECK FOR 0 VALUES FIRST!!!
 min_nonzero <- min(df_distances_nc$Distance[df_distances_nc$Distance > 0])
 df_distances_nc_for_plot <- df_distances_nc
@@ -665,76 +741,6 @@ df_distances_nc_for_plot$Distance <- df_distances_nc_for_plot$Distance + (min_no
 df_distances_nc_for_plot$type_cohort <- factor(df_distances_nc_for_plot$type_cohort, levels = c("same", "different"))
 df_distances_nc_for_plot$cohort_nc <- factor(df_distances_nc_for_plot$cohort_nc, levels = c("garmaeva", "liang", "maqsood", "shah"))
 
-#######################################################################################################################################
-
-## Analysis for the vOTUs sharedness with the other cohorts: add the sharedness with the samples
-#######################################################################################################################################
-negative_controls_garmaeva <- meta_working$Sample_name[meta_working$Type == "Neg_ctrl" & meta_working$cohort == "garmaeva" & 
-                                                         meta_working$Sample_name %in% colnames(RPKM)]
-
-negative_controls_liang <- meta_working$Sample_name[meta_working$Type == "Neg_ctrl" & meta_working$cohort == "liang" &
-                                                      meta_working$Sample_name %in% colnames(RPKM)]
-
-negative_controls_maqsood <- meta_working$Sample_name[meta_working$Type == "Neg_ctrl" & meta_working$cohort == "maqsood" &
-                                                        meta_working$Sample_name %in% colnames(RPKM)]
-
-negative_controls_shah <- meta_working$Sample_name[meta_working$Type == "Neg_ctrl" & meta_working$cohort == "shah" &
-                                                     meta_working$Sample_name %in% colnames(RPKM)]
-
-negative_controls <- c(negative_controls_garmaeva, negative_controls_liang, negative_controls_maqsood, negative_controls_shah)
-
-RPKM_filtered_w_dummy <- RPKM_count
-
-RPKM_filtered_w_dummy$dummy_all <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% negative_controls])
-
-RPKM_filtered_w_dummy$dummy_garmaeva_NC <- RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) == negative_controls_garmaeva]
-RPKM_filtered_w_dummy$dummy_liang_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% negative_controls_liang])
-RPKM_filtered_w_dummy$dummy_maqsood_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% negative_controls_maqsood])
-RPKM_filtered_w_dummy$dummy_shah_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% negative_controls_shah])
-
-RPKM_filtered_w_dummy[RPKM_filtered_w_dummy > 0] <- 1
-
-## Checking how many vOTUs are study-specific (change the sum into 4, if you want to know how many are shared across all studies)
-dim(RPKM_filtered_w_dummy[RPKM_filtered_w_dummy$dummy_liang_NC + RPKM_filtered_w_dummy$dummy_maqsood_NC + RPKM_filtered_w_dummy$dummy_shah_NC + RPKM_filtered_w_dummy$dummy_garmaeva_NC == 1, ])
-RPKM_filtered_w_dummy <- RPKM_filtered_w_dummy[, !colnames(RPKM_filtered_w_dummy) %in% c(negative_controls, "dummy_all")]
-
-dummy_cols <- grep("^dummy", names(RPKM_filtered_w_dummy), value = TRUE)
-non_dummy_cols <- setdiff(names(RPKM_filtered_w_dummy), dummy_cols)
-
-# Initialize an empty dataframe for the results
-result <- data.frame(matrix(ncol = length(dummy_cols), nrow = length(non_dummy_cols)))
-names(result) <- dummy_cols
-row.names(result) <- non_dummy_cols
-
-# Calculate the percent similarity
-for (non_dummy_col in non_dummy_cols) {
-  for (dummy_col in dummy_cols) {
-    # Number of viruses present in the non-dummy column
-    present_in_non_dummy <- sum(RPKM_filtered_w_dummy[[non_dummy_col]] == 1)
-    
-    if (present_in_non_dummy > 0) {
-      # Number of viruses present in both non-dummy and dummy column
-      present_in_both <- sum(RPKM_filtered_w_dummy[[non_dummy_col]] == 1 & RPKM_filtered_w_dummy[[dummy_col]] == 1)
-      
-      # Calculate the percent similarity
-      similarity <- present_in_both / present_in_non_dummy * 100
-    } else {
-      similarity <- NA  # or 0 if you prefer
-    }
-    
-    # Store the result
-    result[non_dummy_col, dummy_col] <- similarity
-  }
-}
-
-result$Sample_name <- row.names(result)
-row.names(result) <- NULL
-table_for_plot <- merge(result, meta_working[c("Sample_name", "Type", "cohort", "Subject_ID")], by="Sample_name", all.x = T)
-
-table_for_plot_melt <- melt(table_for_plot, id = c("Sample_name", "Type", "cohort", "Subject_ID"))
-
-table_for_plot_melt$variable <- factor(table_for_plot_melt$variable, levels = c("dummy_garmaeva_NC", "dummy_liang_NC", 
-                                                                                     "dummy_maqsood_NC", "dummy_shah_NC"))
 #######################################################################################################################################
 
 ## Analysis for the vOTUs sharedness with the other cohorts: correlation between sharedness with own vs different cohort
@@ -785,7 +791,7 @@ for (non_dummy_col in non_dummy_cols) {
 
 result$Sample_name <- row.names(result)
 row.names(result) <- NULL
-table_for_plot_cor <- merge(result, meta_working[c("Sample_name", "Type", "cohort", "Subject_ID")], by="Sample_name", all.x = T)
+table_for_plot_cor <- merge(result, meta_working[c("Sample_name", "Type", "cohort", "Subject_ID", "Timepoint", "nc_subject_group")], by="Sample_name", all.x = T)
 table_for_plot_cor <- table_for_plot_cor %>%
   mutate(same_cohort_NC = ifelse(cohort == "maqsood", dummy_maqsood_NC, NA),
          same_cohort_NC = ifelse(cohort == "liang", dummy_liang_NC, same_cohort_NC),
@@ -794,31 +800,137 @@ table_for_plot_cor <- table_for_plot_cor %>%
          different_cohort_NC = ifelse(cohort == "maqsood", dummy_non_maqsood_NC, NA),
          different_cohort_NC = ifelse(cohort == "liang", dummy_non_liang_NC, different_cohort_NC),
          different_cohort_NC = ifelse(cohort == "shah", dummy_non_shah_NC, different_cohort_NC),
-         different_cohort_NC = ifelse(cohort == "garmaeva", dummy_non_garmaeva_NC, different_cohort_NC))
+         different_cohort_NC = ifelse(cohort == "garmaeva", dummy_non_garmaeva_NC, different_cohort_NC),
+         Timepoint_numeric = as.integer(gsub("M", "", Timepoint)),
+         Timepoint_numeric = ifelse(grepl("Y2-5", Timepoint), 24, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "Mtrim3", 0, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "M0", 3, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "M1", 4, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "M2", 5, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "M3", 6, Timepoint_numeric))
 
-summary(lm(different_cohort_NC ~ same_cohort_NC + Type + cohort, data=table_for_plot_cor))
+RPKM_filtered_w_dummy <- RPKM
 
-pdf('cor_richness_shared_same_vs_diff.pdf', width=12/2.54, height=10.5/2.54)
-ggplot(table_for_plot_cor, aes(x=same_cohort_NC, y=different_cohort_NC)) +
-  geom_point(size = 0.5, aes(color=Type)) +
-  geom_smooth(method=lm , color="black", fill="lightgray", se=TRUE) +
-  labs(y = "% shared vOTUs with NCs \n from different studies", x = "% shared vOTUs with NCs \n from same study") +
-  theme_bw()
-dev.off()
+RPKM_filtered_w_dummy$dummy_non_garmaeva_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% c(negative_controls_liang, negative_controls_maqsood, negative_controls_shah)])
+RPKM_filtered_w_dummy$dummy_non_liang_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% c(negative_controls_garmaeva, negative_controls_maqsood, negative_controls_shah)])
+RPKM_filtered_w_dummy$dummy_non_maqsood_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% c(negative_controls_garmaeva, negative_controls_liang, negative_controls_shah)])
+RPKM_filtered_w_dummy$dummy_non_shah_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% c(negative_controls_garmaeva, negative_controls_liang, negative_controls_maqsood)])
+
+RPKM_filtered_w_dummy$dummy_garmaeva_NC <- RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) == negative_controls_garmaeva]
+RPKM_filtered_w_dummy$dummy_liang_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% negative_controls_liang])
+RPKM_filtered_w_dummy$dummy_maqsood_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% negative_controls_maqsood])
+RPKM_filtered_w_dummy$dummy_shah_NC <- rowSums(RPKM_filtered_w_dummy[, colnames(RPKM_filtered_w_dummy) %in% negative_controls_shah])
+
+RPKM_filtered_w_dummy <- RPKM_filtered_w_dummy[, !colnames(RPKM_filtered_w_dummy) %in% c(negative_controls)]
+
+dummy_cols <- grep("^dummy", names(RPKM_filtered_w_dummy), value = TRUE)
+non_dummy_cols <- setdiff(names(RPKM_filtered_w_dummy), dummy_cols)
+
+# Initialize an empty dataframe for the results
+result <- data.frame(matrix(ncol = length(dummy_cols), nrow = length(non_dummy_cols)))
+names(result) <- dummy_cols
+row.names(result) <- non_dummy_cols
+
+# Calculate the percent similarity
+for (non_dummy_col in non_dummy_cols) {
+  for (dummy_col in dummy_cols) {
+    # Number of viruses present in the non-dummy column
+    present_in_non_dummy <- sum(RPKM_filtered_w_dummy[[non_dummy_col]])
+    
+    if (present_in_non_dummy > 0) {
+      # Number of viruses present in both non-dummy and dummy column
+      present_in_both <- sum(RPKM_filtered_w_dummy[[non_dummy_col]][RPKM_filtered_w_dummy[[non_dummy_col]] > 0 & RPKM_filtered_w_dummy[[dummy_col]] > 0])
+      
+      # Calculate the percent similarity
+      similarity <- present_in_both / present_in_non_dummy * 100
+    } else {
+      similarity <- NA  # or 0 if you prefer
+    }
+    
+    # Store the result
+    result[non_dummy_col, dummy_col] <- similarity
+  }
+}
 
 
-pdf('box_plot_mom_inf_richness_shared_same_vs_diff.pdf', width=12/2.54, height=10.5/2.54)
-ggplot(table_for_plot_cor[table_for_plot_cor$cohort == "garmaeva",], aes(x = Type, y = same_cohort_NC)) +
-  geom_jitter(width = 0.3, fill = "#2E236C", size = 1.3, shape = 21, stroke = 0.1, color = "white") +
-  geom_boxplot(fill = "#C8ACD6", alpha=0.3, outliers = FALSE) +
-  theme_bw() +
-  theme(
-    axis.title.y = element_text(size = 8),
-    axis.title.x = element_text(size = 8),
-    axis.text.y = element_text(size = 6),
-    axis.text.x = element_text(size = 6)
-  )
-dev.off()
+result$Sample_name <- row.names(result)
+row.names(result) <- NULL
+table_for_plot_cor_a <- merge(result, meta_working[c("Sample_name", "Type", "cohort", "Subject_ID", "Timepoint", "nc_subject_group")], by="Sample_name", all.x = T)
+table_for_plot_cor_a <- table_for_plot_cor_a %>%
+  mutate(same_cohort_NC = ifelse(cohort == "maqsood", dummy_maqsood_NC, NA),
+         same_cohort_NC = ifelse(cohort == "liang", dummy_liang_NC, same_cohort_NC),
+         same_cohort_NC = ifelse(cohort == "shah", dummy_shah_NC, same_cohort_NC),
+         same_cohort_NC = ifelse(cohort == "garmaeva", dummy_garmaeva_NC, same_cohort_NC),
+         different_cohort_NC = ifelse(cohort == "maqsood", dummy_non_maqsood_NC, NA),
+         different_cohort_NC = ifelse(cohort == "liang", dummy_non_liang_NC, different_cohort_NC),
+         different_cohort_NC = ifelse(cohort == "shah", dummy_non_shah_NC, different_cohort_NC),
+         different_cohort_NC = ifelse(cohort == "garmaeva", dummy_non_garmaeva_NC, different_cohort_NC),
+         Timepoint_numeric = as.integer(gsub("M", "", Timepoint)),
+         Timepoint_numeric = ifelse(grepl("Y2-5", Timepoint), 24, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "Mtrim3", 0, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "M0", 3, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "M1", 4, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "M2", 5, Timepoint_numeric),
+         Timepoint_numeric = ifelse(Type == "Mother" & Timepoint == "M3", 6, Timepoint_numeric))
+
+
+table_for_plot_cor_combine <- merge(table_for_plot_cor, table_for_plot_cor_a[c("Sample_name", "same_cohort_NC", "different_cohort_NC")], by="Sample_name", 
+                                    suffixes = c("_presence","_abundance"))
+
+calculate_mean_ci <- function(data_vector, confidence_level = 0.95) {
+  # Remove NA values
+  data_vector <- na.omit(data_vector)
+  
+  # Calculate the mean
+  mean_value <- mean(data_vector)
+  
+  # Calculate the standard error of the mean
+  standard_error <- sd(data_vector) / sqrt(length(data_vector))
+  
+  # Calculate the t-value for the given confidence level
+  alpha <- 1 - confidence_level
+  t_value <- qt(1 - alpha/2, df = length(data_vector) - 1)
+  
+  # Calculate the confidence interval
+  confidence_interval <- t_value * standard_error
+  lower_bound <- mean_value - confidence_interval
+  upper_bound <- mean_value + confidence_interval
+  
+  # Return a list with the mean and confidence interval
+  return(list(mean = mean_value, lower_bound = lower_bound, upper_bound = upper_bound))
+}
+
+# Example usage
+result <- calculate_mean_ci(table_for_plot_cor_combine$same_cohort_NC_abundance)
+cat("Mean:", result$mean, "\n")
+cat("95% Confidence Interval: [", result$lower_bound, ", ", result$upper_bound, "]\n")
+
+result <- calculate_mean_ci(table_for_plot_cor_combine$same_cohort_NC_presence)
+cat("Mean:", result$mean, "\n")
+cat("95% Confidence Interval: [", result$lower_bound, ", ", result$upper_bound, "]\n")
+
+result <- calculate_mean_ci(table_for_plot_cor_combine$different_cohort_NC_presence)
+cat("Mean:", result$mean, "\n")
+cat("95% Confidence Interval: [", result$lower_bound, ", ", result$upper_bound, "]\n")
+
+summary(lmer(same_cohort_NC_abundance ~ cohort + (1|nc_subject_group), REML = F, data = table_for_plot_cor_combine))
+
+model_perc_shared_predic <- lmer(different_cohort_NC_presence ~ same_cohort_NC_presence + Type + cohort + (1 | Subject_ID), data=table_for_plot_cor_combine)
+summary(model_perc_shared_predic)
+r_squared <- r.squaredGLMM(model_perc_shared_predic)
+print(r_squared)
+
+table_for_plot_cor_combine_melt <- melt(table_for_plot_cor_combine[c("Sample_name", "cohort", "same_cohort_NC_presence", "different_cohort_NC_presence", 
+                                                                     "same_cohort_NC_abundance", "different_cohort_NC_abundance")], 
+                                        id.vars = c("Sample_name", "cohort"))
+
+table_for_plot_cor_combine_melt <- table_for_plot_cor_combine_melt %>%
+  mutate(pres_abun = ifelse(grepl("presence", variable), "presence", "abundance"),
+         same_diff = ifelse(grepl("same", variable), "same", "different"))
+
+table_for_plot_cor_combine_melt$same_diff <- factor(table_for_plot_cor_combine_melt$same_diff, levels = c("same", "different"))
+table_for_plot_cor_combine_melt$pres_abun <- factor(table_for_plot_cor_combine_melt$pres_abun, levels = c("presence", "abundance"))
+
 #######################################################################################################################################
 
 ## Analysis for the vOTUs sharedness along the timepoints: with dummy, only Liang and Garmaeva cohorts, no cross-cohort comparison
@@ -889,30 +1001,26 @@ nc_samples_g <- colnames(RPKM_filtered_g)[colnames(RPKM_filtered_g) %in% negativ
 non_nc_samples_g <- setdiff(names(RPKM_filtered_g), nc_samples_g)
 
 result_g <- calculate_similarity(RPKM_filtered_g, nc_samples_g, non_nc_samples_g)
-table_for_plot_g <- merge(result_g, meta_working[c("Sample_name", "Timepoint", "Subject_ID", "cohort")], by="Sample_name", all.x = TRUE)
+table_for_plot_g <- merge(result_g, meta_working[c("Sample_name", "Timepoint", "Subject_ID", "cohort", "total_viruses_discovered", "clean_reads_comb")], by="Sample_name", all.x = TRUE)
 table_for_plot_g$Timepoint <- factor(table_for_plot_g$Timepoint, levels = c("M1", "M2", "M3", "M6", "M12"))
 table_for_plot_g$Dataset <- "RPKM_count"
-colnames(table_for_plot_g) <- c("Sample_name", "value", "Timepoint", "Subject_ID", "cohort", "Dataset")
+colnames(table_for_plot_g) <- c("Sample_name", "value", "Timepoint", "Subject_ID", "cohort", "total_viruses_discovered", "clean_reads_comb", "Dataset")
 table_for_plot_g$Subject_ID <- as.factor(table_for_plot_g$Subject_ID)
 table_for_plot_g$Timepoint_numeric <- as.integer(gsub("M", "", table_for_plot_g$Timepoint))
 
-Presence_GT = lmer(value ~ Timepoint_numeric + (1|Subject_ID), REML = F, data = table_for_plot_g)
-Presence_G = lmer(value ~ (1|Subject_ID),REML = F, data = table_for_plot_g)
-anova(Presence_GT, Presence_G)
+summary(lmer(value ~ Timepoint_numeric + (1|Subject_ID), REML = F, data = table_for_plot_g))
 
 RPKM_filtered_ga <- filter_RPKM_table(RPKM, samples_g)
 
 result_ga <- calculate_similarity_a(RPKM_filtered_ga, nc_samples_g, non_nc_samples_g)
-table_for_plot_ga <- merge(result_ga, meta_working[c("Sample_name", "Timepoint", "Subject_ID", "cohort")], by="Sample_name", all.x = TRUE)
+table_for_plot_ga <- merge(result_ga, meta_working[c("Sample_name", "Timepoint", "Subject_ID", "cohort", "total_viruses_discovered", "clean_reads_comb")], by="Sample_name", all.x = TRUE)
 table_for_plot_ga$Timepoint <- factor(table_for_plot_ga$Timepoint, levels = c("M1", "M2", "M3", "M6", "M12"))
 table_for_plot_ga$Dataset <- "RPKM"
-colnames(table_for_plot_ga) <- c("Sample_name", "value", "Timepoint", "Subject_ID", "cohort", "Dataset")
+colnames(table_for_plot_ga) <- c("Sample_name", "value", "Timepoint", "Subject_ID", "cohort", "total_viruses_discovered", "clean_reads_comb", "Dataset")
 table_for_plot_ga$Subject_ID <- as.factor(table_for_plot_ga$Subject_ID)
 table_for_plot_ga$Timepoint_numeric <- as.integer(gsub("M", "", table_for_plot_ga$Timepoint))
 
-Abunadance_GT = lmer(value ~ Timepoint_numeric + (1|Subject_ID), REML = F, data = table_for_plot_ga)
-Abunadance_G = lmer(value ~ (1|Subject_ID),REML = F, data = table_for_plot_ga)
-anova(Abunadance_GT, Abunadance_G)
+summary(lmer(value ~ Timepoint_numeric + (1|Subject_ID), REML = F, data = table_for_plot_ga))
 
 samples_l <- c(meta_working$Sample_name[(meta_working$Subcohort == "Discovery" & !is.na(meta_working$Subcohort) 
                                          & meta_working$cohort == "liang" & meta_working$Type == "Infant") | 
@@ -929,7 +1037,7 @@ non_nc_samples_l <- setdiff(names(RPKM_filtered_l), nc_samples_l)
 
 result_l <- calculate_similarity(RPKM_filtered_l, nc_samples_l, non_nc_samples_l)
 
-table_for_plot_l <- merge(result_l, meta_working[c("Sample_name", "Sample_ID", "Timepoint", "Subject_ID", "cohort")], by="Sample_name", all.x = T)
+table_for_plot_l <- merge(result_l, meta_working[c("Sample_name", "Sample_ID", "Timepoint", "Subject_ID", "cohort", "total_viruses_discovered", "clean_reads_comb")], by="Sample_name", all.x = T)
 table_for_plot_l <- table_for_plot_l %>%
   mutate(nucleic_acid = ifelse(grepl("_D", Sample_ID), "DNA", "RNA"))
 table_for_plot_l <- table_for_plot_l[table_for_plot_l$nucleic_acid == "DNA", ]
@@ -937,13 +1045,11 @@ table_for_plot_l$nucleic_acid <- NULL
 table_for_plot_l$Sample_ID <- NULL
 table_for_plot_l$Dataset <- "RPKM_count"
 table_for_plot_l$Timepoint <- factor(table_for_plot_l$Timepoint, levels = c("M0", "M1", "M4"))
-colnames(table_for_plot_l) <- c("Sample_name", "value", "Timepoint", "Subject_ID", "cohort", "Dataset")
+colnames(table_for_plot_l) <- c("Sample_name", "value", "Timepoint", "Subject_ID", "cohort", "total_viruses_discovered", "clean_reads_comb", "Dataset")
 table_for_plot_l$Subject_ID <- as.factor(table_for_plot_l$Subject_ID)
 table_for_plot_l$Timepoint_numeric <- as.integer(gsub("M", "", table_for_plot_l$Timepoint))
 
-Presence_LT = lmer(value ~ Timepoint_numeric + (1|Subject_ID), REML = F, data = table_for_plot_l)
-Presence_L = lmer(value ~ (1|Subject_ID),REML = F, data = table_for_plot_l)
-anova(Presence_LT, Presence_L)
+summary(lmer(value ~ Timepoint_numeric + (1|Subject_ID), REML = F, data = table_for_plot_l))
 
 RPKM_filtered_la <- filter_RPKM_table(RPKM, samples_l)
 
@@ -952,7 +1058,7 @@ RPKM_filtered_la$liang_nc_dummy[RPKM_filtered_la$liang_nc_dummy > 0] <- 1
 RPKM_filtered_la <- RPKM_filtered_la[, !colnames(RPKM_filtered_la) %in% negative_controls]
 
 result_la <- calculate_similarity_a(RPKM_filtered_la, nc_samples_l, non_nc_samples_l)
-table_for_plot_la <- merge(result_la, meta_working[c("Sample_name", "Sample_ID", "Timepoint", "Subject_ID", "cohort")], by="Sample_name", all.x = T)
+table_for_plot_la <- merge(result_la, meta_working[c("Sample_name", "Sample_ID", "Timepoint", "Subject_ID", "cohort", "total_viruses_discovered", "clean_reads_comb")], by="Sample_name", all.x = T)
 table_for_plot_la <- table_for_plot_la %>%
   mutate(nucleic_acid = ifelse(grepl("_D", Sample_ID), "DNA", "RNA"))
 table_for_plot_la <- table_for_plot_la[table_for_plot_la$nucleic_acid == "DNA", ]
@@ -960,20 +1066,22 @@ table_for_plot_la$nucleic_acid <- NULL
 table_for_plot_la$Sample_ID <- NULL
 table_for_plot_la$Dataset <- "RPKM"
 table_for_plot_la$Timepoint <- factor(table_for_plot_la$Timepoint, levels = c("M0", "M1", "M4"))
-colnames(table_for_plot_la) <- c("Sample_name", "value", "Timepoint", "Subject_ID", "cohort", "Dataset")
+colnames(table_for_plot_la) <- c("Sample_name", "value", "Timepoint", "Subject_ID", "cohort", "total_viruses_discovered", "clean_reads_comb", "Dataset")
 table_for_plot_la$Subject_ID <- as.factor(table_for_plot_la$Subject_ID)
 table_for_plot_la$Timepoint_numeric <- as.integer(gsub("M", "", table_for_plot_la$Timepoint))
 
-Abundance_LT = lmer(value ~ Timepoint_numeric + (1|Subject_ID), REML = F, data = table_for_plot_la)
-Abundance_L = lmer(value ~ (1|Subject_ID),REML = F, data = table_for_plot_la)
-anova(Abundance_LT, Abundance_L)
+summary(lmer(value ~ Timepoint_numeric + (1|Subject_ID), REML = F, data = table_for_plot_la))
 
 combined_table_for_plot <- rbind(table_for_plot_g, table_for_plot_ga, table_for_plot_l, table_for_plot_la)
 combined_table_for_plot$Timepoint <- factor(combined_table_for_plot$Timepoint, levels = c("M0", "M1", "M2", "M3", "M4", "M6", "M12"))
 combined_table_for_plot$Dataset <- factor(combined_table_for_plot$Dataset, levels = c("RPKM_count", "RPKM"))
 
-#######################################################################################################################################
+#CHECK FOR 0 VALUES FIRST!!!
+min_nonzero <- min(combined_table_for_plot$value[combined_table_for_plot$value > 0])
+combined_table_for_plot_log <- combined_table_for_plot
+combined_table_for_plot_log$value <- combined_table_for_plot_log$value + (min_nonzero / 2)
 
+#######################################################################################################################################
 
 ## Patching the Figure 2
 #######################################################################################################################################
@@ -994,7 +1102,7 @@ figure_2A <- ggplot(df_distances_nc_for_plot, aes(x = type_cohort, y = Distance)
       "Samples" = "NCs and Samples"
     )
   )) +
-  labs(y = "log10(1 - (Bray-Curtis dissimilarity))", x = "Type of cohort \n (samples from the same or different cohort compared)") +
+  labs(y = "log10(1 - (Bray-Curtis dissimilarity))", x = "Type of cohort \n (samples from the same or different cohort compared)", tag="a") +
   theme_bw() +
   theme(
     strip.text = ggtext::element_markdown(size=5),
@@ -1005,17 +1113,15 @@ figure_2A <- ggplot(df_distances_nc_for_plot, aes(x = type_cohort, y = Distance)
     strip.background = element_rect(fill = "transparent")
   )
 
-## Plotting only sharedness for infants
-figure_2B <- ggplot(table_for_plot_melt, aes(x = variable, y = value)) +
+
+figure_2B <- ggplot(table_for_plot_cor_combine_melt, aes(x = same_diff, y = value)) +
   geom_jitter(width = 0.3, fill = "#2E236C", size = 1.3, shape = 21, stroke = 0.1, color = "white") +
   geom_boxplot(fill = "#C8ACD6", alpha=0.3, outliers = FALSE) +
   ylim(0, 100) +
-  facet_grid(cohort ~ variable, scales = "free", labeller = labeller(
-    variable = c(
-      "dummy_garmaeva_NC" = "NC Garmaeva *et al.* <br>",
-      "dummy_liang_NC" = "NC Liang *et al.* <br>",
-      "dummy_maqsood_NC" = "NC Maqsood *et al.* <br>",
-      "dummy_shah_NC" = "NC Shah *et al.* <br>"
+  facet_grid(cohort ~ pres_abun, scales = "free", labeller = labeller(
+    pres_abun = c(
+      "presence" = "% shared cotigs (presence)",
+      "abundance" = "% shared cotigs (abundance)"
     ),
     cohort = c(
       "garmaeva" = "Samples Garmaeva *et al.* <br>",
@@ -1024,26 +1130,22 @@ figure_2B <- ggplot(table_for_plot_melt, aes(x = variable, y = value)) +
       "shah" = "Samples Shah *et al.* <br>"
     )
   )) +
-  labs(y = "% shared vOTUs") +
+  labs(tag="b") +
   theme_bw() +
   theme(
     strip.text = ggtext::element_markdown(size=5),
     plot.title = element_text(size = 10),
     axis.title.x = element_blank(),
     axis.title.y = element_text(size = 8),
-    axis.text.x = element_blank(), 
+    axis.text.x = element_text(size = 8), 
     axis.text.y = element_text(size = 6),
-    strip.background = element_rect(fill = "transparent"),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-    axis.ticks.x = element_blank()
+    strip.background = element_rect(fill = "transparent")
   )
 
-
-figure_2С <- ggplot(combined_table_for_plot, aes(x = Timepoint, y = value)) +
+figure_2С <- ggplot(combined_table_for_plot_log, aes(x = Timepoint, y = value)) +
   geom_jitter(width = 0.3, fill = "#2E236C", size = 1.3, shape = 21, stroke = 0.1, color = "white") +
   geom_boxplot(fill = "#C8ACD6", alpha=0.3, outliers = FALSE) +
-  ylim(0, 100) +
+  scale_y_log10() +
   facet_grid(Dataset ~ cohort, scales = "free", labeller = labeller(
     Dataset = c(
       "RPKM" = "Abundance",
@@ -1054,7 +1156,7 @@ figure_2С <- ggplot(combined_table_for_plot, aes(x = Timepoint, y = value)) +
       "liang" = "Samples Liang *et al.* <br>"
     )
   )) +
-  labs(y = "% shared vOTUs") +
+  labs(y = "log10(% shared vOTUs)", tag="c") +
   theme_bw() +
   theme(
     strip.text = ggtext::element_markdown(size=5),
@@ -1066,35 +1168,32 @@ figure_2С <- ggplot(combined_table_for_plot, aes(x = Timepoint, y = value)) +
     strip.background = element_rect(fill = "transparent")
   )
 
+figure_2D <- ggplot(table_for_plot_cor_combine, aes(x=different_cohort_NC_presence, y=same_cohort_NC_presence)) +
+  geom_point(size = 1, aes(color=Type), alpha=0.5) +  # Adjusted point size and added transparency
+  geom_smooth(method=lm, color="black", fill="lightgray", se=TRUE, linewidth=0.5) +  # Use linewidth instead of size
+  scale_color_manual(values=c("#5B84B1FF", "#FC766AFF")) +
+  labs(x = "% shared vOTUs with NCs \n from different studies", y = "% shared vOTUs with NCs \n from same study") +
+  labs(tag="d") +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title.x = element_text(size = 8),
+    axis.title.y = element_text(size = 8),
+    axis.text.x = element_text(size = 6),
+    axis.text.y = element_text(size = 6),
+    legend.position = "bottom"
+  )
+
 
 # Combine the plots using patchwork
-combined_plot2 <- (figure_2A + figure_2B) / figure_2С
+combined_plot2 <- (figure_2A + figure_2B) / (figure_2С + figure_2D)
 
 # Save the combined plot as a PDF
 ggsave("combined_figure2.png", combined_plot2, width = 28/2.54, height = 24/2.54)
 
 #######################################################################################################################################
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Checking viral clusters
+## Checking viral clusters -> supplementary
 #######################################################################################################################################
 negative_controls_all <- meta_all_with_qc_curated$Sample_name[meta_all_with_qc_curated$Type == "Neg_ctrl"]
 viral_clusters <- as.data.frame(read_tsv('/scratch/p309176/amg_paper/raw_data/NCP_studies_vir/VIR_DB/initial_dereplication/NCP_viral_clusters.tsv',
@@ -1155,22 +1254,4 @@ dev.off()
 
 #######################################################################################################################################
 
-### PERMUTATION
-#######################################################################################################################################
-bray_curtis <- read.delim("C:\\Users\\Natal\\Documents\\UMCG\\amg_paper\\data\\bray_dist_matrix_full_rev.tsv")
-meta_working <- read.delim("C:\\Users\\Natal\\Documents\\UMCG\\amg_paper\\data\\meta_working.tsv")
-
-bray_curtis_filt <- bray_curtis[, colnames(bray_curtis) %in% meta_working$Sample_name[meta_working$Type == "Neg_ctrl" &
-                                                                                      meta_working$cohort == "maqsood"]]
-bray_curtis_filt <- bray_curtis_filt[row.names(bray_curtis) %in% meta_working$Sample_name[meta_working$Type == "Neg_ctrl"], ]
-
-
-
-for (i in 1:10){
-  sample_permut = sample(x = )
-}
-
-
-
-#######################################################################################################################################
 
