@@ -1658,6 +1658,359 @@ mod <- find_matching_model_corrected(Fac10_models, "mother_birthcard_parity", "F
 ```
 
 
+# Examine the Relationship Between Factors and Diversity.
+
+
+# Clear Env and Load Libraries and Data
+```{r, warning=FALSE, message = FALSE}
+# clear environment
+rm(list = ls())
+
+# load libraries
+library(kableExtra)
+library(lme4)
+library(lmerTest)
+library(broom)
+library(broom.mixed)
+library(tidyverse)
+library(MOFA2)
+library(here)
+library(MuMIn)
+library(partR2)
+library(patchwork)
+```
+
+## Prep Data
+```{r}
+# load MEFISTO results ----
+MOFAobject <- load_model(here("LLNEXT_microbiome_model_26_01_2024.hdf5"), load_interpol_Z = FALSE)
+
+# prep diversity data----
+## calc diversity (from Trishla's script: LIFELINES_NEXT_gut_microbiome_filtering_CLR_transformation_metaphlan_4_infants.R)
+metadata<-read.csv(file=here("data_meta/LLNEXT_metadata_CLEAN_10_07_2023.txt"), header = TRUE, sep = "\t")
+taxa<-read.csv(file=here("data_sequencing/LLNEXT_metaphlan_4_CLEAN_10_07_2023.txt"), header = TRUE, sep = "\t")
+
+##1) Infants 
+infant_metadata<-metadata[metadata$Type=="infant",]
+infant_taxa<-taxa[row.names(taxa)%in% rownames(infant_metadata),] 
+infant_taxa<-infant_taxa[match(row.names(infant_taxa),row.names(infant_metadata)),]
+infant_NEXT_ID<-infant_metadata %>% select(NEXT_ID)
+infant_taxa_all<-merge(infant_NEXT_ID,infant_taxa, by="row.names" )
+row.names(infant_taxa_all)<-infant_taxa_all$Row.names
+infant_taxa_all$Row.names=NULL
+unique_counts <- sapply(infant_taxa_all, function(x) length(unique(infant_taxa_all$NEXT_ID[x >0.1]))) # Here I am counting the unique elements in the NEXT_ID column where the corresponding value in each column (i.e., x) is greater than the given cut-off. 
+infant_taxa_all_filt <- infant_taxa_all[, unique_counts >= 0.1*length(unique(infant_taxa_all$NEXT_ID)) ] # Setting a 10% cut-off on prevalence 
+infant_taxa_all_filt$NEXT_ID=NULL
+infant_taxa_all_filt$UNCLASSIFIED=NULL
+infant_taxa_all_filt[1:5,1:5]
+
+infant_taxa_SGB_filt=infant_taxa_all_filt[,grep("t__",colnames(infant_taxa_all_filt))]
+
+## taxa with metadata
+data_meta_with_NG_ID <-
+  infant_taxa_SGB_filt %>%
+  mutate(NG_ID = row.names(infant_taxa_SGB_filt)) %>%
+  left_join(., infant_metadata, by = "NG_ID") %>% 
+  select(106:132) %>%
+  rename(sample = NG_ID)
+
+## get factor scores
+z_scores <- as_tibble(MOFAobject@expectations$Z$single_group)
+z_scores$sample <- rownames(MOFAobject@expectations$Z$single_group)
+
+# calc div
+data_diversity <-
+  infant_taxa_SGB_filt %>%
+  mutate(shannon = vegan::diversity(across(), index = "shannon"),
+         richness = specnumber(across())) %>%
+  mutate(NG_ID = row.names(.)) %>%
+  select(NG_ID, shannon, richness) %>%
+  rename(sample = NG_ID)
+
+# join with factors and metadata
+data_diversity_factors <-
+  data_diversity %>%
+  right_join(., z_scores, by = "sample") 
+
+#all data
+data_diversity_factors %>% 
+  left_join(.,data_meta_with_NG_ID, by = "sample")
+
+# load data used for MEFISTO ----
+load(here("data_for_MOFA_26_01_2024.rda"))
+head(data_for_MOFA)
+
+# inverse rank transformation func
+inverse_rank_transform <- function(x) {
+  ranks <- rank(x, na.last = "keep", ties.method = "average") # rank data
+  qnorm((ranks - 0.5) / length(ranks))          # apply transformation
+}
+
+data_meta <- read.csv(file=here("data_meta/LLNEXT_metadata_03_08_2023.txt"), header = TRUE, sep = "\t")
+
+data_meta2<-
+data_meta %>%
+  filter(Type == "infant") %>%
+  select(NG_ID, NEXT_ID, dna_conc, clean_reads_FQ_1, BATCH_NUMBER,Timepoint_categorical) %>% 
+  mutate(across(-c(NG_ID, Timepoint_categorical, NEXT_ID), inverse_rank_transform)) %>%
+  rename(sample = NG_ID)
+
+
+
+# make vector of phenotypes (I'm calling them phenotypes here, but i really mean covariates. why? i'm reusing old code)
+phenotypes_and_covariates <- names(data_meta2)[c(3:5)]
+phenotypes_to_test <- phenotypes_and_covariates
+
+data_factors <-
+  get_factors(MOFAobject, as.data.frame = TRUE, factors = c(1:10)) 
+
+data_to_test <-
+  data_meta2 %>% 
+  left_join(., data_factors, by = "sample") %>%
+  ungroup() %>%
+  left_join(., data_diversity_factors, by = "sample")
+```
+
+## Formulate and Run Models
+```{r}
+# Model Function
+#Combined function to run mixed models. An initial set of associations is run. Then a second set of associations is run, correcting for the most significant phenotype in the initial set of associations. 
+
+# function to run mixed models with stepwise correction 
+run_and_correct_MM <- function(df, factor_name) {
+    
+    # remove NAs from data and select needed data 
+    df_filtered <- df %>%
+      ungroup() %>%
+      filter(factor == factor_name) %>%
+      select(shannon, value, clean_reads_FQ_1, dna_conc, BATCH_NUMBER, Timepoint_categorical, NEXT_ID) %>%
+      mutate(Timepoint_categorical = factor(Timepoint_categorical, levels = c("W2", "M1", "M2","M3","M6","M9","M12"))) %>%
+      filter(if_all(everything(), ~ !is.na(.)))
+    
+    # fit model with phenotype
+    fit1 <- tryCatch({
+      model <- lmerTest::lmer(as.formula(paste("shannon ~", "value + clean_reads_FQ_1 + dna_conc + BATCH_NUMBER + value * Timepoint_categorical + (1|NEXT_ID)")), data = df_filtered, REML = FALSE)
+      list(success=TRUE, model=model, summary=broom::glance(model), tidied=broom::tidy(model) %>% mutate(factor = factor_name))
+    }, error=function(e) {
+      list(success=FALSE, error_message=conditionMessage(e), model=NULL, summary=NULL, tidied=NULL)
+    }, warning = function(w) {
+      list(success=FALSE, warning_message=conditionMessage(w), model=NULL, summary=NULL, tidied=NULL)
+    })
+    
+    # fit model without phenotype
+    fit0 <- tryCatch({
+      model <- lmerTest::lmer(as.formula(paste("shannon ~", "clean_reads_FQ_1 + dna_conc + BATCH_NUMBER + Timepoint_categorical + (1|NEXT_ID)")), data = df_filtered, REML = FALSE)
+      list(success=TRUE, model=model, summary=broom::glance(model), tidied=broom::tidy(model) %>% mutate(factor = factor_name))
+    }, error=function(e) {
+      list(success=FALSE, error_message=conditionMessage(e), model=NULL, summary=NULL, tidied=NULL)
+    }, warning = function(w) {
+      list(success=FALSE, warning_message=conditionMessage(w), model=NULL, summary=NULL, tidied=NULL)
+    })
+    
+    # compare models if both were successfully fitted
+    if (fit1$success && fit0$success) {
+      model_comparison <- anova(fit1$model, fit0$model, test = "LRT")
+      model_comparison_tidied <- broom::tidy(model_comparison) %>% mutate(factor = factor_name)
+    } else {
+      model_comparison <- NULL
+      model_comparison_tidied <- NULL
+    }
+    
+    # store all results 
+    res <- list(fit1=fit1, fit0=fit0, model_comparison=model_comparison, model_comparison_tidied=model_comparison_tidied)
+  
+    return(res)
+}
+
+
+# Run Models
+# Factor 1 ----
+Fac1_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor1")
+Fac2_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor2")
+Fac3_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor3")
+Fac4_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor4")
+Fac5_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor5")
+Fac6_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor6")
+Fac7_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor7")
+Fac8_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor8")
+Fac9_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor9")
+Fac10_models <-run_and_correct_MM(df = data_to_test, factor_name = "Factor10")
+```
+
+## Examine First Three Factors
+```{r}
+# load data phenotypes to add to plots at meta info
+source(here("prep_phenotypes.R")) # script that prep phenotypes
+data_phenos <-
+  phenos %>%
+  rename(sample = NG_ID) %>%
+  select(sample, NEXT_ID, birth_deliverybirthcard_mode_binary,infant_birthcard_feeding_mode_after_birth)
+
+data_to_test <-
+data_to_test %>%
+  left_join(., data_phenos, by = "sample")
+
+
+# Examine Factor 1----
+
+## extract model info
+model_summary <- summary(Fac1_models$fit1$model)
+intercept <- model_summary$coefficients[1,1]
+slope <- model_summary$coefficients[2,1]
+R2 <- r.squaredGLMM(Fac1_models$fit1$model)
+
+# variance of null and test model
+full_residual_var <- attr(VarCorr(Fac1_models$fit1$model), "sc")^2
+reduced_residual_var <- attr(VarCorr(Fac1_models$fit0$model), "sc")^2
+
+# variance explained by the factor
+var_explained <- 1 - (full_residual_var / reduced_residual_var)
+
+
+# plot
+ggplot(data_to_test) +
+  geom_point(aes_string(x = "Factor1", y = "shannon", group = "birth_deliverybirthcard_mode_binary", color = "birth_deliverybirthcard_mode_binary")) +
+  #geom_point() +
+  geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  theme_minimal()
+
+# plot
+
+p_Fac_shannon <-
+  ggplot(data_to_test) +
+  geom_point(aes_string(x = "Factor1", y = "shannon", group = "birth_deliverybirthcard_mode_binary", color = "birth_deliverybirthcard_mode_binary")) +
+  #geom_point() +
+  geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  theme_minimal()
+
+bp_shannon_fac <-
+  ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "VG", "CS"))) +
+  geom_boxplot(aes_string(x = "birth_deliverybirthcard_mode_binary", y = "Factor1", fill = "birth_deliverybirthcard_mode_binary")) +
+  #geom_point() +
+  #geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  coord_flip() +
+  theme_minimal()
+
+bp_bm_shannon <-
+  ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "VG", "CS"))) +
+  geom_boxplot(aes_string(x = "birth_deliverybirthcard_mode_binary", y = "shannon", fill = "birth_deliverybirthcard_mode_binary")) +
+  #geom_point() +
+  #geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  theme_minimal()
+
+bp_shannon_fac + 
+  plot_spacer() + 
+  p_Fac_shannon + 
+  bp_bm_shannon +
+  plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+# Examine Factor 2----
+
+## extract model info
+model_summary <- summary(Fac2_models$fit1$model)
+intercept <- model_summary$coefficients[1,1]
+slope <- model_summary$coefficients[2,1]
+R2 <- r.squaredGLMM(Fac2_models$fit1$model)
+
+# variance of null and test model
+full_residual_var <- attr(VarCorr(Fac2_models$fit1$model), "sc")^2
+reduced_residual_var <- attr(VarCorr(Fac2_models$fit0$model), "sc")^2
+
+# variance explained by the factor
+var_explained <- 1 - (full_residual_var / reduced_residual_var)
+
+# plot
+
+p_Fac_shannon <-
+ggplot(data_to_test) +
+  geom_point(aes_string(x = "Factor2", y = "shannon", group = "birth_deliverybirthcard_mode_binary", color = "birth_deliverybirthcard_mode_binary")) +
+  #geom_point() +
+  geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  theme_minimal()
+
+bp_shannon_fac <-
+ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "VG", "CS"))) +
+  geom_boxplot(aes_string(x = "birth_deliverybirthcard_mode_binary", y = "Factor2", fill = "birth_deliverybirthcard_mode_binary")) +
+  #geom_point() +
+  #geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  coord_flip() +
+  theme_minimal()
+
+bp_bm_shannon <-
+ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "VG", "CS"))) +
+  geom_boxplot(aes_string(x = "birth_deliverybirthcard_mode_binary", y = "shannon", fill = "birth_deliverybirthcard_mode_binary")) +
+  #geom_point() +
+  #geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  theme_minimal()
+
+bp_shannon_fac + 
+  plot_spacer() + 
+  p_Fac_shannon + 
+  bp_bm_shannon +
+  plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+
+# Examine Factor 3----
+
+## extract model info
+model_summary <- summary(Fac3_models$fit1$model)
+intercept <- model_summary$coefficients[1,1]
+slope <- model_summary$coefficients[2,1]
+R2 <- r.squaredGLMM(Fac3_models$fit1$model)
+
+# variance of null and test model
+full_residual_var <- attr(VarCorr(Fac3_models$fit1$model), "sc")^2
+reduced_residual_var <- attr(VarCorr(Fac3_models$fit0$model), "sc")^2
+
+# variance explained by the factor
+var_explained <- 1 - (full_residual_var / reduced_residual_var)
+
+# plot
+ggplot(data_to_test) +
+  geom_point(aes_string(x = "Factor3", y = "shannon", group = "infant_birthcard_feeding_mode_after_birth", color = "infant_birthcard_feeding_mode_after_birth")) +
+  #geom_point() +
+  geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  theme_minimal()
+
+ggplot(data_to_test %>% filter(!is.na(infant_birthcard_feeding_mode_after_birth)) %>% mutate(infant_birthcard_feeding_mode_after_birth = fct_relevel(infant_birthcard_feeding_mode_after_birth, "BF", "MF", "FF"))) +
+  geom_boxplot(aes_string(x = "infant_birthcard_feeding_mode_after_birth", y = "shannon")) +
+  #geom_point() +
+  #geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  theme_minimal()
+
+# plot
+
+p_Fac_shannon <-
+  ggplot(data_to_test %>% filter(!is.na(infant_birthcard_feeding_mode_after_birth)) %>% mutate(infant_birthcard_feeding_mode_after_birth = fct_relevel(infant_birthcard_feeding_mode_after_birth, "BF", "MF", "FF"))) +
+  geom_point(aes_string(x = "Factor3", y = "shannon", color = "infant_birthcard_feeding_mode_after_birth")) +
+  geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  theme_minimal()
+
+bp_shannon_fac <-
+  data_to_test %>% 
+  filter(!is.na(infant_birthcard_feeding_mode_after_birth)) %>% 
+  mutate(infant_birthcard_feeding_mode_after_birth = fct_relevel(infant_birthcard_feeding_mode_after_birth, "BF", "MF", "FF")) %>% 
+  ggplot() +
+  geom_boxplot(aes_string(x = "infant_birthcard_feeding_mode_after_birth", y = "Factor3", fill = "infant_birthcard_feeding_mode_after_birth")) +
+  coord_flip() +
+  theme_minimal()
+
+bp_bm_shannon <-
+  data_to_test %>% 
+  filter(!is.na(infant_birthcard_feeding_mode_after_birth)) %>% 
+  mutate(infant_birthcard_feeding_mode_after_birth = fct_relevel(infant_birthcard_feeding_mode_after_birth, "BF", "MF", "FF")) %>% 
+  ggplot() +
+  geom_boxplot(aes_string(x = "infant_birthcard_feeding_mode_after_birth", y = "shannon", fill = "infant_birthcard_feeding_mode_after_birth")) +
+  #geom_point() +
+  #geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  theme_minimal()
+
+bp_shannon_fac + 
+  plot_spacer() + 
+  p_Fac_shannon + 
+  bp_bm_shannon +
+  plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
 
 
