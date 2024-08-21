@@ -10,6 +10,8 @@ output:
   pdf_document:
     toc: true
     number_sections: true
+editor_options:
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -20,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE, results = 'console')
 # Intro
 This is the downstream plotting and analysis, showcasing the results of the MEFISTO analysis. Factor trajectories are first plotted, then their scatter plots, and finally the weights that most influence each trajectory.
 
-# Load and/or Install Necessary Packages
+## Load and/or Install Necessary Packages
 ```{r, echo=FALSE}
 
 # install and load packages ----
@@ -53,18 +55,18 @@ for (pkg in packages) {
 }
 ```
 
-# Load Needed Data
+## Load Needed Data
 Make sure to change directories if running on your own machine.
 ```{r, warning=FALSE, message=FALSE}
 # load model and data ----
-load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/MOFAobject_untrained_26_01_2024.rda"))
-load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/feature_matrix_26_01_2024.rda"))
-load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/data_for_MOFA_26_01_2024.rda"))
+load(here("MOFAobject_untrained_26_01_2024.rda"))
+load(here("feature_matrix_26_01_2024.rda"))
+load(here("data_for_MOFA_26_01_2024.rda"))
 
-MOFAobject <- load_model(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/LLNEXT_microbiome_model_26_01_2024.hdf5"), load_interpol_Z = FALSE)
+MOFAobject <- load_model(here("LLNEXT_microbiome_model_26_01_2024.hdf5"), load_interpol_Z = FALSE)
 ```
 
-# Plot Variance Explained By MEFISTO Model
+## Plot Variance Explained By MEFISTO Model
 Here I am plotting total variance explained by all factors together and separately.
 ```{r}
 # plot variance explained ----
@@ -107,7 +109,7 @@ p_dimensions_reduced <-
 plot_factors(MOFAobject, color_by = "time")
 ```
 
-# Prep data to look at factor trajectories
+## Prep data to look at factor trajectories
 Here factor trajectories are plotting along the most significant hit from the post-hoc association analysis of high priority phenotypes. (N.B. I excluded some phenotypes that were overlapping. Explained later in text.)
 ```{r}
 # extract NG_IDs and time points (N.B. time here is numeric)
@@ -141,11 +143,14 @@ data <-
   mutate(birth_deliverybirthcard_mode_binary = as.factor(birth_deliverybirthcard_mode_binary))
 ```
 
-# Plot Factors with Significant Phenotype Associations.
+## Plot Factors with Significant Phenotype Associations.
 These factors had significant associations with phenotypes in association_analysis.
 All trajectories are amalgamated in the same plot at the end of this code chunk.
 ```{r}
 # fac 1 ----
+#colors
+col_vec <- c("#FFC20A", "#0C7BDC")
+col_vec2 <- c("#FFC20A", "#0C7BDC","#004D40")
 fac1_colors <- c("#fdb863", "#8073ac") # https://loading.io/color/feature/PuOr-10/ (nice selection of palettes)
 
 fac1_trajectory_sp <-
@@ -153,7 +158,7 @@ data %>%
   filter(birth_deliverybirthcard_mode_binary != "nan") %>%
   ggplot(aes(x = time, y = Factor1, group = birth_deliverybirthcard_mode_binary, color = birth_deliverybirthcard_mode_binary)) +
   geom_point(size = 0.5) +
-  scale_color_manual(values = fac1_colors) +
+  scale_color_manual(values = col_vec) +
   stat_summary(
     fun = mean,   # calc mean
     geom = "line",  
@@ -169,9 +174,9 @@ fac1_trajectory_bp <-
 data %>%
   filter(birth_deliverybirthcard_mode_binary != "nan") %>%
   ggplot(aes(x = birth_deliverybirthcard_mode_binary, y = Factor1, group = birth_deliverybirthcard_mode_binary, color = birth_deliverybirthcard_mode_binary, fill = birth_deliverybirthcard_mode_binary, alpha = 0.5)) +
-  geom_boxplot(fill = fac1_colors) +
-  scale_color_manual(values = fac1_colors) +
-  scale_fill_manual(values = fac1_colors) +
+  geom_boxplot(fill = col_vec) +
+  scale_color_manual(values = col_vec) +
+  scale_fill_manual(values = col_vec) +
   theme_void() +
   labs(fill = "birth mode",
        y = "Factor 1 Scores",
@@ -186,7 +191,7 @@ fac2_trajectory_sp <-
   filter(birth_deliverybirthcard_mode_binary != "nan") %>%
   ggplot(aes(x = time, y = Factor2, group = birth_deliverybirthcard_mode_binary, color = birth_deliverybirthcard_mode_binary)) +
   geom_point(size = 0.5) +
-  scale_color_manual(values = fac1_colors) +
+  scale_color_manual(values = col_vec) +
   stat_summary(
     fun = mean,   
     geom = "line",  
@@ -203,8 +208,8 @@ fac2_trajectory_bp <-
   filter(birth_deliverybirthcard_place_delivery_simple != "nan") %>%
   ggplot(aes(x = birth_deliverybirthcard_place_delivery_simple, y = Factor2, group = birth_deliverybirthcard_place_delivery_simple, color = birth_deliverybirthcard_place_delivery_simple, fill = birth_deliverybirthcard_place_delivery_simple, alpha = 0.5)) +
   geom_boxplot(fill = fac1_colors) +
-  scale_color_manual(values = fac1_colors) +
-  scale_fill_manual(values = fac1_colors) +
+  scale_color_manual(values = col_vec) +
+  scale_fill_manual(values = col_vec) +
   theme_void() +
   labs(fill = "birth place",
        y = "Factor 2 Scores",
@@ -222,7 +227,7 @@ data %>%
   mutate(infant_birthcard_feeding_mode_after_birth = factor(infant_birthcard_feeding_mode_after_birth, levels = c("BF", "MF", "FF") )) %>%
   ggplot(aes(x = time, y = Factor3, group = infant_birthcard_feeding_mode_after_birth, color = infant_birthcard_feeding_mode_after_birth)) +
   geom_point(size = 0.5) +
-  scale_color_manual(values = fac3_colors) +
+  scale_color_manual(values = col_vec2) +
   stat_summary(
     fun = mean,  
     geom = "line",  
@@ -239,8 +244,8 @@ fac3_trajectory_bp <-
   filter(infant_birthcard_feeding_mode_after_birth != "nan") %>%
   mutate(infant_birthcard_feeding_mode_after_birth = factor(infant_birthcard_feeding_mode_after_birth, levels = c("BF", "MF", "FF") )) %>%
   ggplot(aes(x = infant_birthcard_feeding_mode_after_birth, y = Factor3, group = infant_birthcard_feeding_mode_after_birth, color = infant_birthcard_feeding_mode_after_birth, fill = infant_birthcard_feeding_mode_after_birth, alpha = 0.5)) +
-  geom_boxplot(fill = fac3_colors) +
-  scale_color_manual(values = fac3_colors) +
+  geom_boxplot(fill = col_vec2) +
+  scale_color_manual(values = col_vec2) +
   #scale_fill_manual(values = fac3_colors) +
   theme_void() +
   #labs(fill = "feeding mode",
@@ -463,7 +468,7 @@ width_mm <- (height_mm * aspect_ratio) - (indentation_mm * aspect_ratio)
 ggsave("trajectories_16July2024.pdf", plot = p_all_trajects, width = width_mm, height = height_mm, units = "mm")
 ```
 
-# Plot scatter plots of factor values
+## Plot scatter plots of factor values
 Here we are looking at our data in latent space, as in a PCA.
 All individual plots appear together at end.
 
@@ -706,7 +711,7 @@ width_mm <- (height_mm * aspect_ratio) - (indentation_mm * aspect_ratio)
 ggsave("scatterplots_16July2024.pdf", plot = p_scatters, width = width_mm, height = height_mm, units = "mm")
 ```
 
-# plot weights 
+## plot weights 
 These are the species that contribute the most to variation explained across each factor.
 
 ```{r, warning=FALSE}
@@ -722,7 +727,7 @@ features_metadata(MOFAobject) <- features_metadata(MOFAobject) %>%
            remove = FALSE)
 
 # Fac 1 weights----
-fac1_colors_weights  <- c("#fdb863", "#8073ac")
+col_vec <- c("#FFC20A", "#0C7BDC")
 
 df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 1) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
@@ -764,7 +769,7 @@ fac1_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors_weights) +
+  scale_fill_manual(values = col_vec) +
   ylab("Weight (Factor 1)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -774,8 +779,6 @@ fac1_weights <-
 fac1_weights
 
 # Fac 2 weights----
-fac2_colors_weights  <- c("#fdb863", "#8073ac")
-
 df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 2) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
 
@@ -816,7 +819,7 @@ fac2_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors_weights) +
+  scale_fill_manual(values = col_vec) +
   ylab("Weight (Factor 2)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -826,6 +829,8 @@ fac2_weights <-
 fac2_weights
 
 # fac3 weights ----
+col_vec3 <- c("#FFC20A","#004D40")
+
 df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 3) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
 
@@ -866,7 +871,7 @@ fac3_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors_weights) +
+  scale_fill_manual(values = col_vec3) +
   ylab("Weight (Factor 3)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -877,6 +882,7 @@ fac3_weights
 
 # fac4 weights ----
 fac4_colors_weights  <- c("#fdb863", "#8073ac")
+
 
 df_weights1 <- get_weights(MOFAobject, as.data.frame = T, factors = 4) %>%
   left_join(., features_metadata(MOFAobject), by = c("feature", "view"))
@@ -918,7 +924,7 @@ fac4_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors_weights) +
+  scale_fill_manual(values = fac4_colors_weights) +
   ylab("Weight (Factor 4)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -970,7 +976,7 @@ fac5_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors_weights) +
+  scale_fill_manual(values = col_vec) +
   ylab("Weight (Factor 5)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -1020,7 +1026,7 @@ fac6_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors_weights) +
+  scale_fill_manual(values = col_vec) +
   ylab("Weight (Factor 6)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -1070,7 +1076,7 @@ fac8_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors_weights) +
+  scale_fill_manual(values = col_vec) +
   ylab("Weight (Factor 8)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -1120,7 +1126,7 @@ fac10_weights <-
   ggtitle("Influence of Species Across Factor") +
   geom_point(data = filter(df_weights1, species %in% df_top$species),
              aes(x = species, y = value), inherit.aes = FALSE, alpha = 0.3)  +
-  scale_fill_manual(values = fac1_colors_weights) +
+  scale_fill_manual(values = col_vec) +
   ylab("Weight (Factor 10)") +
   theme_classic() +
   theme(#plot.title = element_text(hjust = 0.5),
@@ -1130,24 +1136,127 @@ fac10_weights <-
 fac10_weights
 
 
-
+# plot all wieghts
 p_weights <- fac1_weights + fac2_weights + fac3_weights + fac4_weights + fac5_weights + fac6_weights + fac8_weights + fac10_weights
 
+# plots wieghts factors 1 through 3
+p_weights_v2 <- fac1_weights + fac2_weights + fac3_weights
+
 # save plot
-# set dims
-indentation_mm <- 15  # in mm
-height_mm <- 297 
-
-# define the aspect ratio 
-aspect_ratio <- 16/9
-
-# calc width
-width_mm <- (height_mm * aspect_ratio) - (indentation_mm * aspect_ratio)
-
-
-# save as .pdf
-ggsave("weights_16July2024.pdf", plot = p_weights, width = width_mm, height = height_mm, units = "mm")
+ggsave("weights.png", plot = p_weights_v2, width = 15, height = 5)
 ```
+
+
+## Plot Factor One Through Three as Boxplots
+```{r}
+# fac 1 ----
+col_vec <- c("#FFC20A", "#0C7BDC")
+col_vec2 <- c("#FFC20A", "#0C7BDC","#004D40")
+
+fac1_trajectory_sp <-
+data %>% 
+  filter(birth_deliverybirthcard_mode_binary != "nan") %>%
+  mutate(
+    time = factor(time, levels = c(0.5, 1, 2, 3, 6, 9, 12)) 
+  ) %>%
+  ggplot(aes(x = time, y = Factor1, group = interaction(time, birth_deliverybirthcard_mode_binary), color = birth_deliverybirthcard_mode_binary, fill = birth_deliverybirthcard_mode_binary)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.7), size = 0.3) +
+  geom_boxplot(alpha = 0.4, position = position_dodge(width = 0.7), width = 0.6,outlier.shape = NA) +
+  scale_color_manual(values = col_vec) +
+  scale_fill_manual(values = col_vec) +
+  stat_summary(
+    fun = mean,   # calc mean
+    geom = "line",  
+    aes(group = birth_deliverybirthcard_mode_binary),  # draw lines for each group
+    size = 0.75,
+    alpha = 0.4
+  ) +
+  scale_x_discrete(
+    labels = c("W2", "M1", "M2", "M3", "M6", "M9", "M12")  
+  ) +
+  theme_classic() +
+  xlab("time (month)") +
+  ylab("factor 1 score") +
+  labs(fill = "birth mode") +
+  guides(color = "none")  
+
+# Assuming your plot is stored in a variable called p
+saveRDS(fac1_trajectory_sp, file = "fac1_trajectory_sp.rds")
+
+
+# fac 2 ----
+fac2_trajectory_sp <-
+data %>% 
+  filter(birth_deliverybirthcard_mode_binary != "nan") %>%
+  mutate(
+    time = factor(time, levels = c(0.5, 1, 2, 3, 6, 9, 12))  
+  ) %>%
+  ggplot(aes(x = time, y = Factor2, group = interaction(time, birth_deliverybirthcard_mode_binary), color = birth_deliverybirthcard_mode_binary, fill = birth_deliverybirthcard_mode_binary)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.7), size = 0.3) +
+  geom_boxplot(alpha = 0.4, position = position_dodge(width = 0.7), width = 0.6,outlier.shape = NA) +
+  scale_color_manual(values = col_vec) +
+  scale_fill_manual(values = col_vec) +
+  stat_summary(
+    fun = mean,   # calc mean
+    geom = "line",  
+    aes(group = birth_deliverybirthcard_mode_binary),  # draw lines for each group
+    size = 0.75,
+    alpha = 0.4
+  ) +
+  scale_x_discrete(
+    labels = c("W2", "M1", "M2", "M3", "M6", "M9", "M12")  
+  ) +
+  theme_classic() +
+  xlab("time (month)") +
+  ylab("factor 2 score") +
+  labs(fill = "birth mode") +
+  guides(color = "none")  
+
+saveRDS(fac2_trajectory_sp, file = "fac2_trajectory_sp.rds")
+
+# fac 3 ----
+fac3_trajectory_sp <-
+data %>%
+  filter(infant_birthcard_feeding_mode_after_birth != "nan") %>%
+  mutate(
+    infant_birthcard_feeding_mode_after_birth = factor(infant_birthcard_feeding_mode_after_birth, levels = c("BF", "MF", "FF")),
+    time = factor(time, levels = c(0.5, 1, 2, 3, 6, 9, 12)) 
+  ) %>%
+  mutate(infant_birthcard_feeding_mode_after_birth = factor(infant_birthcard_feeding_mode_after_birth, levels = c("BF", "MF", "FF") )) %>%
+  ggplot(aes(x = time, y = Factor3, group = interaction(time, infant_birthcard_feeding_mode_after_birth), color = infant_birthcard_feeding_mode_after_birth, fill  = infant_birthcard_feeding_mode_after_birth)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.7), size = 0.3) +
+  geom_boxplot(alpha = 0.4, position = position_dodge(width = 0.7), width = 0.6, outlier.shape = NA) +
+  scale_color_manual(values = col_vec2) +
+  scale_fill_manual(values = col_vec2) +
+  stat_summary(
+    fun = mean,
+    geom = "line",
+    aes(group = infant_birthcard_feeding_mode_after_birth),
+    size = 0.75,
+    alpha = 0.4
+  ) +
+  scale_x_discrete(
+    labels = c("W2", "M1", "M2", "M3", "M6", "M9", "M12")  
+  ) +
+  labs(fill = "feeding mode",
+       y = "Factor 3 Scores",
+       x = "time (month)") +
+  theme_classic() +
+  guides(color = "none")  
+
+saveRDS(fac3_trajectory_sp, file = "fac3_trajectory_sp.rds")
+
+
+trajectories_1_to_3 <- fac1_trajectory_sp + fac2_trajectory_sp + fac3_trajectory_sp
+
+# save plot
+ggsave("trajectories_1_to_3.png", trajectories_1_to_3, width = 15 , height = 5 , dpi = 600)
+
+fac1_trajectory_sp <- readRDS("fac1_trajectory_sp.rds")
+fac2_trajectory_sp <- readRDS("fac2_trajectory_sp.rds")
+fac3_trajectory_sp <- readRDS("fac3_trajectory_sp.rds")
+```
+
 
 # Mixed Modelling: factors ~ phenotypes
 The purpose of this analysis is to associate latent variables (i.e, factors) with phenotypes. This was employed in a mixed modelling strategy where factor scores were associated with high priority phenotypes from LL-NEXT. I did remove three phenotypes (birth_delivery_mode_complex, birth_delivery_mode_simple, infant_ffq_ever_never_breastfed) because they  are likely co-correlated with other phenotypes, namely delivery_mode_binary and infant_birthcard_feeding_mode_after_birth. 
@@ -1160,7 +1269,7 @@ The goal is to control for confounding effects driven by the strongest phenotype
 Except on factor 10, the execution of this strategy did not alter the most strongly associated phenotype.  
 
 
-# Clear Env and Load Libraries and Data
+## Clear Env and Load Libraries and Data
 ```{r, warning=FALSE, message = FALSE}
 # clear environment
 rm(list = ls())
@@ -1174,23 +1283,24 @@ library(broom.mixed)
 library(tidyverse)
 library(MOFA2)
 library(here)
+library(openxlsx)
 
 # load data used for MEFISTO ----
-load(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/data_for_MOFA_26_01_2024.rda"))
+load(here("data_for_MOFA_26_01_2024.rda"))
 head(data_for_MOFA)
 
 # load data phenotypes
-source(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/prep_phenotypes.R")) # script that prep phenotypes
+source(here("prep_phenotypes.R")) # script that prep phenotypes
 data_phenos <- 
   phenos %>%
   rename(sample = NG_ID)
 head(data_phenos)
 
 # load MEFISTO results ----
-MOFAobject <- load_model(here("run_10FAC_BAC_NOGRP_14:59:36_26_01_2024_copy/LLNEXT_microbiome_model_26_01_2024.hdf5"), load_interpol_Z = FALSE)
+MOFAobject <- load_model(here("LLNEXT_microbiome_model_26_01_2024.hdf5"), load_interpol_Z = FALSE)
 ```
 
-# Tidy Data for Modelling
+## Tidy Data for Modelling
 ```{r}
 # make vector of phenotypes---
 phenotypes_and_covariates <- names(data_phenos)[c(3:19)]
@@ -1206,7 +1316,7 @@ data_to_test <-
 ```
 
 
-# Model Function
+## Model Function
 Combined function to run mixed models. An initial set of associations is run. Then a second set of associations is run, correcting for the most significant phenotype in the initial set of associations. 
 ```{r}
 # function to run mixed models with stepwise correction 
@@ -1338,7 +1448,7 @@ summarize_model_comparisons <- function(results) {
 }
 ```
 
-# Run Models
+## Run Models
 This is fast and can be done on a personal machine.
 ```{r}
 # Factor 1 ----
@@ -1454,7 +1564,7 @@ kable(Fac10_combined_summary, format = "html", table.attr = "class='table table-
 ```
 
 
-# Table of Results
+## Table of Results
 ```{r}
 # put it all together
 Fac_summaries_vec <- paste0("Fac", 1:10, "_combined_summary")
@@ -1511,9 +1621,9 @@ kable(final_table, "latex", booktabs = TRUE) %>%
   pack_rows("Factor10", 27, 29, bold = TRUE, italic = TRUE)
 ```
 
-# Examine Top Associations Per Factor
+## Examine Top Associations Per Factor
 ```{r}
-# helper functionto search through models
+# helper function to search through models
 find_matching_model_initial <- function(model_results, search_phenotype, search_factor) {
   for (i in seq_along(model_results[[1]])) {
     # access the model comparison tidied tibble
@@ -1527,44 +1637,47 @@ find_matching_model_initial <- function(model_results, search_phenotype, search_
       if (nrow(match) > 0) {
         return(
           list(tib = 
-          model_results[[1]][[i]]$fit1$tidied %>%
-          select(factor, term, df, estimate, p.value) %>%
-            mutate(term = str_replace_all(term, "Timepoint_categorical", "")) %>%
-            mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
-             str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
-             str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
-             str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
-             str_replace_all("mother_birthcard_parity", "parity") %>%
-             str_replace_all("family_pets_any", "pets") %>%
-             str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
-             str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
-             str_replace_all("infant_health_food_allergy", "food_allergy") %>%
-             str_replace_all("infant_misc_sex", "sex") %>%
-             str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
-             str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
-             str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")),
-          
-          table =  model_results[[1]][[i]]$fit1$tidied %>%
-          select(factor, term, df, estimate, p.value) %>%
-            mutate(term = str_replace_all(term, "Timepoint_categorical", "")) %>%
-            mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
-             str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
-             str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
-             str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
-             str_replace_all("mother_birthcard_parity", "parity") %>%
-             str_replace_all("family_pets_any", "pets") %>%
-             str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
-             str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
-             str_replace_all("infant_health_food_allergy", "food_allergy") %>%
-             str_replace_all("infant_misc_sex", "sex") %>%
-             str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
-             str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
-             str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")) %>% 
-            filter(!term %in% c("sd__(Intercept)", "sd__Observation")) %>%
-            kable(format = "latex", caption = "Model Results", booktabs = TRUE) %>%
-            kable_styling(latex_options = c( "hold_position"))
+                 model_results[[1]][[i]]$fit1$tidied %>%
+                 select(factor, term, df, estimate, std.error, p.value) %>%
+                 mutate(term = str_replace_all(term, "Timepoint_categorical", "")) %>%
+                 filter(term != "sd__(Intercept)") %>%
+                 filter(term != "sd__Observation"),
+                 # mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
+                 #          str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
+                 #          str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
+                 #          str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
+                 #          str_replace_all("mother_birthcard_parity", "parity") %>%
+                 #          str_replace_all("family_pets_any", "pets") %>%
+                 #          str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
+                 #          str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
+                 #          str_replace_all("infant_health_food_allergy", "food_allergy") %>%
+                 #          str_replace_all("infant_misc_sex", "sex") %>%
+                 #          str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
+                 #          str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
+                 #          str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")
+               
+               
+               table =  model_results[[1]][[i]]$fit1$tidied %>%
+                 select(factor, term, df, estimate, p.value) %>%
+                 mutate(term = str_replace_all(term, "Timepoint_categorical", "")) %>%
+                 # mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
+                 #          str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
+                 #          str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
+                 #          str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
+                 #          str_replace_all("mother_birthcard_parity", "parity") %>%
+                 #          str_replace_all("family_pets_any", "pets") %>%
+                 #          str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
+                 #          str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
+                 #          str_replace_all("infant_health_food_allergy", "food_allergy") %>%
+                 #          str_replace_all("infant_misc_sex", "sex") %>%
+                 #          str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
+                 #          str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
+                 #          str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")) %>% 
+                 filter(!term %in% c("sd__(Intercept)", "sd__Observation")) 
+                 # kable(format = "latex", caption = "Model Results", booktabs = TRUE) %>%
+                 # kable_styling(latex_options = c( "hold_position"))
           )
-  )
+        )
         #return(model_results[[1]][[i]])
       }
     }
@@ -1586,21 +1699,23 @@ find_matching_model_corrected <- function(model_results, search_phenotype, searc
       if (nrow(match) > 0) { return(
           list(tib = 
           model_results[[2]][[i]]$fit1$tidied %>%
-          select(factor, term, df, estimate, p.value) %>%
+          select(factor, term, df, estimate, std.error, p.value) %>%
             mutate(term = str_replace_all(term, "Timepoint_categorical", "")) %>%
-            mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
-             str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
-             str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
-             str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
-             str_replace_all("mother_birthcard_parity", "parity") %>%
-             str_replace_all("family_pets_any", "pets") %>%
-             str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
-             str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
-             str_replace_all("infant_health_food_allergy", "food_allergy") %>%
-             str_replace_all("infant_misc_sex", "sex") %>%
-             str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
-             str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
-             str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")),
+            filter(term != "sd__(Intercept)") %>%
+            filter(term != "sd__Observation"),
+            # mutate(term = str_replace_all(term, "birth_birthcard_total_duration_delivery_min", "delivery_duration") %>%
+            #  str_replace_all("birth_deliverybirthcard_mode_binary", "birth_mode") %>%
+            #  str_replace_all("infant_birthcard_feeding_mode_after_birth", "feeding_mode") %>%
+            #  str_replace_all("birth_deliverybirthcard_place_delivery_simple", "delivery_place") %>%
+            #  str_replace_all("mother_birthcard_parity", "parity") %>%
+            #  str_replace_all("family_pets_any", "pets") %>%
+            #  str_replace_all("infant_health_eczema_diagnosis_strict", "eczema") %>%
+            #  str_replace_all("infant_growth_birth_weight_kg", "birth_weight") %>%
+            #  str_replace_all("infant_health_food_allergy", "food_allergy") %>%
+            #  str_replace_all("infant_misc_sex", "sex") %>%
+            #  str_replace_all("mother_birthcard_age_at_delivery", "mother_age") %>%
+            #  str_replace_all("mother_birthcard_duration_water_broken_min", "water_broken_duration") %>%
+            #  str_replace_all("mother_health_smoked_one_whole_year_p18", "smoked")),
           
           table =  model_results[[2]][[i]]$fit1$tidied %>%
           select(factor, term, df, estimate, p.value) %>%
@@ -1631,37 +1746,39 @@ find_matching_model_corrected <- function(model_results, search_phenotype, searc
 }
 
 ## Factor 1
-mod <- find_matching_model_initial(Fac1_models, "birth_deliverybirthcard_mode_binary", "Factor1")
+mod_Fac1 <- find_matching_model_initial(Fac1_models, "birth_deliverybirthcard_mode_binary", "Factor1")
 
 ## Factor 2
-mod <- find_matching_model_initial(Fac2_models, "birth_deliverybirthcard_mode_binary", "Factor2")
+mod_Fac2 <- find_matching_model_initial(Fac2_models, "birth_deliverybirthcard_mode_binary", "Factor2")
 
 ## Factor 3
-mod <- find_matching_model_initial(Fac3_models, "infant_birthcard_feeding_mode_after_birth", "Factor3")
+mod_Fac3 <- find_matching_model_initial(Fac3_models, "infant_birthcard_feeding_mode_after_birth", "Factor3")
 
 ## Factor 4
-mod <- find_matching_model_initial(Fac4_models, "mother_health_smoked_one_whole_year_p18", "Factor4")
+mod_Fac4 <- find_matching_model_initial(Fac4_models, "mother_health_smoked_one_whole_year_p18", "Factor4")
 
 ## Factor 5
-mod <- find_matching_model_initial(Fac5_models, "birth_deliverybirthcard_place_delivery_simple", "Factor5")
+mod_Fac5 <- find_matching_model_initial(Fac5_models, "birth_deliverybirthcard_place_delivery_simple", "Factor5")
 
 ## Factor 6
-mod <- find_matching_model_initial(Fac6_models, "infant_birthcard_feeding_mode_after_birth", "Factor6")
+mod_Fac6 <- find_matching_model_initial(Fac6_models, "infant_birthcard_feeding_mode_after_birth", "Factor6")
 
 ## Factor 8
-mod <- find_matching_model_initial(Fac8_models, "infant_birthcard_feeding_mode_after_birth", "Factor8")
+mod_Fac8 <- find_matching_model_initial(Fac8_models, "infant_birthcard_feeding_mode_after_birth", "Factor8")
 
 ## Factor 10
-mod <- find_matching_model_corrected(Fac10_models, "mother_birthcard_parity", "Factor10") # this is where the corrected phenotype had a lower p-value the the most significant association in the first series of models.
+mod_Fac10 <- find_matching_model_corrected(Fac10_models, "mother_birthcard_parity", "Factor10") # this is where the corrected phenotype had a lower p-value the the most significant association in the first series of models.
 
 
+model_table <- bind_rows(mod_Fac1$tib, mod_Fac2$tib, mod_Fac3$tib, mod_Fac4$tib, mod_Fac5$tib, mod_Fac6$tib, mod_Fac8$tib, mod_Fac10$tib) %>% print(n = nrow(.))
+
+write.xlsx(model_table, file = "model_results_per_factor.xlsx", asTable = TRUE)
 ```
-
 
 # Examine the Relationship Between Factors and Diversity.
 
 
-# Clear Env and Load Libraries and Data
+## Clear Env and Load Libraries and Data
 ```{r, warning=FALSE, message = FALSE}
 # clear environment
 rm(list = ls())
@@ -1850,7 +1967,6 @@ data_to_test <-
 data_to_test %>%
   left_join(., data_phenos, by = "sample")
 
-
 # Examine Factor 1----
 
 ## extract model info
@@ -1858,6 +1974,7 @@ model_summary <- summary(Fac1_models$fit1$model)
 intercept <- model_summary$coefficients[1,1]
 slope <- model_summary$coefficients[2,1]
 R2 <- r.squaredGLMM(Fac1_models$fit1$model)
+pval <- Fac1_models$model_comparison_tidied$p.value[2]
 
 # variance of null and test model
 full_residual_var <- attr(VarCorr(Fac1_models$fit1$model), "sc")^2
@@ -1866,38 +1983,46 @@ reduced_residual_var <- attr(VarCorr(Fac1_models$fit0$model), "sc")^2
 # variance explained by the factor
 var_explained <- 1 - (full_residual_var / reduced_residual_var)
 
+#colors
+col_vec <- c("#FFC20A", "#0C7BDC")
+col_vec2 <- c("#FFC20A", "#0C7BDC","#004D40")
 
 # plot
-ggplot(data_to_test) +
-  geom_point(aes_string(x = "Factor1", y = "shannon", group = "birth_deliverybirthcard_mode_binary", color = "birth_deliverybirthcard_mode_binary")) +
-  #geom_point() +
-  geom_abline(slope = slope, intercept = intercept, color = "blue") +
-  theme_minimal()
-
-# plot
-
 p_Fac_shannon <-
-  ggplot(data_to_test) +
+  ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary))) +
   geom_point(aes_string(x = "Factor1", y = "shannon", group = "birth_deliverybirthcard_mode_binary", color = "birth_deliverybirthcard_mode_binary")) +
-  #geom_point() +
-  geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  scale_color_manual(values=col_vec) +
+ annotate("text", x = -Inf, y = Inf, 
+           label = bquote(R^2 == .(round(var_explained, 3)) ~ ", " ~ p == .(format.pval(pval, digits = 3))),
+           hjust = -0.1, vjust = 1, size = 4, color = "black") +
+  geom_abline(slope = slope, intercept = intercept, color = "black") +
   theme_minimal()
+
+p_Fac_shannon
 
 bp_shannon_fac <-
-  ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "VG", "CS"))) +
+  ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "CS", "VG"))) +
   geom_boxplot(aes_string(x = "birth_deliverybirthcard_mode_binary", y = "Factor1", fill = "birth_deliverybirthcard_mode_binary")) +
   #geom_point() +
   #geom_abline(slope = slope, intercept = intercept, color = "blue") +
   coord_flip() +
-  theme_minimal()
+  scale_fill_manual(values = col_vec) +
+  theme_minimal() +
+  labs(x = NULL)
+
+bp_shannon_fac
+
 
 bp_bm_shannon <-
-  ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "VG", "CS"))) +
+  ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "CS", "VG"))) +
   geom_boxplot(aes_string(x = "birth_deliverybirthcard_mode_binary", y = "shannon", fill = "birth_deliverybirthcard_mode_binary")) +
+  scale_fill_manual(values = col_vec) +
   #geom_point() +
   #geom_abline(slope = slope, intercept = intercept, color = "blue") +
-  theme_minimal()
+  theme_minimal() 
+      
 
+fac1_div_fac <-
 bp_shannon_fac + 
   plot_spacer() + 
   p_Fac_shannon + 
@@ -1911,6 +2036,7 @@ model_summary <- summary(Fac2_models$fit1$model)
 intercept <- model_summary$coefficients[1,1]
 slope <- model_summary$coefficients[2,1]
 R2 <- r.squaredGLMM(Fac2_models$fit1$model)
+pval <- Fac1_models$model_comparison_tidied$p.value[2]
 
 # variance of null and test model
 full_residual_var <- attr(VarCorr(Fac2_models$fit1$model), "sc")^2
@@ -1922,27 +2048,35 @@ var_explained <- 1 - (full_residual_var / reduced_residual_var)
 # plot
 
 p_Fac_shannon <-
-ggplot(data_to_test) +
+ggplot(data_to_test%>% filter(!is.na(birth_deliverybirthcard_mode_binary))) +
   geom_point(aes_string(x = "Factor2", y = "shannon", group = "birth_deliverybirthcard_mode_binary", color = "birth_deliverybirthcard_mode_binary")) +
-  #geom_point() +
-  geom_abline(slope = slope, intercept = intercept, color = "blue") +
+   scale_color_manual(values=col_vec) +
+ annotate("text", x = -Inf, y = Inf, 
+           label = bquote(R^2 == .(round(var_explained, 3)) ~ ", " ~ p == .(format.pval(pval, digits = 3))),
+           hjust = -0.1, vjust = 1, size = 4, color = "black") +
+  geom_abline(slope = slope, intercept = intercept, color = "black") +
+  geom_abline(slope = slope, intercept = intercept, color = "black") +
   theme_minimal()
 
 bp_shannon_fac <-
-ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "VG", "CS"))) +
+ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "CS", "VG"))) +
   geom_boxplot(aes_string(x = "birth_deliverybirthcard_mode_binary", y = "Factor2", fill = "birth_deliverybirthcard_mode_binary")) +
   #geom_point() +
   #geom_abline(slope = slope, intercept = intercept, color = "blue") +
+  scale_fill_manual(values = col_vec) +
   coord_flip() +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = NULL)
 
 bp_bm_shannon <-
-ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "VG", "CS"))) +
+ggplot(data_to_test %>% filter(!is.na(birth_deliverybirthcard_mode_binary)) %>% mutate(birth_deliverybirthcard_mode_binary = fct_relevel(birth_deliverybirthcard_mode_binary, "CS", "VG"))) +
   geom_boxplot(aes_string(x = "birth_deliverybirthcard_mode_binary", y = "shannon", fill = "birth_deliverybirthcard_mode_binary")) +
+  scale_fill_manual(values = col_vec) +
   #geom_point() +
   #geom_abline(slope = slope, intercept = intercept, color = "blue") +
   theme_minimal()
 
+fac2_div_fac <-
 bp_shannon_fac + 
   plot_spacer() + 
   p_Fac_shannon + 
@@ -1957,6 +2091,7 @@ model_summary <- summary(Fac3_models$fit1$model)
 intercept <- model_summary$coefficients[1,1]
 slope <- model_summary$coefficients[2,1]
 R2 <- r.squaredGLMM(Fac3_models$fit1$model)
+pval <- Fac1_models$model_comparison_tidied$p.value[2]
 
 # variance of null and test model
 full_residual_var <- attr(VarCorr(Fac3_models$fit1$model), "sc")^2
@@ -1966,24 +2101,15 @@ reduced_residual_var <- attr(VarCorr(Fac3_models$fit0$model), "sc")^2
 var_explained <- 1 - (full_residual_var / reduced_residual_var)
 
 # plot
-ggplot(data_to_test) +
-  geom_point(aes_string(x = "Factor3", y = "shannon", group = "infant_birthcard_feeding_mode_after_birth", color = "infant_birthcard_feeding_mode_after_birth")) +
-  #geom_point() +
-  geom_abline(slope = slope, intercept = intercept, color = "blue") +
-  theme_minimal()
-
-ggplot(data_to_test %>% filter(!is.na(infant_birthcard_feeding_mode_after_birth)) %>% mutate(infant_birthcard_feeding_mode_after_birth = fct_relevel(infant_birthcard_feeding_mode_after_birth, "BF", "MF", "FF"))) +
-  geom_boxplot(aes_string(x = "infant_birthcard_feeding_mode_after_birth", y = "shannon")) +
-  #geom_point() +
-  #geom_abline(slope = slope, intercept = intercept, color = "blue") +
-  theme_minimal()
-
-# plot
 
 p_Fac_shannon <-
   ggplot(data_to_test %>% filter(!is.na(infant_birthcard_feeding_mode_after_birth)) %>% mutate(infant_birthcard_feeding_mode_after_birth = fct_relevel(infant_birthcard_feeding_mode_after_birth, "BF", "MF", "FF"))) +
   geom_point(aes_string(x = "Factor3", y = "shannon", color = "infant_birthcard_feeding_mode_after_birth")) +
-  geom_abline(slope = slope, intercept = intercept, color = "blue") +
+   annotate("text", x = -Inf, y = Inf, 
+           label = bquote(R^2 == .(round(var_explained, 3)) ~ ", " ~ p == .(format.pval(pval, digits = 3))),
+           hjust = -0.1, vjust = 1, size = 4, color = "black") +
+  geom_abline(slope = slope, intercept = intercept, color = "black") +
+  scale_color_manual(values = col_vec2) +
   theme_minimal()
 
 bp_shannon_fac <-
@@ -1992,8 +2118,10 @@ bp_shannon_fac <-
   mutate(infant_birthcard_feeding_mode_after_birth = fct_relevel(infant_birthcard_feeding_mode_after_birth, "BF", "MF", "FF")) %>% 
   ggplot() +
   geom_boxplot(aes_string(x = "infant_birthcard_feeding_mode_after_birth", y = "Factor3", fill = "infant_birthcard_feeding_mode_after_birth")) +
+  scale_fill_manual(values = col_vec2) +
   coord_flip() +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = NULL)
 
 bp_bm_shannon <-
   data_to_test %>% 
@@ -2001,20 +2129,35 @@ bp_bm_shannon <-
   mutate(infant_birthcard_feeding_mode_after_birth = fct_relevel(infant_birthcard_feeding_mode_after_birth, "BF", "MF", "FF")) %>% 
   ggplot() +
   geom_boxplot(aes_string(x = "infant_birthcard_feeding_mode_after_birth", y = "shannon", fill = "infant_birthcard_feeding_mode_after_birth")) +
+  scale_fill_manual(values = col_vec2) +
   #geom_point() +
   #geom_abline(slope = slope, intercept = intercept, color = "blue") +
   theme_minimal()
 
+
+fac3_div_fac <-
 bp_shannon_fac + 
   plot_spacer() + 
   p_Fac_shannon + 
   bp_bm_shannon +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+#view all plots
+
+fac1_div_fac
+fac2_div_fac
+fac3_div_fac
+
+# save plot data
+saveRDS(fac1_div_fac, file = "fac1_div_fac.rds")
+saveRDS(fac2_div_fac, file = "fac2_div_fac.rds")
+saveRDS(fac3_div_fac, file = "fac3_div_fac.rds")
+
+# save plot figure
+ggsave("fac1_div_fac.png", plot = fac1_div_fac, width = 11.5, height = 5)
+ggsave("fac2_div_fac.png", plot = fac2_div_fac, width = 11.5, height = 5)
+ggsave("fac3_div_fac.png", plot = fac3_div_fac, width = 11.5, height = 5)
 ```
-
-
-
-
 
 
 
