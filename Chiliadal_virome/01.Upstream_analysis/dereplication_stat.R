@@ -1,5 +1,4 @@
 ##########################################
-# UNDER DEVELOPMENT
 # Parsing VC data and VC size after
 # dereplication
 ##########################################
