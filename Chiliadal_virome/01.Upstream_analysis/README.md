@@ -24,3 +24,16 @@ module load R
 # mind the / at the end of the first argument
 Rscript combine_coverage.R /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/mapping/VLP_to_w_neg_der95/coverage/ *.coverage.txt
 ```
+
+# EXTERNAL SCRIPTS:
+# fastasplitn is available at: https://github.com/ISUgenomics/common_scripts/blob/master/fastasplitn.c
+# changes in fastasplitn.c:
+# compilation:
+```
+wget https://github.com/ISUgenomics/common_scripts/blob/master/fastasplitn.c
+# change line 164 to: (void) strcpy(thetemplate,"frag%.3d.fa");
+gcc fastasplitn.c –o fastasplitn
+```
+
+
+
