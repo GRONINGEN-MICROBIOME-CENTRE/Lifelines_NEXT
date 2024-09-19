@@ -38,15 +38,15 @@ Details regarding metadata and the study setups can be found in the original pub
 The scripts in this repository are divided into three categories:
 
 ### 1. Upstream Analysis
-- **Location:** [Upstream Analysis Folder](./upstream-analysis-folder-link)
+- **Location:** [Upstream Analysis Folder](https://github.com/GRONINGEN-MICROBIOME-CENTRE/Lifelines_NEXT/tree/main/NCP_VLP_project/Upstream_analysis)
 - This section contains scripts used for raw data processing up to the creation of RPKM tables. The scripts are organized into four study-specific folders, named after the first authors of the publications used in this study. 
 - Additionally, the folder named "NCP_all" includes scripts for pooled data analysis, including dereplication, decontamination, and RPKM table creation.
 - Further information can be found in the README files provided within each folder.
 
 ### 2. Downstream Analysis
-- **Location:** [Downstream Analysis Folder](./downstream-analysis-folder-link)
+- **Location:** [Downstream Analysis Folder](https://github.com/GRONINGEN-MICROBIOME-CENTRE/Lifelines_NEXT/tree/main/NCP_VLP_project/Downstream_analysis)
 - This section contains scripts used for statistical analysis and graph creation.
 
 ### 3. Metadata processing
-- **Location:** [Metadata Folder](./metadata-folder-link)
+- **Location:** [Metadata Folder](https://github.com/GRONINGEN-MICROBIOME-CENTRE/Lifelines_NEXT/tree/main/NCP_VLP_project/Metadata_processing)
 - This section contains scripts used for metadata creation.
