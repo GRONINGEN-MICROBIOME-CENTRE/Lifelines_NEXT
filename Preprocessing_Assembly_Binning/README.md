@@ -7,3 +7,5 @@ We here describe the methods used to perform:
 - Removal of contaminant reads (KneadData)
 - Assembly of quality-filtered and trimmed reads (metaSPAdes)
 - Assessment of assembly quality (QUAST)
+- Binning (metaWRAP)
+- Bin dereplication (dRep)
