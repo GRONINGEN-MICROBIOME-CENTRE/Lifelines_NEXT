@@ -165,14 +165,18 @@ else
 fi
 
 # Check success of refinement
+REFINEMENT_STATUS="failed"
 if [ -d "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins" ]; then
+    REFINEMENT_STATUS="completed"
     echo "- Refinement completed successfully." >> ${SUMMARY_FILE}
 else
     echo "- Refinement failed or no refined bins passed thresholds." >> ${SUMMARY_FILE}
 fi
 
 # Check success of taxonomy assignment
+TAXONOMY_STATUS="failed"
 if [ -f "${TAXONOMY_DIR}/${SAMPLE_ID}_gtdbtk.bac120.summary.tsv" ]; then
+    TAXONOMY_STATUS="completed"
     echo "- Taxonomy assignment completed successfully." >> ${SUMMARY_FILE}
     rsync -av $(find ${TAXONOMY_DIR} -name "${SAMPLE_ID}_gtdbtk.bac120.summary.tsv" -type f) metaWRAP/TAXONOMY
 else
@@ -183,11 +187,17 @@ fi
 rsync -av $(find ${LOG_DIR} -name "${SAMPLE_ID}_*.log" -type f) metaWRAP/LOG_files
 rm -r metaWRAP/LOG_files/${SAMPLE_ID}
 
-# Summarize all results
-if grep -qi 'failed' ${SUMMARY_FILE}; then
-    echo -e "Pipeline for sample ${SAMPLE_ID} encountered issues. Check log files for details.\n" >> ${SUMMARY_FILE}
+# Summarize overall results
+echo -e "\n---- Overall Pipeline Summary for Sample ${SAMPLE_ID} ----" >> ${SUMMARY_FILE}
+if [[ "$BINNING_OPTIONS" = "" || "$REFINEMENT_STATUS" = "failed" || "$TAXONOMY_STATUS" = "failed" ]]; then
+    echo -e "The pipeline encountered issues during execution. Check log files for details.\n" >> ${SUMMARY_FILE}
+    echo -e "Details of failures are as follows:" >> ${SUMMARY_FILE}
+    
+    [[ "$BINNING_OPTIONS" = "" ]] && echo "- Note: Binning process either failed or did not produce any bins." >> ${SUMMARY_FILE}
+    [[ "$REFINEMENT_STATUS" = "failed" ]] && echo "- Note: No bins passed the refinement criteria." >> ${SUMMARY_FILE}
+    [[ "$TAXONOMY_STATUS" = "failed" ]] && echo "- Note: Taxonomy assignment was unsuccessful." >> ${SUMMARY_FILE}
 else
-    echo -e "Pipeline for sample ${SAMPLE_ID} completed successfully.\n" >> ${SUMMARY_FILE}
+    echo -e "The pipeline completed successfully with no issues detected.\n" >> ${SUMMARY_FILE}
 fi
 
 echo "> Removing data from tmpdir"
