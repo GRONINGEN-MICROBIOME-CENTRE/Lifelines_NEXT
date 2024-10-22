@@ -43,100 +43,151 @@ metawrap binning \
     --maxbin2 \
     --concoct ${TMPDIR}/${SAMPLE_ID}/binning_data/*fastq
 
-# Modify names of relevant output files
-mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/maxbin2_out/bin.log \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/${SAMPLE_ID}_maxbin2_binning.log
+# Check if maxbin2 log exists, then move it
+if [ -f "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/maxbin2_out/bin.log" ]; then
+    mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/maxbin2_out/bin.log \
+    ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/${SAMPLE_ID}_maxbin2_binning.log
+fi
 
-cat ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/concoct_out/args.txt \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/concoct_out/log.txt > \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/${SAMPLE_ID}_concoct_binning.log
+# Check if concoct output files exist, then concatenate and move them
+if [ -f "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/concoct_out/args.txt" ] && \
+   [ -f "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/concoct_out/log.txt" ]; then
+    cat ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/concoct_out/args.txt \
+    ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/concoct_out/log.txt > \
+    ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/${SAMPLE_ID}_concoct_binning.log
+fi
 
 echo -e '\n---- RUNNING BINNING REFINEMENT ON '${SAMPLE_ID}' SAMPLE ----'
 
-metawrap bin_refinement \
+# Initialize an empty string for options
+BINNING_OPTIONS=""
+
+# Check if metabat2 bins exist (bin*fa files present)
+if [ -d "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/metabat2_bins" ] && \
+   [ "$(ls -1 ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/metabat2_bins/bin*fa 2>/dev/null)" ]; then
+    BINNING_OPTIONS="${BINNING_OPTIONS} -A ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/metabat2_bins/"
+fi
+
+# Check if maxbin2 bins exist
+if [ -d "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/maxbin2_bins" ] && \
+   [ "$(ls -1 ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/maxbin2_bins/bin*fa 2>/dev/null)" ]; then
+    BINNING_OPTIONS="${BINNING_OPTIONS} -B ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/maxbin2_bins/"
+fi
+
+# Check if concoct bins exist
+if [ -d "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/concoct_bins" ] && \
+   [ "$(ls -1 ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/concoct_bins/bin*fa 2>/dev/null)" ]; then
+    BINNING_OPTIONS="${BINNING_OPTIONS} -C ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/concoct_bins/"
+fi
+
+# Only run the bin_refinement if there are any available bins
+if [ -n "$BINNING_OPTIONS" ]; then
+    metawrap bin_refinement \
     -o ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT \
     -t ${SLURM_CPUS_PER_TASK} \
     -m ${SLURM_MEM_PER_NODE} \
-    -A ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/metabat2_bins/ \
-    -B ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/maxbin2_bins/ \
-    -C ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/concoct_bins/ \
-    -c 50 \ # Minimum completeness
-    -x 10 # Maximum contamination
+    $BINNING_OPTIONS \
+    -c 50 \
+    -x 10
+        
+    # Check if metawrap_50_10_bins directory exists
+    if [ ! -d "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins" ]; then
+        echo "No bins with >50% completeness and <10% contamination were found."
+    else
+        # Modify names of relevant output files
+        mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins.contigs \
+        ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins.contigs
+        
+        mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins.stats \
+        ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins.stats
+        
+        mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins \
+        ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins
 
-# Modify names of relevant output files
-mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins.contigs \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins.contigs
-mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins.stats \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins.stats
-mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins 
+        # Rename all .fa files in the bins directory
+        for file in ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins/*.fa; do
+            base_name=$(basename "$file")
+            mv "$file" "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins/${SAMPLE_ID}_$base_name"
+        done
 
-for file in ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins/*.fa; do
-    base_name=$(basename $file)
-    mv $file ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins/${SAMPLE_ID}_${base_name}
-done
+	echo -e '\n---- SKIPPING QUANTIFICATION OF THE BIN SET FROM '${SAMPLE_ID}' SAMPLE ----'
 
-echo -e '\n---- RUNNING QUANTIFICATION OF BINS FROM '${SAMPLE_ID}' SAMPLE ----'
+    	# No quantification will be done with quant_bins (abundance will be etsimated later with CoverM)
+     
+	echo -e '\n---- RUNNING TAXONOMIC ASSIGNMENT OF BINS FROM '${SAMPLE_ID}' SAMPLE ----'
+    
+    	# Clean environment, load modules and activate conda environment
+    	module purge; ml Anaconda3; module list
+    	source activate /scratch/hb-tifn/condas/conda_GTDB_TK/; conda list 
 
-metawrap quant_bins \
-    -b ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins  \
-    -o ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/QUANT_BINS \
-    -a ${TMPDIR}/${SAMPLE_ID}/binning_data/${SAMPLE_ID}_metaspades_contigs.fa ${TMPDIR}/${SAMPLE_ID}/binning_data/*fastq
+    	GTDBTK_DATA_PATH=/scratch/hb-tifn/DBs/DB_GTDB/release214
 
-# Modify names of relevant output files
-cat ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/QUANT_BINS/assembly_index/indexing.log \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/QUANT_BINS/alignment_files/${SAMPLE_ID}_kneaddata_paired.quant/logs/salmon_quant.log > \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/${SAMPLE_ID}_quant_bins.log
+    	gtdbtk classify_wf \
+            --genome_dir ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins \
+            --out_dir ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION \
+            --extension .fa \
+            --skip_ani_screen \
+            --cpus ${SLURM_CPUS_PER_TASK}
 
-mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/QUANT_BINS/quant_files/${SAMPLE_ID}_kneaddata_paired.quant.counts \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/QUANT_BINS/quant_files/${SAMPLE_ID}_quant_counts.txt
-mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/QUANT_BINS/bin_abundance_table.tab \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/QUANT_BINS/${SAMPLE_ID}_bin_abundance_table.tab
+	# Modify names of relevant output files
+	mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION/gtdbtk.log \
+	${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/${SAMPLE_ID}_gtdbtk_tax.log
+	mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION/classify/gtdbtk.bac120.summary.tsv \
+	${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION/classify/${SAMPLE_ID}_gtdbtk.bac120.summary.tsv
+    fi    
+else
+    echo "No bins were generated from any method (metaBAT, maxBin2 or CONCOCT) for sample ${SAMPLE_ID}."
+fi
 
-echo -e '\n---- RUNNING TAXONOMIC ASSIGNMENT OF BINS FROM '${SAMPLE_ID}' SAMPLE ----'
 
-# Clean environment, load modules and activate conda environment
-module purge; ml Anaconda3; module list
-source activate /scratch/hb-tifn/condas/conda_GTDB_TK/; conda list 
+echo -e '\n---- Moving results to SCRATCH. Generating folders with BINS, TAXONOMY and LOG files ----'
 
-GTDBTK_DATA_PATH=/scratch/hb-tifn/DBs/DB_GTDB/release214
-
-gtdbtk classify_wf \
-    --genome_dir ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/${SAMPLE_ID}_metawrap_50_10_bins \
-    --out_dir ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION \
-    --extension .fa \
-    --skip_ani_screen \
-    --cpus ${SLURM_CPUS_PER_TASK}
-
-# Modify names of relevant output files
-mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION/gtdbtk.log \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/${SAMPLE_ID}_gtdbtk_tax.log
-mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION/classify/gtdbtk.bac120.summary.tsv \
-${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION/classify/${SAMPLE_ID}_gtdbtk.bac120.summary.tsv
-
-echo -e '\n---- Moving results to SCRATCH. Generating folders with BINS, QUANTIFICATION, TAXONOMY and LOG files ----'
-
-mkdir -p metaWRAP/BINNING metaWRAP/QUANTIFICATION metaWRAP/TAXONOMY metaWRAP/LOG_files metaWRAP/LOG_files/${SAMPLE_ID}
-mkdir -p metaWRAP/SUMMARY_RESULTS metaWRAP/OUTPUT_files
+mkdir -p metaWRAP/BINNING metaWRAP/QUANTIFICATION metaWRAP/TAXONOMY metaWRAP/LOG_files/${SAMPLE_ID} metaWRAP/SUMMARY_RESULTS metaWRAP/OUTPUT_files
 
 LOG_DIR="${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS"
 BINNING_DIR="${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT"
-QUANTIFICATION_DIR="${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/QUANT_BINS"
 TAXONOMY_DIR="${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION/classify"
 
-if ! grep -qi 'Error' ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/*.log; then
-	echo -e "metaWRAP binning and taxonomy assignment for sample ${SAMPLE_ID} completed successfully.\n" > metaWRAP/SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt
-  mkdir -p metaWRAP/BINNING/${SAMPLE_ID} 
-  rsync -av $(find ${LOG_DIR} -name "${SAMPLE_ID}_*.log" -type f) metaWRAP/LOG_files; rm -r metaWRAP/LOG_files/${SAMPLE_ID}
-  rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins" -type d) metaWRAP/BINNING/${SAMPLE_ID}
-  rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins.contigs" -type f) metaWRAP/BINNING/${SAMPLE_ID}
-  rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins.stats" -type f) metaWRAP/BINNING/${SAMPLE_ID}
-	rsync -av $(find ${QUANTIFICATION_DIR}/quant_files/ -name "${SAMPLE_ID}_quant_counts.txt" -type f) metaWRAP/QUANTIFICATION
-	rsync -av $(find ${QUANTIFICATION_DIR} -name "${SAMPLE_ID}_bin_abundance_table.tab" -type f) metaWRAP/QUANTIFICATION
-	rsync -av $(find ${TAXONOMY_DIR} -name "${SAMPLE_ID}_gtdbtk.bac120.summary.tsv" -type f) metaWRAP/TAXONOMY
+SUMMARY_FILE="metaWRAP/SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt"
+
+# Initialize summary for the sample
+echo "Sample ${SAMPLE_ID} Pipeline Summary:" > ${SUMMARY_FILE}
+
+# Check success of binning
+if [ -n "$BINNING_OPTIONS" ]; then
+    echo "- Binning completed successfully." >> ${SUMMARY_FILE}
+    mkdir -p metaWRAP/BINNING/${SAMPLE_ID}
+    rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins" -type d) metaWRAP/BINNING/${SAMPLE_ID}
+    rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins.contigs" -type f) metaWRAP/BINNING/${SAMPLE_ID}
+    rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins.stats" -type f) metaWRAP/BINNING/${SAMPLE_ID}
 else
-	echo "metaWRAP STEP for sample ${SAMPLE_ID} failed. Check the LOG files for more information." > metaWRAP/SUMMARY_RESULTS/${SAMPLE_ID}_summary.txt
-  rsync -av $(find ${LOG_DIR} -name "${SAMPLE_ID}_*.log" -type f) metaWRAP/LOG_files; rm -r metaWRAP/LOG_files/${SAMPLE_ID}
+    echo "- Binning failed or no bins were generated." >> ${SUMMARY_FILE}
+fi
+
+# Check success of refinement
+if [ -d "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins" ]; then
+    echo "- Refinement completed successfully." >> ${SUMMARY_FILE}
+else
+    echo "- Refinement failed or no refined bins passed thresholds." >> ${SUMMARY_FILE}
+fi
+
+# Check success of taxonomy assignment
+if [ -f "${TAXONOMY_DIR}/${SAMPLE_ID}_gtdbtk.bac120.summary.tsv" ]; then
+    echo "- Taxonomy assignment completed successfully." >> ${SUMMARY_FILE}
+    rsync -av $(find ${TAXONOMY_DIR} -name "${SAMPLE_ID}_gtdbtk.bac120.summary.tsv" -type f) metaWRAP/TAXONOMY
+else
+    echo "- Taxonomy assignment failed or was skipped." >> ${SUMMARY_FILE}
+fi
+
+# Transfer log files
+rsync -av $(find ${LOG_DIR} -name "${SAMPLE_ID}_*.log" -type f) metaWRAP/LOG_files
+rm -r metaWRAP/LOG_files/${SAMPLE_ID}
+
+# Summarize all results
+if grep -qi 'failed' ${SUMMARY_FILE}; then
+    echo -e "Pipeline for sample ${SAMPLE_ID} encountered issues. Check log files for details.\n" >> ${SUMMARY_FILE}
+else
+    echo -e "Pipeline for sample ${SAMPLE_ID} completed successfully.\n" >> ${SUMMARY_FILE}
 fi
 
 echo "> Removing data from tmpdir"
