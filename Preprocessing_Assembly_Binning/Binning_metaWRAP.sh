@@ -39,9 +39,9 @@ metawrap binning \
     -t ${SLURM_CPUS_PER_TASK} \
     -a ${TMPDIR}/${SAMPLE_ID}/binning_data/${SAMPLE_ID}_metaspades_contigs.fa \
     -m ${SLURM_MEM_PER_NODE} \
+    --concoct \
     --metabat2 \
-    --maxbin2 \
-    --concoct ${TMPDIR}/${SAMPLE_ID}/binning_data/*fastq
+    --maxbin2 ${TMPDIR}/${SAMPLE_ID}/binning_data/*fastq
 
 # Check if maxbin2 log exists, then move it
 if [ -f "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/maxbin2_out/bin.log" ]; then
@@ -134,6 +134,7 @@ if [ -n "$BINNING_OPTIONS" ]; then
 	${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/${SAMPLE_ID}_gtdbtk_tax.log
 	mv ${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION/classify/gtdbtk.bac120.summary.tsv \
 	${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_CLASSIFICATION/classify/${SAMPLE_ID}_gtdbtk.bac120.summary.tsv
+ 
     fi    
 else
     echo "No bins were generated from any method (metaBAT, maxBin2 or CONCOCT) for sample ${SAMPLE_ID}."
@@ -156,10 +157,6 @@ echo "Sample ${SAMPLE_ID} Pipeline Summary:" > ${SUMMARY_FILE}
 # Check success of binning
 if [ -n "$BINNING_OPTIONS" ]; then
     echo "- Binning completed successfully." >> ${SUMMARY_FILE}
-    mkdir -p metaWRAP/BINNING/${SAMPLE_ID}
-    rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins" -type d) metaWRAP/BINNING/${SAMPLE_ID}
-    rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins.contigs" -type f) metaWRAP/BINNING/${SAMPLE_ID}
-    rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins.stats" -type f) metaWRAP/BINNING/${SAMPLE_ID}
 else
     echo "- Binning failed or no bins were generated." >> ${SUMMARY_FILE}
 fi
@@ -168,6 +165,14 @@ fi
 REFINEMENT_STATUS="failed"
 if [ -d "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins" ]; then
     REFINEMENT_STATUS="completed"
+    mkdir -p metaWRAP/BINNING/${SAMPLE_ID}
+    rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins" -type d) metaWRAP/BINNING/${SAMPLE_ID}
+    rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins.contigs" -type f) metaWRAP/BINNING/${SAMPLE_ID}
+    rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins.stats" -type f) metaWRAP/BINNING/${SAMPLE_ID}
+
+    echo -e "\n---- Generating md5sums ---"
+    md5sum metaWRAP/BINNING/${SAMPLE_ID}/${SAMPLE_ID}_metawrap_50_10_bins/${SAMPLE_ID}*.fa > metaWRAP/BINNING/${SAMPLE_ID}/${SAMPLE_ID}_metawrap_50_10_bins/${SAMPLE_ID}_MD5.txt
+    
     echo "- Refinement completed successfully." >> ${SUMMARY_FILE}
 else
     echo "- Refinement failed or no refined bins passed thresholds." >> ${SUMMARY_FILE}
@@ -201,8 +206,5 @@ fi
 
 echo "> Removing data from tmpdir"
 rm -r ${TMPDIR}/${SAMPLE_ID}/binning_data
-
-echo -e "\n---- Generating md5sums ---"
-md5sum metaWRAP/BINNING/${SAMPLE_ID}/${SAMPLE_ID}_metawrap_50_10_bins/${SAMPLE_ID}*.fa > metaWRAP/BINNING/${SAMPLE_ID}/${SAMPLE_ID}_metawrap_50_10_bins/${SAMPLE_ID}_MD5.txt
 
 echo -e "\n---- Binning step DONE ----"
