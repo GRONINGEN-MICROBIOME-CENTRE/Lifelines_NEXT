@@ -164,7 +164,7 @@ fi
 
 # Check success of refinement
 REFINEMENT_STATUS="failed"
-if [ -d "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT/metawrap_50_10_bins" ]; then
+if [ -d "${BINNING_DIR}/${SAMPLE_ID}_metawrap_50_10_bins" ]; then
     REFINEMENT_STATUS="completed"
     mkdir -p metaWRAP/BINNING/${SAMPLE_ID}
     rsync -av $(find ${BINNING_DIR} -name "${SAMPLE_ID}_metawrap_50_10_bins" -type d) metaWRAP/BINNING/${SAMPLE_ID}
