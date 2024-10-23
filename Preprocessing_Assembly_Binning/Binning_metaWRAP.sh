@@ -40,9 +40,9 @@ metawrap binning \
     -a ${TMPDIR}/${SAMPLE_ID}/binning_data/${SAMPLE_ID}_metaspades_contigs.fa \
     -m ${SLURM_MEM_PER_NODE} \
     -l 1000 \
-    --concoct \
     --metabat2 \
-    --maxbin2 ${TMPDIR}/${SAMPLE_ID}/binning_data/*fastq
+    --maxbin2 \
+    --concoct ${TMPDIR}/${SAMPLE_ID}/binning_data/*fastq
 
 # Check if maxbin2 log exists, then move it
 if [ -f "${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/INITIAL_BINNING/work_files/maxbin2_out/bin.log" ]; then
