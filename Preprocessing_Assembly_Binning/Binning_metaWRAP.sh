@@ -143,7 +143,7 @@ fi
 
 echo -e '\n---- Moving results to SCRATCH. Generating folders with BINS, TAXONOMY and LOG files ----'
 
-mkdir -p metaWRAP/BINNING metaWRAP/QUANTIFICATION metaWRAP/TAXONOMY metaWRAP/LOG_files/ metaWRAP/SUMMARY_RESULTS metaWRAP/OUTPUT_files
+mkdir -p metaWRAP/BINNING metaWRAP/TAXONOMY metaWRAP/LOG_files/ metaWRAP/SUMMARY_RESULTS metaWRAP/OUTPUT_files
 
 LOG_DIR="${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS"
 BINNING_DIR="${TMPDIR}/${SAMPLE_ID}/binning_data/metaWRAP_RESULTS/BIN_REFINEMENT"
