@@ -18,15 +18,15 @@ which are changing thoughout time (e.g. feeding, weight)
 
 ## Factor analysis 
 
-The script ``` step3_MEFISTO.R ``` performs factor analysis of microbiome data and its association to XXX. We use package
+The script [step3_MEFISTO.R](step3_MEFISTO.R) performs factor analysis of microbiome data and its association to XXX. We use package
 
 ## Strain transmission analysis
 
-The script ``` step4_strainTransmission.R ``` takes tree inputs from RAxML and performs 
+The script [step4_strainTransmission.R](step4_strainTransmission.R) ``` takes tree inputs from RAxML and performs 
 the analysis on strain transmission 
 
 ## PGLMM analysis
 
-The script ``` step5_PGLMM.R ``` performs Phylogenetic Generalized Linear Mixed Model 
+The script [step5_PGLMM.R](step5_PGLMM.R) performs Phylogenetic Generalized Linear Mixed Model 
 analysis of association of phenotypes to strain phylogeny. NOTE: PGLMM doesn't use RAxML trees. Instead,
 trees were rebuilt using ``` phangorn ``` package to build rooted ultrametric trees (what RAxML can't do) 
