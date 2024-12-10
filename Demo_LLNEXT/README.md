@@ -23,7 +23,7 @@ The script [step3_MEFISTO.R](step3_MEFISTO.R) performs factor analysis of microb
 ## Strain transmission analysis
 
 The script [step4_strainTransmission.R](step4_strainTransmission.R) ``` takes tree inputs from RAxML and performs 
-the analysis on strain transmission 
+the analysis on strain transmission. 
 
 ## PGLMM analysis
 
