@@ -30,3 +30,7 @@ the analysis on strain transmission.
 The script [step5_PGLMM.R](step5_PGLMM.R) performs Phylogenetic Generalized Linear Mixed Model 
 analysis of association of phenotypes to strain phylogeny. NOTE: PGLMM doesn't use RAxML trees. Instead,
 trees were rebuilt using ``` phangorn ``` package to build rooted ultrametric trees (what RAxML can't do) 
+
+## TCAM analysis
+
+The script [step6.1_TCAM.ipynb](step6.1_TCAM.ipynb) performs a TCAM analysis of microbiome data. It requires two input files: [metadata](simulated_metadata.txt) and the [MetaPhlAn output table](simulated_metaphlan.txt). The script generates three output files, which are subsequently used as inputs for downstream analysis in [step6.2_TCAM.R](step6.2_TCAM.R), along with the [metadata](simulated_metadata.txt). The [step6.2_TCAM.R](step6.2_TCAM.R) script performs a correlation analysis with static phenotypes and produces an output table containing the results. Additionally, it generates plots to visualize the data.
