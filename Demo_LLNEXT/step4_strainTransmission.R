@@ -10,6 +10,10 @@ library(cutpointr)
 library(lme4)
 library(reshape2)
 
+
+# 1.1 Strain transmission evaluation --------------------------------------
+# adopted from https://github.com/GRONINGEN-MICROBIOME-CENTRE/Gut_Microbiome/strain_analysis/StrainTransmission/1_Assess_transmission.R
+
 ## Functions 
 
 Get_strain_sharing = function(sp3, Plot = T){
@@ -108,4 +112,9 @@ dist_long$related = ifelse(
 
 ## Running function
 
-Get_strain_sharing(dist_long,Plot = T)
+result_strain = Get_strain_sharing(dist_long,Plot = T)
+
+# 1.2 Strain transmission association to phenotypes ---------------------------
+# adopted from https://github.com/GRONINGEN-MICROBIOME-CENTRE/Lifelines_NEXT/Gut_Microbiome/strain_analysis/StrainTransmission/2_MotherInfantTranmission_Association.R
+
+
