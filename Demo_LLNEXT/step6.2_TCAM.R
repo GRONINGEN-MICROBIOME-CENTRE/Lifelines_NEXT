@@ -13,9 +13,6 @@ library(ggplot2)
 library(readr)
 library(ggExtra)
 
-# Set working directory 
-setwd("C:\\Users\\Natal\\Documents\\UMCG\\TCAM_BGNP\\TCAM_demo")
-
 ################################################################################
 # Loading functions
 ################################################################################
