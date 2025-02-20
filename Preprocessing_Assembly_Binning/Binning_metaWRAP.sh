@@ -39,7 +39,6 @@ metawrap binning \
     -t ${SLURM_CPUS_PER_TASK} \
     -a ${TMPDIR}/${SAMPLE_ID}/binning_data/${SAMPLE_ID}_metaspades_contigs.fa \
     -m ${SLURM_MEM_PER_NODE} \
-    #-l 1000 \
     --metabat2 \
     --maxbin2 \
     --concoct ${TMPDIR}/${SAMPLE_ID}/binning_data/*fastq
