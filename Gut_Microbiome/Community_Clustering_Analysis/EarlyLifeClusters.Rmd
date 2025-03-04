@@ -3,7 +3,7 @@ title: "Notebook LLNEXT: Early life clusters"
 output: html_notebook
 ---
 
-```{r,warning=FALSE, message=FALSE}
+```{r,echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
 library(tidyverse)
 library(vegan)
 library(ape)
@@ -23,13 +23,14 @@ library(pROC)
 library(lmerTest)
 ```
 
-# Part 1: Clustering
+# Clustering of early-life communities
+Using relative abundance species data from MP4 in samples from Week 2, cluster samples. 
 
 ##1. Read MP4 table (normal)
-```{r, warning=FALSE, message=FALSE}
+```{r, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
 df <-read.delim("~/Documents/PhD/LL_NEXT/Transmission/metadata/LLNEXT_metaphlan_4_CLEAN_10_07_2023.txt") %>% rownames_to_column("NG_ID")  %>% as_tibble()
 #Filter to early timepoint
-#There are 2 infants with more than one timepoint ; we arrange accoridng to exact_age_at_collection so that it will keep the earliest timepoint
+#There are 2 infants with more than one sample at the same timepoint ; we arrange accoridng to exact_age_at_collection so that it will keep the earliest timepoint
 read_tsv("~/Documents/PhD/LL_NEXT/Transmission/metadata/LLNEXT_metadata_03_01_2024.txt") %>% 
   select(NG_ID, NEXT_ID, Timepoint_categorical, exact_age_days_at_collection)   %>%   filter(Timepoint_categorical == "W2") %>% arrange(exact_age_days_at_collection) %>% dplyr::distinct(NEXT_ID, .keep_all=T ) -> InfoEarly 
 
@@ -41,7 +42,7 @@ df %>% filter(NG_ID %in% InfoEarly$NG_ID) -> Early
 
 Preparing for some cleaning up. Get functions ready
 
-```{r, warning=FALSE, message=FALSE}
+```{r, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
 AST_transform = function(data){
   asin(sqrt(data/100))
 }
@@ -64,15 +65,17 @@ Filter_XAbundance_in_YPrevalence = function(Early, Min_abundance=0.1, Percentage
   Early %>% select(NG_ID, names(More_than_10perc_abund[More_than_10perc_abund>=PercentageSamples] ) ) -> Early_filt
   return( list(Early_filt, Prevalence) )
 }
+```
 
-
+Process abundance table to taxonomic level
+```{r,echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
 Do_Genus = F
 Filter_names(Early, Do_Genus) -> Early
 ```
 
 
 Filtering based on abundance and prevalence
-```{r, warning=FALSE, message=FALSE}
+```{r, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
 Min_abundance = 0.1 # Abundance bigger than 0.1%
 PercentageSamples = 10 #In 10% samples
 
@@ -90,7 +93,7 @@ InfoEarly %>% select(colnames(Early_filt)) %>% select(-NG_ID)   -> Early_filt
 We will start with some visualizations
 
 Start with preparations
-```{r, warning=FALSE, message=FALSE}
+```{r, warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
 set.seed(123)
 
 Prevalence %>% filter(Prev > 0) -> Remove0s
@@ -132,7 +135,7 @@ Cluster_colors <- c("1"= "#1B9E77", "2"="#D95F02", "3"= "#7570B3", "4"= "#E7298A
 
 InfoEarly %>% rename(`Hierarchical cluster` = Hier_cluster) %>% select("NG_ID",colnames(Early_filt)) %>% as.data.frame() %>% column_to_rownames("NG_ID") -> InfoEarly_plot
 
-InfoEarly_plot  %>% pheatmap::pheatmap(show_rownames = FALSE, main="Infant clustering and SGB abudance clustering (relative abudnance)", annotation_row = hClustClusters %>% rename(`Hierarchical cluster` = Hier_cluster) %>% column_to_rownames("NG_ID"), cluster_rows=hc, annotation_colors = list(`Hierarchical cluster` = Cluster_colors), color = colorRampPalette(c("white", "yellow", "red"))(50), cutree_rows = 8, treeheight_row=0, treeheight_col=0  ) -> PlotClustersHeatmap
+InfoEarly_plot  %>% pheatmap::pheatmap(show_rownames = FALSE, main="Infant clustering and SGB abudance clustering (relative abudnance)", annotation_row = hClustClusters %>% rename(`Hierarchical cluster` = Hier_cluster) %>% column_to_rownames("NG_ID"), cluster_rows=hc, annotation_colors = list(`Hierarchical cluster` = Cluster_colors), color = colorRampPalette(c("white", "steelblue", "darkblue"))(50), cutree_rows = 8, treeheight_row=0, treeheight_col=0  ) -> PlotClustersHeatmap
 
 InfoEarly %>% group_by(Hier_cluster) %>% summarise(n())
 
@@ -281,8 +284,11 @@ Association_cluster %>% filter(! Feature == "(Intercept)" ) %>% arrange(`Pr(>|t|
 ```
 
 
-##X. Prepare data for assocaitons and predictions
-```{r, warning=FALSE, message=FALSE}
+
+##5. Associate clusters to phenotypes
+
+Prepare data for associations and predictions
+```{r, warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE }
 read_tsv("~/Documents/PhD/LL_NEXT/Transmission/metadata/LLNEXT_metadata_03_01_2024.txt") %>% 
   select(NG_ID, NEXT_ID, Timepoint_categorical, exact_age_days_at_collection, Type, FAMILY) -> metadata_long
 Order_time = c("P12", "P28", "B", "W2", "M1", "M2", "M3", "M6", "M9", "M12")
@@ -293,9 +299,8 @@ as_vector(PC_early[C]) %>% table()
 DF = Filter_names(df, "t__")
 
 ```
-
-##5. Associate clusters to phenotypes
-```{r, warning=FALSE, message=FALSE}
+Prepare data and functions
+```{r,warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
 #longitudinal phenotypes
 Select_pheno = c("next_id_infant", "SAMPLE_ID", "timepoint", "infant_cry_prev_week_avg_cry_time_per_day_min", "infant_BITSS","infant_rome_regurgitation","infant_rome_stool_freq_last_month", "infant_rome_stool_structure","infant_rome_mucus_stool_last_week","infant_rome_sudden_inconsolable_crying_fits","infant_growth_length_cm","infant_growth_weight_kg")
 
@@ -341,7 +346,7 @@ Run_association = function(ForModel = ForAssociation, Cluster_n=1, Iterate=c(Sel
   }
   return(Results_ass)
 }
-Run_association_pseudo = function(ForModel = ForAssociation, Cluster_n=1, Iterate=c(Select_pheno2) ){
+Run_association_pseudo = function(ForModel = ForAssociation, Cluster_n=1, Iterate=c(Select_pheno2), Add_pseudo = 0 ){
   ForModel %>% mutate(Cluster = ifelse( Hier_cluster == Cluster_n, T, F )  ) -> ForModel
   Results_ass = tibble()
   for (Pheno in Iterate ) {
@@ -356,13 +361,17 @@ Run_association_pseudo = function(ForModel = ForAssociation, Cluster_n=1, Iterat
     summarise(count = n(), .groups = 'drop') %>% ungroup() %>%
     complete(Cluster, !!sym(Pheno), fill = list(count = 0)) %>% filter(! is.na( !!sym(Pheno) )) -> Table
     contingency_table <- xtabs( paste0("count ~ Cluster +", Pheno), data = Table )
-  #contingency_table = contingency_table + 1
+    contingency_table = contingency_table + Add_pseudo
   fisher_result <- fisher.test(contingency_table)
   tibble(P=fisher_result$p.value, Odds=fisher_result$estimate, Comparison = paste0(colnames(contingency_table)[1],"_vs_",colnames(contingency_table)[2] ), Phenotype=Pheno )  %>% rbind(Results_ass, . ) -> Results_ass
   }
   return(Results_ass)
 }
 
+```
+
+Run models (cluster vs phenotypes)
+```{r }
 
 #Run all assocaitions usign a GLM model
 ResAss = tibble()
@@ -402,7 +411,7 @@ ggplot(plot_data, aes(x = !!sym(C), y = n, fill = birth_delivery_mode_simple)) +
 ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/Clusters_vs_birthMode.pdf", Cluster_vs_birthMode)
 
 ResAss %>% mutate(FDR = p.adjust(`Pr(>|z|)`, "fdr")) %>% arrange(`Pr(>|z|)`) -> ResAss
-ResAss_long %>% mutate(FDR = p.adjust(`Pr(>|z|)`, "fdr")) %>% arrange(`Pr(>|z|)`) ->  ResAss_long
+#ResAss_long %>% mutate(FDR = p.adjust(`Pr(>|z|)`, "fdr")) %>% arrange(`Pr(>|z|)`) ->  ResAss_long
 
 
 ```
@@ -435,15 +444,12 @@ ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/DiversityvsCluster
 ```
 
 
-
-
-
 ##6. Clustering prediction
 
 
 ###6.1 Using late timepoints
 
-```{r, warning=FALSE, message=FALSE}
+```{r, warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
 
 metadata_long %>% filter(Timepoint_categorical %in% c("M6", "M9", "M12") ) -> Late
 
@@ -455,9 +461,11 @@ sp_df_late %>% select(-NG_ID) %>% apply(2, function(x){ sum(x!=0)/length(x) } ) 
 names(Prev_analysis)[Prev_analysis>0.2] -> Prev_analysis
 
 ForAnalysis = left_join(Late_with_info,sp_df_late)
+```
 
-
-###Modelling using longitudinal timepoints
+Modelling using longitudinal timepoints:  
+Per each cluster (except 7 and 7), predict presence/absence of the cluster, using M12, M9 and M6
+```{r, warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE }
 Models = list()
 N = 1
 for (Cl in unique( as_vector(ForAnalysis[C]) ) ){
@@ -478,38 +486,96 @@ for (Entry in names(Models)){
  print(Models[[Entry]]$`mean cv-AUC`)
  Scores %>% rbind(tibble(Cluster = Entry, CVAUC = Models[[Entry]]$`mean cv-AUC`   )) -> Scores
 }
+```
+Show table of results
+```{r}
 print(gt::gt(arrange(Scores, desc(CVAUC) )))
+#Keep top
 Scores %>% arrange(desc(CVAUC)) %>% head(1) -> N 
+```
+
+Do cross-sectional models fro time M6, M9, and M12, given a Cluster
+For top result, check individual timepoint signature
+
+```{r, warning=F}
+Fit_cross_sectional_model = function(ForAnalysis, Cluster_do=N$Cluste ){
 
 
+  Models_cross = list()
+  N2 = 1
+  for (Timepoint in c("M6", "M9", "M12") ){
+    ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) ==Cluster_do, T, F), .before=1 ) %>%   filter(Timepoint_categorical==Timepoint) %>% drop_na() -> ForAnalysis2
+    coda_glmnet(x = ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix()  , y=ForAnalysis2$Cluster,  ) -> Model_cluster
+    Models_cross[[N2]] = Model_cluster
+    names(Models_cross)[N2] = Timepoint
+    N2 = N2 + 1
+  }
 
-###For top result, check individual timepoint signature
-Models_cross = list()
-N2 = 1
-for (Timepoint in c("M6", "M9", "M12") ){
-  ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) ==N$Cluster, T, F), .before=1 ) %>% filter(Timepoint_categorical==Timepoint) %>% drop_na() -> ForAnalysis2
-  coda_glmnet(x = ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix()  , y=ForAnalysis2$Cluster,  ) -> Model_cluster
+  Scores2 = tibble()
+  for (Entry in names(Models_cross)){
+    #print(Entry)
+    #print(Models_cross[[Entry]]$`mean cv-AUC`)
+  Scores2 %>% rbind(tibble(Cluster = Entry, CVAUC = Models_cross[[Entry]]$`mean cv-AUC`   )) -> Scores2
+}
+
+  return(list('Models_cross' = Models_cross, 'Scores2' = Scores2  ))
+}
+```
+Run cross-sectional models
+```{r, warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE }
+Results_CrossSectional = tibble()
+for (Cl in unique( as_vector(ForAnalysis[C]) ) ){
+  if (Cl %in% c(7, 8) ){ next }
+  print(Cl)
+  Res = Fit_cross_sectional_model(ForAnalysis, Cluster_do=Cl)
+  Res[['Scores2']] %>% rename(Tiempoint_predictor = Cluster) %>% mutate(Cluster=Cl ) %>% rbind(Results_CrossSectional, . ) -> Results_CrossSectional
+}
+```
+
+```{r}
+Results_CrossSectional %>% arrange(desc(CVAUC))
+```
+
+Per each predictor and cluster, fit null model
+```{r}
+FitNull = function(ForAnalysis, Cluster_n, Predictor_time ){
+  ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) == Cluster_n, T, F), .before=1 ) %>%
+    filter(Timepoint_categorical==Predictor_time) %>% drop_na() -> ForAnalysis2
   
-  Models_cross[[N2]] = Model_cluster
-  names(Models_cross)[N2] = Timepoint
-  N2 = N2 + 1
+  null_acc<-coda_glmnet_null(x=ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix(),y=ForAnalysis2$Cluster, niter=100)
+  return(null_acc)
 }
-Scores2 = tibble()
-for (Entry in names(Models_cross)){
- print(Entry)
- print(Models_cross[[Entry]]$`mean cv-AUC`)
- Scores2 %>% rbind(tibble(Cluster = Entry, CVAUC = Models_cross[[Entry]]$`mean cv-AUC`   )) -> Scores2
+```
+Fit null models
+```{r}
+Null_distributions = tibble()
+for (row_n  in seq(1, nrow(Results_CrossSectional)) ){
+ I = Results_CrossSectional[row_n,]
+ print(I)
+ FitNull(ForAnalysis, Predictor_time= I$Tiempoint_predictor, Cluster_n=I$Cluster ) -> NullModel
+ tibble(CVAUC = NullModel$accuracy, Cluster=I$Cluster, Timepoint_predictor= I$Tiempoint_predictor) %>% rbind(Null_distributions, . ) -> Null_distributions
 }
-
-
-###For Top Timepoint, fit null model
-Scores2 %>% arrange(desc(CVAUC)) %>% head(1) -> N2
-
-ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) ==N$Cluster, T, F), .before=1 ) %>% filter(Timepoint_categorical==N2$Cluster) %>% drop_na() -> ForAnalysis2
-
-null_acc<-coda_glmnet_null(x=ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix(),y=ForAnalysis2$Cluster, niter=100)
-Percentage_nullModels = mean(null_acc$accuracy >= N2$CVAUC )
-
+write_rds(Null_distributions, '~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Tables/null_prediction_cross.rds')
+```
+Get P-values per AUC
+```{r}
+Stats_CrossSectional = tibble()
+for (row_n  in seq(1, nrow(Results_CrossSectional)) ){
+ I = Results_CrossSectional[row_n,]
+ Null_por_I =filter(Null_distributions, Timepoint_predictor==I$Tiempoint_predictor, Cluster==I$Cluster )
+ Percentage_nullModels = mean(Null_por_I$CVAUC >= I$CVAUC )
+ tibble( P = Percentage_nullModels, Tiempoint_predictor=I$Tiempoint_predictor, Cluster=I$Cluster ) %>% rbind(Stats_CrossSectional, . ) -> Stats_CrossSectional
+}
+Stats_CrossSectional %>% arrange(P)
+```
+Plot AUCs as histogram
+```{r}
+Null_distributions %>% mutate(Permutation = T) %>% rbind(Results_CrossSectional %>% rename(Timepoint_predictor=Tiempoint_predictor) %>% mutate(Permutation=F) ) %>%
+  mutate(Timepoint_predictor = factor(Timepoint_predictor, levels=c('M6','M9', 'M12') ) ) %>%
+  ggplot( aes(x = CVAUC)) +
+    geom_histogram(data = filter(combined_data, Permutation == T), bins = 30) + geom_vline(data = filter(combined_data, Permutation == F), aes(xintercept = CVAUC), color = "red", linetype = "dashed", size = 1) + theme_bw() +
+    facet_grid(Cluster ~ Timepoint_predictor) +
+    labs(x = "CV-AUC", y = "Count")
 ```
 
 
