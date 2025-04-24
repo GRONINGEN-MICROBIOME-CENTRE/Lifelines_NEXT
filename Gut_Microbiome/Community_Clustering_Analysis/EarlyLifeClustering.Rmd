@@ -4,6 +4,10 @@ output: html_notebook
 ---
 
 ```{r,echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
+Loc = "/scratch/p300317/LLNEXT_CLUSTERS/Packages"
+Loc = c(Loc, "/home2/p300317/R/x86_64-pc-linux-gnu-library/4.4",  "/cvmfs/hpc.rug.nl/versions/2023.01/rocky8/x86_64/amd/zen3/software/R-bundle-CRAN/2024.06-foss-2023b" ,"/cvmfs/hpc.rug.nl/versions/2023.01/rocky8/x86_64/amd/zen3/software/R/4.4.1-gfbf-2023b/lib64/R/library")
+.libPaths(c(Loc, .libPaths()))
+
 library(tidyverse)
 library(vegan)
 library(ape)
@@ -11,16 +15,16 @@ library(cluster)
 library(WeightedCluster)
 library(viridis)
 library(ggnewscale)
-library(pals)
 library(patchwork)
 
 library(coda4microbiome)
-library(tidymodels)
-library(bonsai)
-library(lightgbm)
+library(caret)
 library(pROC)
 
 library(lmerTest)
+library(xgboost)
+source('Functions_cod4microbiome.R')
+
 ```
 
 # Clustering of early-life communities
@@ -28,10 +32,10 @@ Using relative abundance species data from MP4 in samples from Week 2, cluster s
 
 ##1. Read MP4 table (normal)
 ```{r, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
-df <-read.delim("~/Documents/PhD/LL_NEXT/Transmission/metadata/LLNEXT_metaphlan_4_CLEAN_10_07_2023.txt") %>% rownames_to_column("NG_ID")  %>% as_tibble()
+df <-read.delim("Data/LLNEXT_metaphlan_4_CLEAN_10_07_2023.txt") %>% rownames_to_column("NG_ID")  %>% as_tibble()
 #Filter to early timepoint
 #There are 2 infants with more than one sample at the same timepoint ; we arrange accoridng to exact_age_at_collection so that it will keep the earliest timepoint
-read_tsv("~/Documents/PhD/LL_NEXT/Transmission/metadata/LLNEXT_metadata_03_01_2024.txt") %>% 
+read_tsv("Data/LLNEXT_metadata_03_01_2024.txt") %>% 
   select(NG_ID, NEXT_ID, Timepoint_categorical, exact_age_days_at_collection)   %>%   filter(Timepoint_categorical == "W2") %>% arrange(exact_age_days_at_collection) %>% dplyr::distinct(NEXT_ID, .keep_all=T ) -> InfoEarly 
 
 df %>% filter(NG_ID %in% InfoEarly$NG_ID) -> Early
@@ -108,7 +112,7 @@ Early %>% select(-one_of("NG_ID")) %>%  vegdist(method = "bray") %>% pheatmap::p
 
 Early_filt %>% select(-one_of("NG_ID")) %>% pheatmap::pheatmap(show_rownames = FALSE, main="Infant clustering and SGB abudance clustering (Relative abundance)") -> RelAbuHeat
 
-ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/BrayCurtisHeatmap.pdf", Bray_heatmap)
+ggsave("Output/BrayCurtisHeatmap.pdf", Bray_heatmap)
 
 ```
 Clustering based on bray-curtis distance. 
@@ -139,7 +143,7 @@ InfoEarly_plot  %>% pheatmap::pheatmap(show_rownames = FALSE, main="Infant clust
 
 InfoEarly %>% group_by(Hier_cluster) %>% summarise(n())
 
-ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/RelAbudanceHeatmap.pdf", PlotClustersHeatmap)
+ggsave("Output/RelAbudanceHeatmap.pdf", PlotClustersHeatmap)
 ```
 
 ##4. Do PCoA analysis
@@ -196,9 +200,9 @@ Plot_function(PC_early, Show_cluster = T, Bacteria = NA, X="PC1", Y="PC2", Clust
 Plot_function(PC_early, Show_cluster = T, Bacteria = NA, X="PC1", Y="PC3", Cluster = C )+ labs(color = "Hierarchical cluster") -> PC1_and3
 Plot_function(PC_early, Show_cluster = T, Bacteria = NA, X="PC1", Y="PC4", Cluster = C ) + labs(color = "Hierarchical cluster") -> PC1_and4
 
-ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/PC1_and_PC2.pdf",PC1_and2)
-ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/PC1_and_PC3.pdf",PC1_and3)
-ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/PC1_and_PC4.pdf",PC1_and4)
+ggsave("Output/PC1_and_PC2.pdf",PC1_and2)
+ggsave("Output/PC1_and_PC3.pdf",PC1_and3)
+ggsave("Output/PC1_and_PC4.pdf",PC1_and4)
 
 
 
@@ -230,11 +234,11 @@ PC_early[C] = as.factor(as_vector(PC_early[C]))
 Bugs_interst = c( "Escherichia_coli.t__SGB10068",  "Bifidobacterium_bifidum.t__SGB17256", "Bifidobacterium_longum.t__SGB17248", "Bifidobacterium_breve.t__SGB17247", "Bacteroides_fragilis.t__SGB1855_group",  "Phocaeicola_dorei.t__SGB1815", "Bifidobacterium_longum|t__subsp.infantis")
 Allplots = list()
 N = 1
-for (Bug in c(colnames(Early_filt),"Bifidobacterium_longum.t__subsp.infantis")  ){
+for (Bug in c( colnames(Early_filt) )  ){
   if (Bug %in% colnames(PC_early)){
     PC_early %>% ggplot(aes_string(x=C, y=Bug ) ) + geom_boxplot(outlier.shape = NA) + geom_point() +theme_bw() -> plot
   } else {
-   Filter_names(df2_3, Do_Genus = F) %>% select(c("NG_ID", Bug)) %>% left_join(PC_early, . ) %>% ggplot(aes_string(x=C, y=Bug ) ) + geom_boxplot(outlier.shape = NA) + geom_point() +theme_bw() ->plot
+   Early %>% select(c("NG_ID", Bug)) %>% left_join(PC_early, . ) %>% ggplot(aes_string(x=C, y=Bug ) ) + geom_boxplot(outlier.shape = NA) + geom_point() +theme_bw() ->plot
   }
   Allplots[[N]] = plot
   names(Allplots)[N] = Bug
@@ -256,7 +260,7 @@ N[is.na(N)] =0
 N %>% as.data.frame() %>% column_to_rownames("Bacteria") %>% dist() %>% hclust() -> Clus
 
 ForPlot %>% ungroup() %>% mutate(Bacteria = factor(Bacteria, levels=Clus$labels[Clus$order] ) ) %>% drop_na() %>% ggplot(aes(x=Cluster, y=Bacteria, col=Cluster, size=Abundance)) + geom_point() + theme_bw() + scale_color_manual(values  = Cluster_colors)  + guides(color = "none") + labs(size="Relative median\nabudance within cluster") + theme(legend.title=element_text(size=8)) -> RelAbundance_in_cluster
-ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/RelAbudnacnewithinCluster.pdf",RelAbundance_in_cluster)
+ggsave("Output/RelAbudnacnewithinCluster.pdf",RelAbundance_in_cluster)
 
 ForPlot %>% filter(Proportion_cluster > 0.4 ) -> To_plot
 for (Bac in c(To_plot$Bacteria, "Parabacteroides_distasonis.t__SGB1934", "Phocaeicola_vulgatus.t__SGB1814", "Phocaeicola_dorei.t__SGB1815" )) {
@@ -289,7 +293,7 @@ Association_cluster %>% filter(! Feature == "(Intercept)" ) %>% arrange(`Pr(>|t|
 
 Prepare data for associations and predictions
 ```{r, warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE }
-read_tsv("~/Documents/PhD/LL_NEXT/Transmission/metadata/LLNEXT_metadata_03_01_2024.txt") %>% 
+read_tsv("Data/LLNEXT_metadata_03_01_2024.txt") %>% 
   select(NG_ID, NEXT_ID, Timepoint_categorical, exact_age_days_at_collection, Type, FAMILY) -> metadata_long
 Order_time = c("P12", "P28", "B", "W2", "M1", "M2", "M3", "M6", "M9", "M12")
 metadata_long %>% mutate(Timepoint_categorical = factor(Timepoint_categorical, levels = Order_time)) -> metadata_long
@@ -304,12 +308,12 @@ Prepare data and functions
 #longitudinal phenotypes
 Select_pheno = c("next_id_infant", "SAMPLE_ID", "timepoint", "infant_cry_prev_week_avg_cry_time_per_day_min", "infant_BITSS","infant_rome_regurgitation","infant_rome_stool_freq_last_month", "infant_rome_stool_structure","infant_rome_mucus_stool_last_week","infant_rome_sudden_inconsolable_crying_fits","infant_growth_length_cm","infant_growth_weight_kg")
 
-read.delim("~/Documents/PhD/LL_NEXT/Transmission/metadata/masterfile_longitudinal_2023_09_29.txt") %>% 
+read.delim("Data//masterfile_longitudinal_2023_09_29.txt") %>% 
 select( c(Select_pheno, "Type") ) %>% as_tibble()  %>% rename(NEXT_ID = next_id_infant ) %>% filter(timepoint == "M3", Type != "mother")  %>% as_tibble()  -> LongPheno
 
 #Crossectional phenotypes
 Select_pheno2 = c("NEXT_ID", "birth_delivery_mode_simple", "birth_deliverybirthcard_place_delivery_simple")
-read.delim("~/Documents/PhD/LL_NEXT/Transmission/metadata/masterfile_cross_sectional_2023_11_15.txt") %>% as_tibble()  %>% rename(NEXT_ID = next_id_infant ) %>% select(Select_pheno2)  -> CrossPheno
+read.delim("Data/masterfile_cross_sectional_2023_11_15.txt") %>% as_tibble()  %>% rename(NEXT_ID = next_id_infant ) %>% select(Select_pheno2)  -> CrossPheno
 CrossPheno %>% mutate(birth_delivery_mode_simple = ifelse(birth_delivery_mode_simple %in% c("post_labor_CS", "pre_labor_CS"), "CS",  birth_delivery_mode_simple) ) -> CrossPheno
 
 
@@ -408,7 +412,7 @@ ggplot(plot_data, aes(x = !!sym(C), y = n, fill = birth_delivery_mode_simple)) +
   geom_text(aes(label = n), position = position_stack(vjust = 0.5)) +
   theme_bw() + scale_fill_manual(values = c("CS" = "#838383", "VG" = "#c9c9c9")) + ylab("Number of infants") + xlab("Hierarchical cluster") + coord_flip() -> Cluster_vs_birthMode
 
-ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/Clusters_vs_birthMode.pdf", Cluster_vs_birthMode)
+ggsave("Output/Clusters_vs_birthMode.pdf", Cluster_vs_birthMode)
 
 ResAss %>% mutate(FDR = p.adjust(`Pr(>|z|)`, "fdr")) %>% arrange(`Pr(>|z|)`) -> ResAss
 #ResAss_long %>% mutate(FDR = p.adjust(`Pr(>|z|)`, "fdr")) %>% arrange(`Pr(>|z|)`) ->  ResAss_long
@@ -439,7 +443,7 @@ metadata_long2 %>% filter(Timepoint_categorical %in% c("W2", "M3", "M6") ) %>% d
 
 
 metadata_long2 %>% filter(Timepoint_categorical %in% c("W2", "M3", "M6") ) %>% filter(! is.na(!!sym(C))) %>% ggplot(aes(x=!!sym(C), y=Alpha )) + geom_boxplot(outlier.shape = NA, aes(fill=!!sym(C)) ) + theme_bw() + facet_wrap(~Timepoint_categorical) + ggforce::geom_sina(alpha=0.3 )  + xlab("Hierarchical cluster") + coord_flip() + scale_fill_manual( values =  Cluster_colors) + guides(fill="none") + ylab("Shannon diversity") -> Diversity_vs_cluster
-ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/DiversityvsClusters.pdf",Diversity_vs_cluster)
+ggsave("Output/DiversityvsClusters.pdf",Diversity_vs_cluster)
 
 ```
 
@@ -454,7 +458,7 @@ ggsave("~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Plot_panels/DiversityvsCluster
 metadata_long %>% filter(Timepoint_categorical %in% c("M6", "M9", "M12") ) -> Late
 
 #Can we predict which cluster where in W2 using lat timepoints?
-DF %>% filter(NG_ID %in% Late$NG_ID ) %>% Filter_names(Do_Genus = F) -> sp_df_late
+DF %>% filter(NG_ID %in% Late$NG_ID ) %>% Filter_names(. , Do_Genus = F) -> sp_df_late
 Late %>% left_join(PC_early %>% select(NEXT_ID, !!sym(C)) ) %>% drop_na() -> Late_with_info
 #Get prevalence
 sp_df_late %>% select(-NG_ID) %>% apply(2, function(x){ sum(x!=0)/length(x) } ) -> Prev_analysis
@@ -463,174 +467,467 @@ names(Prev_analysis)[Prev_analysis>0.2] -> Prev_analysis
 ForAnalysis = left_join(Late_with_info,sp_df_late)
 ```
 
-Modelling using longitudinal timepoints:  
-Per each cluster (except 7 and 7), predict presence/absence of the cluster, using M12, M9 and M6
-```{r, warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE }
-Models = list()
-N = 1
-for (Cl in unique( as_vector(ForAnalysis[C]) ) ){
-  if (Cl %in% c(7, 8) ){ next }
-  print(Cl)
-  ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) ==Cl, T, F), .before=1 ) -> ForAnalysis2
-  ForAnalysis2 %>% group_by(NEXT_ID) %>% summarise(N = n()) %>% filter(N == 1) -> ToRemove
-  ForAnalysis2 %>% filter(!NEXT_ID %in% ToRemove$NEXT_ID) %>% drop_na() -> ForAnalysis2
-  
-  coda_glmnet_longitudinal(x = ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix()  , y=ForAnalysis2$Cluster, x_time=ForAnalysis2$exact_age_days_at_collection, subject_id =ForAnalysis2$NEXT_ID,  nfolds = 5, ini_time=178, end_time = 387 ) -> Model_cluster
-  Models[[N]] = Model_cluster
-  names(Models)[N] = Cl
-  N = N + 1
-}
-Scores = tibble()
-for (Entry in names(Models)){
- print(Entry)
- print(Models[[Entry]]$`mean cv-AUC`)
- Scores %>% rbind(tibble(Cluster = Entry, CVAUC = Models[[Entry]]$`mean cv-AUC`   )) -> Scores
-}
-```
-Show table of results
-```{r}
-print(gt::gt(arrange(Scores, desc(CVAUC) )))
-#Keep top
-Scores %>% arrange(desc(CVAUC)) %>% head(1) -> N 
-```
 
 Do cross-sectional models fro time M6, M9, and M12, given a Cluster
 For top result, check individual timepoint signature
 
+```{r }
+Fit_xgboost = function(ForAnalysis, Output, Cluster_do=N$Cluster, Timepoints=c("M6", "M9", "M12") ){
+
+  Models_cross = tibble()
+  N2 = 1
+  for (Timepoint in Timepoints ){
+    ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) ==Cluster_do, T, F), .before=1 ) %>%   filter(Timepoint_categorical==Timepoint) %>% drop_na() -> ForAnalysis2
+    ForAnalysis2 %>% group_by(Cluster) %>% summarise(n()) -> N
+    print(N)
+
+    if( dim(N)[1] != 2 ){ next }
+    #coda_glmnet(x = dplyr::select(ForAnalysis2,Prev_analysis)  %>% as.matrix()  , y=ForAnalysis2$Cluster  ) -> Model_cluster
+    Fig_xgboost_LOO(X =  dplyr::select(ForAnalysis2,Prev_analysis) %>% as.matrix()  , Y=ForAnalysis2$Cluster ) -> y_hat
+    tibble(Y = ForAnalysis2$Cluster, Y_hat = y_hat, Timepoint = Timepoint ) %>%  rbind(Models_cross, . ) -> Models_cross
+  }
+  write_tsv(Models_cross, Output)
+
+}
+Fit_xgboost_multiclass =function(ForAnalysis, Output,  Timepoints=c("M6", "M9", "M12") ){
+
+  Models_cross = tibble()
+  N2 = 1
+  for (Timepoint in Timepoints ){
+    ForAnalysis %>% mutate(Cluster = !!sym(C), .before=1 ) %>%   filter(Timepoint_categorical==Timepoint) %>% drop_na() -> ForAnalysis2
+    Fig_xgboost_LOO_multiclass(X =  dplyr::select(ForAnalysis2,Prev_analysis) %>% as.matrix()  , Y=ForAnalysis2$Cluster ) -> y_hat
+    as_tibble(y_hat$probabilities) %>%  mutate(Y = y_hat$true_labels, Time = Timepoint ) %>%  rbind(Models_cross, . ) -> Models_cross
+  }
+  write_tsv(Models_cross, Output)
+
+}
+
+
+Multiclass_AUC = function(Model_df, Infant = T){
+  AUCs = tibble()
+  Plots = list()
+  for ( Ti in unique(Model_df$Time) ){
+    Model_df %>% filter(Time == Ti ) -> Info
+    Info[,1:8] %>% as.matrix() -> loo_prob_matrix
+    as.factor(Info$Y) -> Y_factor
+  
+    roc_list <- list()
+    auc_df <- data.frame()
+  
+    for (k in seq_along(levels(Y_factor))) {
+      class_name <- levels(Y_factor)[k]
+      true_binary <- as.numeric(Y_factor == class_name)
+      predicted_probs <- loo_prob_matrix[, k]
+      
+      roc_k <- roc(response = true_binary, predictor = predicted_probs, quiet = TRUE)
+      auc_val <- auc(roc_k)
+      rbind(AUCs,  tibble(Time = Ti, Cluster = k , AUC = auc_val) ) -> AUCs
+      # Store ROC object
+      roc_list[[class_name]] <- roc_k
+      
+      # Save AUC
+      auc_df <- rbind(auc_df, data.frame(
+        Class = class_name,
+        AUC = as.numeric(auc_val)
+      ))
+    }
+  
+    roc_df <- purrr::map_dfr(names(roc_list), function(class) {
+    data.frame(
+      FPR = 1 - roc_list[[class]]$specificities,
+      TPR = roc_list[[class]]$sensitivities,
+      Class = class ) })
+    ggplot(roc_df, aes(x = FPR, y = TPR, color = Class)) +
+    geom_line(size = 1.2) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+    theme_minimal(base_size = 14) +
+    labs(title = paste0("Predictor time: ", Ti ), x = "False Positive Rate", y = "True Positive Rate") +
+    scale_color_brewer(palette = "Dark2") +
+    theme(legend.position = "bottom") +
+    annotate("text", x = 0.6, y = 0.2,
+             label = paste(auc_df$Class, "AUC =", round(auc_df$AUC, 2), collapse = "\n"),
+             hjust = 0, size = 4) -> Plot
+    Plots[[Ti]] = Plot
+  }
+  if (Infant == T){
+    ( (Plots[[1]] + guides(color="none")) | (Plots[[2]]+ guides(color="none")) | (Plots[[3]]+ guides(color="none") ) ) + plot_layout(guides = "collect") & theme(legend.position = 'bottom')
+  } else {
+    ( Plots[[1]] | Plots[[2]]) + plot_layout(guides = "collect") & theme(legend.position = 'bottom')
+  }
+}
+
+  
+
+```
+
+```{r}
+c25 <- c("dodgerblue2", "#E31A1C", "green4","#6A3D9A", "#FF7F00", "black", "gold1", "skyblue2", "#FB9A99", "palegreen2","#CAB2D6", "#FDBF6F", "gray70", "khaki2",
+         "maroon", "orxchid1", "deeppink1", "blue1", "steelblue4","darkturquoise", "green1", "yellow4", "yellow3","darkorange4", "brown")
+
+
+Model_mother = read_tsv('Output/Results_CrossSectional_Model_Mother_Multiclass_xgboost.tsv')
+Model = read_tsv('Output/Results_CrossSectional_Model_Multiclass_xgboost.tsv')
+Multiclass_AUC(Model, T) -> infant_auc_plot
+Multiclass_AUC(Model_mother, F) -> mother_auc_plot
+
+
+
+Model_mother %>%
+    gather(Cluster, Probability, `1`:`8`) %>%
+    ggplot(aes(x = as.factor(Y), y = Probability, col = Cluster )) +
+    geom_boxplot() +
+    facet_wrap(~Time) + theme_bw() + xlab('True Cluster') + ylab('Probability cluster (prediciton)') + coord_flip() + scale_color_manual(values=c25 ) -> Mother_prob_plot
+
+
+Model %>%
+    gather(Cluster, Probability, `1`:`8`) %>%
+    ggplot(aes(x = as.factor(Y), y = Probability, col = Cluster )) +
+    geom_boxplot() +
+    facet_wrap(~Time) + theme_bw() + xlab('True Cluster') + ylab('Probability cluster (prediciton)') + coord_flip() + scale_color_manual(values=c25 ) -> Infant_prob_plot
+
+
+( ( Infant_prob_plot | infant_auc_plot ) / (Mother_prob_plot|mother_auc_plot) )  + plot_layout(guides = "collect") +   plot_annotation(tag_levels = 'A') -> Plot
+ggsave('Output/Figure_XGBoost_MultiClass.pdf', Plot, width = 20, height=12)
+
+```
+
+
 ```{r, warning=F}
-Fit_cross_sectional_model = function(ForAnalysis, Cluster_do=N$Cluste ){
+Fit_cross_sectional_model = function(ForAnalysis, Output, Cluster_do=N$Cluster, Timepoints=c("M6", "M9", "M12") ){
 
 
   Models_cross = list()
   N2 = 1
-  for (Timepoint in c("M6", "M9", "M12") ){
+  Prediction = tibble()
+  for (Timepoint in Timepoints ){
     ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) ==Cluster_do, T, F), .before=1 ) %>%   filter(Timepoint_categorical==Timepoint) %>% drop_na() -> ForAnalysis2
-    coda_glmnet(x = ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix()  , y=ForAnalysis2$Cluster,  ) -> Model_cluster
+    ForAnalysis2 %>% group_by(Cluster) %>% summarise(n()) -> N
+    print(N)
+
+    if( dim(N)[1] != 2 ){ next }
+    #coda_glmnet(x = dplyr::select(ForAnalysis2,Prev_analysis)  %>% as.matrix()  , y=ForAnalysis2$Cluster  ) -> Model_cluster
+    coda_glmnet_2(x =  dplyr::select(ForAnalysis2,Prev_analysis) %>% as.matrix()  , y=ForAnalysis2$Cluster,  Do_Leave_One_Out = T, nfolds = 5 ) -> Model_cluster
+    Prediction = tibble( Y = Model_cluster$Y, Pred = Model_cluster$Y_hat, Time = Timepoint  ) %>% rbind(Prediction, . )
     Models_cross[[N2]] = Model_cluster
     names(Models_cross)[N2] = Timepoint
     N2 = N2 + 1
   }
+  write_tsv(Prediction, Output)
+
 
   Scores2 = tibble()
   for (Entry in names(Models_cross)){
     #print(Entry)
     #print(Models_cross[[Entry]]$`mean cv-AUC`)
-  Scores2 %>% rbind(tibble(Cluster = Entry, CVAUC = Models_cross[[Entry]]$`mean cv-AUC`   )) -> Scores2
+  #Scores2 %>% rbind(tibble(Cluster = Entry, CVAUC = Models_cross[[Entry]]$`mean cv-AUC`   )) -> Scores2
+    Scores2 %>% rbind(tibble(Cluster = Entry, LOOAUC = Models_cross[[Entry]]$LOO_results$AUC, Balanced_accuracy = Models_cross[[Entry]]$LOO_results$`Balanced Accuracy`  )) -> Scores2
 }
 
   return(list('Models_cross' = Models_cross, 'Scores2' = Scores2  ))
 }
 ```
+
+Run cross-sectional models, multiclass
+
+```{r}
+Output = paste0('Output/Results_CrossSectional_Model_Multiclass_xgboost.tsv')
+Res = Fit_xgboost_multiclass(ForAnalysis, Output)
+Multiclass_AUC(Model_df = read_tsv('Output/Results_CrossSectional_Model_Multiclass_xgboost.tsv'))
+
+```
+
+
 Run cross-sectional models
+
+With XGBoost
+```{r}
+for (Cl in unique( as_vector(ForAnalysis[C]) ) ){
+  if (Cl %in% c(7, 8) ){ next }
+  Output = paste0('Output/Results_CrossSectional_Model_', Cl , '_xgboost.tsv')
+  if (file.exists(Output)) {
+    next  # Skip this iteration
+  }
+  print(Cl)
+  Res = Fit_xgboost(ForAnalysis, Output, Cluster_do=Cl)
+}
+
+
+```
+Get scores per each fo the models
+```{r}
+Make_ROC = function(XGboost = F, Mother = F ){
+  AUCs = tibble()
+  for (File in  list.files("Output/", full.names = T, pattern = '_Model_') ){
+    if (Mother == T){ 
+      if (! grepl('_Mother', File) ){ next }
+    } else{
+      if ( grepl('_Mother', File) ){ next }
+    }
+    if (XGBoost == T){
+        if (! grepl('_xgboost', File) ){ next }
+    } else{
+      if ( grepl('_xgboost', File) ){ next }
+    }
+      M = read_tsv(File)
+      colnames(M) = c('Y', 'Pred', 'Time')
+      ROC_list = list()
+      for (Ti in M$Time %>% unique()  ){
+        N = M %>% filter(Time == Ti)
+        Get_scores_model(N$Pred, as.logical(N$Y)) -> Stats
+        ROC = Stats$`ROC Plot`
+        ROC_list[[Ti]] = ROC
+        tibble(File = File, Time= Ti, AUC=ROC$auc ) %>% rbind(AUCs, . ) -> AUCs
+      }
+      ggroc(ROC_list, legacy.axes = TRUE) +
+      scale_color_manual(
+      values = c("M6" = "#FF206E", "M9" = "#41EAD4", 'M12'= 'purple' ),  # Custom colors
+      name = "Infant time"  # Legend title
+    ) +
+    geom_line(size = 1.2) +  # Thicker lines
+    labs(
+      x = "False Positive Rate (1 - Specificity)",  # Rename x-axis
+      y = "True Positive Rate (Sensitivity)",      # Rename y-axis
+      title = ""               # Add title
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "bottom",  # Move legend to bottom
+      plot.title = element_text(hjust = 0.5, face = "bold")  # Center title
+    ) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") -> Plot 
+    }
+}
+    
+}
+
+```
+
+With coda4microbiome
+
 ```{r, warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE }
 Results_CrossSectional = tibble()
 for (Cl in unique( as_vector(ForAnalysis[C]) ) ){
   if (Cl %in% c(7, 8) ){ next }
+  Output = paste0('Output/Results_CrossSectional_Model_', Cl , '_coda4microbiome.tsv')
+  if (file.exists(Output)) {
+    next  # Skip this iteration
+  }
   print(Cl)
-  Res = Fit_cross_sectional_model(ForAnalysis, Cluster_do=Cl)
+  Res = Fit_cross_sectional_model(ForAnalysis, Output, Cluster_do=Cl)
   Res[['Scores2']] %>% rename(Tiempoint_predictor = Cluster) %>% mutate(Cluster=Cl ) %>% rbind(Results_CrossSectional, . ) -> Results_CrossSectional
 }
+
+write_rds(Results_CrossSectional, 'Output/Results_CrossSectional_Model.rds')
+
 ```
 
-```{r}
-Results_CrossSectional %>% arrange(desc(CVAUC))
-```
 
-Per each predictor and cluster, fit null model
+Run longitudinal
 ```{r}
-FitNull = function(ForAnalysis, Cluster_n, Predictor_time ){
-  ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) == Cluster_n, T, F), .before=1 ) %>%
-    filter(Timepoint_categorical==Predictor_time) %>% drop_na() -> ForAnalysis2
+Models = list()
+Pred_long_baby = tibble()
+N = 1
+for (Cl in unique( as_vector(ForAnalysis[C]) ) ){
+  if (Cl %in% c(7, 8) ){ next }
+  Output = paste0('Output/Results_Longitudinal_Model_', Cl , '_coda4microbiome.tsv')
+  if (file.exists(Output)) {
+    next  # Skip this iteration
+  }
+  print(Cl)
+  ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) ==Cl, T, F), .before=1 ) -> ForAnalysis2
+  ForAnalysis2 %>% group_by(NEXT_ID) %>% summarise(N = n()) %>% filter(N == 1) -> ToRemove
+  ForAnalysis2 %>% filter(!NEXT_ID %in% ToRemove$NEXT_ID) %>% drop_na() -> ForAnalysis2
   
-  null_acc<-coda_glmnet_null(x=ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix(),y=ForAnalysis2$Cluster, niter=100)
-  return(null_acc)
+  coda_glmnet_longitudinal2(x = ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix()  , y=ForAnalysis2$Cluster, x_time=ForAnalysis2$exact_age_days_at_collection, subject_id =ForAnalysis2$NEXT_ID,  nfolds = 5, ini_time=178, end_time = 387, Do_Leave_One_Out = T ) -> Model_cluster
+  Prediction = tibble( Y = Model_cluster$Y, Pred = Model_cluster$Y_hat, Time=NA  ) %>% rbind(Prediction, . )
+  write_tsv(Prediction, Output)
+   
+  tibble( Model_cluster$LOO_results$`Balanced Accuracy`, LOOAUC = Model_cluster$LOO_results$AUC, Cluster = Cl ) %>% rbind(Pred_long_baby, . ) -> Pred_long_baby
+  
+  Models[[N]] = Model_cluster
+  names(Models)[N] = Cl
+  N = N + 1
 }
-```
-Fit null models
-```{r}
-Null_distributions = tibble()
-for (row_n  in seq(1, nrow(Results_CrossSectional)) ){
- I = Results_CrossSectional[row_n,]
- print(I)
- FitNull(ForAnalysis, Predictor_time= I$Tiempoint_predictor, Cluster_n=I$Cluster ) -> NullModel
- tibble(CVAUC = NullModel$accuracy, Cluster=I$Cluster, Timepoint_predictor= I$Tiempoint_predictor) %>% rbind(Null_distributions, . ) -> Null_distributions
-}
-write_rds(Null_distributions, '~/Documents/PhD/LL_NEXT/EarlyLifeClusters/Tables/null_prediction_cross.rds')
-```
-Get P-values per AUC
-```{r}
-Stats_CrossSectional = tibble()
-for (row_n  in seq(1, nrow(Results_CrossSectional)) ){
- I = Results_CrossSectional[row_n,]
- Null_por_I =filter(Null_distributions, Timepoint_predictor==I$Tiempoint_predictor, Cluster==I$Cluster )
- Percentage_nullModels = mean(Null_por_I$CVAUC >= I$CVAUC )
- tibble( P = Percentage_nullModels, Tiempoint_predictor=I$Tiempoint_predictor, Cluster=I$Cluster ) %>% rbind(Stats_CrossSectional, . ) -> Stats_CrossSectional
-}
-Stats_CrossSectional %>% arrange(P)
-```
-Plot AUCs as histogram
-```{r}
-Null_distributions %>% mutate(Permutation = T) %>% rbind(Results_CrossSectional %>% rename(Timepoint_predictor=Tiempoint_predictor) %>% mutate(Permutation=F) ) %>%
-  mutate(Timepoint_predictor = factor(Timepoint_predictor, levels=c('M6','M9', 'M12') ) ) %>%
-  ggplot( aes(x = CVAUC)) +
-    geom_histogram(data = filter(combined_data, Permutation == T), bins = 30) + geom_vline(data = filter(combined_data, Permutation == F), aes(xintercept = CVAUC), color = "red", linetype = "dashed", size = 1) + theme_bw() +
-    facet_grid(Cluster ~ Timepoint_predictor) +
-    labs(x = "CV-AUC", y = "Count")
+
+write_rds(Pred_long_baby, 'Output/Prediction_long.rds')
+
 ```
 
 
 ###6.2 Using mother timepoints
 
+Prepare data
 ```{r, warning=FALSE, message=FALSE}
 set.seed(1887)
 
 metadata_long %>% filter(Type == "mother" ) -> Mothers
-PC_early %>% left_join(metadata_long) %>% select(FAMILY, !!sym(C)) %>% left_join(Mothers) %>% drop_na() -> Mothers
+PC_early %>% left_join(metadata_long) %>% select(FAMILY, !!sym(C)) %>% distinct(FAMILY, .keep_all =T ) %>% left_join(Mothers, . , by='FAMILY' ) %>% filter(! is.na(!!sym(C)) ) -> Mothers
 DF %>% filter(NG_ID %in% Mothers$NG_ID ) %>% Filter_names(Do_Genus = F) -> sp_mothers
 sp_mothers %>% select(-NG_ID) %>% apply(2, function(x){ sum(x!=0)/length(x) } ) -> Prev_analysis
-names(Prev_analysis)[Prev_analysis>0.2] -> Prev_analysis
+names(Prev_analysis)[Prev_analysis>0.3] -> Prev_analysis
 
-ForAnalysis = left_join(Mothers,sp_mothers)
-ForAnalysis %>% filter(!Timepoint_categorical %in% c("M1", "M2") ) %>% mutate(TimeNumeric = ifelse(Timepoint_categorical == "P12", -24, ifelse(Timepoint_categorical %in% c("P28", "B") , 0, 12  ) )  ) -> ForAnalysis
+ForAnalysis = left_join(Mothers, select(sp_mothers, c('NG_ID',  Prev_analysis)) )
+ForAnalysis %>% filter(!Timepoint_categorical %in% c("M1", "M2", "M3") ) %>% mutate(TimeNumeric = ifelse(Timepoint_categorical == "P12", -24, ifelse(Timepoint_categorical %in% c("P28", "B") , 0, 12  ) )  ) %>% mutate(Timepoint_categorical = ifelse(Timepoint_categorical %in% c("P28", "B"), 'B',  'P12' ) ) -> ForAnalysis
+```
 
 
-###using longitudinal timepoints
+Using cross-sectional
+
+
+
+Coda4microbiome
+```{r, warning=FALSE, message=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results='hide', message=FALSE}
+Results_CrossSectional_mother = tibble()
+for (Cl in unique( as_vector(ForAnalysis[C]) ) ){
+  if (Cl %in% c(7, 8) ){ next }
+  print(Cl)
+  Output = paste0('Output/Results_CrossSectional_Model_Mother_', Cl , '_coda4microbiome.tsv')
+  if (file.exists(Output)) {
+    next  # Skip this iteration
+  }
+  Res = Fit_cross_sectional_model(ForAnalysis, Output, Cluster_do=Cl, Timepoints=c('P12','B')  )
+  Res[['Scores2']] %>% rename(Tiempoint_predictor = Cluster) %>% mutate(Cluster=Cl ) %>% rbind(Results_CrossSectional_mother, . ) -> Results_CrossSectional_mother
+}
+write_rds(Results_CrossSectional_mother, 'Output/Results_CrossSectional_Mother_Model.rds')
+
+
+```
+
+```{r}
+Results_CrossSectional_mother %>% arrange(CVAUC)
+```
+
+Mother longitudinal prediction
+
+```{r}
 Models_mother = list()
 N = 1
+Pred_long_mother = tibble()
+
 for (Cl in unique(as_vector(ForAnalysis[C]) )){
   if (Cl %in% c(7, 8) ){ next }
   print(Cl)
+  Output = paste0('Output/Results_Longitudinal_Model_Mother_', Cl , '_coda4microbiome.tsv')
+  if (file.exists(Output)) {
+    next  # Skip this iteration
+  }
   ForAnalysis %>% mutate(Cluster = ifelse(!!sym(C)==Cl, T, F), .before=1 ) -> ForAnalysis2
+  ForAnalysis2 %>% group_by(FAMILY, Timepoint_categorical) %>% summarise(n())
   ForAnalysis2 %>% group_by(NEXT_ID) %>% summarise(N = n()) %>% filter(N == 1) -> ToRemove
   dim(ToRemove)
   ForAnalysis2 %>% filter(!NEXT_ID %in% ToRemove$NEXT_ID) %>% drop_na() -> ForAnalysis2
-  coda_glmnet_longitudinal(x = ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix()  , y=ForAnalysis2$Cluster, x_time=ForAnalysis2$TimeNumeric, subject_id =ForAnalysis2$NEXT_ID,  nfolds = 10, ini_time=-24, end_time = 12, showPlots = F ) -> Model_cluster
+  coda_glmnet_longitudinal2(x = ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix()  , y=ForAnalysis2$Cluster, x_time=ForAnalysis2$TimeNumeric, subject_id =ForAnalysis2$NEXT_ID,  nfolds = 5, ini_time=-24, end_time = 0, showPlots = F, Do_Leave_One_Out = T ) -> Model_cluster
+  
+  Prediction = tibble( Y = Model_cluster$Y, Pred = Model_cluster$Y_hat, Time = NA  ) %>% rbind(Prediction, . )
+  write_tsv(Prediction, Output)
+  
+
   Models_mother[[N]] = Model_cluster
   names(Models_mother)[N] = Cl
   N = N + 1
+
+  tibble( Model_cluster$LOO_results$`Balanced Accuracy`, LOOAUC = Model_cluster$LOO_results$AUC, Cluster = Cl ) %>% rbind(Pred_long_mother, . ) -> Pred_long_mother
 }
-Scores_mother = tibble()
-for (Entry in names(Models_mother)){
- print(Entry)
- print(Models_mother[[Entry]]$`mean cv-AUC`)
- Scores_mother %>% rbind(tibble(Cluster = Entry, CVAUC = Models_mother[[Entry]]$`mean cv-AUC`   )) -> Scores_mother
+write_rds(Pred_long_mother, 'Output/Prediction_long_mother.rds')
+
+```
+
+XGBoost
+```{r}
+for (Cl in unique( as_vector(ForAnalysis[C]) ) ){
+  if (Cl %in% c(7, 8) ){ next }
+  Output = paste0('Output/Results_CrossSectional_Model_Mother_', Cl , '_xgboost.tsv')
+  if (file.exists(Output)) {
+    next  # Skip this iteration
+  }
+
+  print(Cl)
+  Res = Fit_xgboost(ForAnalysis, Output, Cluster_do=Cl, Timepoints=c('P12','B'))
 }
-print(gt::gt(arrange(Scores_mother, desc(CVAUC) )))
+
+```
+
+Run cross-sectional models, multiclass
+
+```{r}
+Output = paste0('Output/Results_CrossSectional_Model_Mother_Multiclass_xgboost.tsv')
+Res = Fit_xgboost_multiclass(ForAnalysis, Output, Timepoints=c('P12','B'))
+Multiclass_AUC(Model_df = read_tsv('Output/Results_CrossSectional_Model_Multiclass_xgboost.tsv'))
+
+```
 
 
-Scores_mother %>% arrange(desc(CVAUC)) %>% head(1) -> N 
+Get scores per each fo the models
+```{r}
+AUCs = tibble()
+for (File in  list.files("Output/", full.names = T) ){
+  if ( grepl('_xgboost', File) & grepl('_Mother', File) ){
+    M = read_tsv(File)
+    ROC_list = list()
+    for (Time in M$Timepoint %>% unique()  ){
+      N = M %>% filter(Timepoint == Time)
+      Get_scores_model(N$Y_hat, as.logical(N$Y)) -> Stats
+      ROC = Stats$`ROC Plot`
+      ROC_list[[Time]] = ROC
+      tibble(File = File, Time= Time, AUC=ROC$auc ) %>% rbind(AUCs, . ) -> AUCs
+    }
+    ggroc(ROC_list, legacy.axes = TRUE) +
+    scale_color_manual(
+    values = c("M6" = "#FF206E", "M9" = "#41EAD4", 'M12'= 'purple' ),  # Custom colors
+    name = "Infant time"  # Legend title
+  ) +
+  geom_line(size = 1.2) +  # Thicker lines
+  labs(
+    x = "False Positive Rate (1 - Specificity)",  # Rename x-axis
+    y = "True Positive Rate (Sensitivity)",      # Rename y-axis
+    title = ""               # Add title
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",  # Move legend to bottom
+    plot.title = element_text(hjust = 0.5, face = "bold")  # Center title
+  ) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") -> Plot 
+  }
 
-Association_cluster %>% filter(! Feature == "(Intercept)" ) %>% arrange(`Pr(>|t|)`) %>% mutate(FDR = p.adjust(`Pr(>|t|)`, "fdr")) %>% filter(Feature == paste0("as.factor(Cluster)", N$Cluster ) ) %>% select(-c(Feature, `Std. Error`, `t value`))
+}
 
-Scores_mother %>% arrange(desc(CVAUC)) %>% head(2) %>% tail(1) -> N 
-Association_cluster %>% filter(! Feature == "(Intercept)" ) %>% arrange(`Pr(>|t|)`) %>% mutate(FDR = p.adjust(`Pr(>|t|)`, "fdr")) %>% filter(Feature == paste0("as.factor(Cluster)", N$Cluster ) ) %>% select(-c(Feature, `Std. Error`, `t value`))
+```
 
-###Run null model for the top assocaitons
 
-ForAnalysis %>% mutate(Cluster = ifelse( !!sym(C) ==N$Cluster, T, F), .before=1 )  %>%  drop_na() -> ForAnalysis2
+Put all prediction tables together
+```{r}
 
-null_acc<-coda_glmnet_longitudinal_null(x=ForAnalysis2 %>% dplyr::select(Prev_analysis)  %>% as.matrix(),y=ForAnalysis2$Cluster, niter=100, x_time=ForAnalysis2$TimeNumeric, subject_id =ForAnalysis2$NEXT_ID,  nfolds = 10, ini_time=-24, end_time = 12)
-Percentage_nullModels = mean(null_acc$accuracy >= N2$CVAUC )
+#longitudinal
+read_rds('Output/Prediction_long_mother.rds') %>% mutate(type = 'Mother')  %>% mutate(Tiempoint_predictor = 'Longitudinal') -> T1
+colnames(T1)[1] = 'Balanced_accuracy'
+read_rds('Output/Prediction_long.rds')  %>% mutate(type = 'Infant')  %>% mutate(Tiempoint_predictor = 'Longitudinal') -> T2
+colnames(T2)[1] = 'Balanced_accuracy'
+
+#cross sectional
+read_rds('Output/Results_CrossSectional_Model.rds') %>% mutate(type = 'Infant')  -> T3
+read_rds('Output/Results_CrossSectional_Mother_Model.rds') %>% mutate(type = 'Mother')  -> T4
+
+rbind(T1, T2) %>% rbind(T3) %>% rbind(T4) %>% rename(Timepoint_predictor=Tiempoint_predictor) -> df_scores
+df_scores %>% mutate(Timepoint_predictor = factor(Timepoint_predictor, levels = c('P12', 'B', 'M6', 'M9', 'M12', 'Longitudinal')  ) ) -> df_scores
+
+ggplot(df_scores, aes(x = Timepoint_predictor, y = Cluster, fill = Balanced_accuracy)) +
+  geom_tile(color = "white") +  # White gridlines for separation
+  scale_fill_gradient(low = "blue", high = "red") +  # Customize color scale
+  theme_minimal() +
+  labs(x = "Timepoint Predictor", y = "Cluster", fill = "Balanced Accuracy") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_wrap(~type, scales='free_x') -> Plot_scores
+
+write_tsv(df_scores, 'Output/Scores_prediction.tsv')
+ggsave('Output/Scores_prediction.pdf', Plot_scores)
+
+
+ggplot(df_scores, aes(x = Timepoint_predictor, y = Cluster, fill = LOOAUC)) +
+  geom_tile(color = "white") +  # White gridlines for separation
+  scale_fill_gradient(low = "blue", high = "red") +  # Customize color scale
+  theme_minimal() +
+  labs(x = "Timepoint Predictor", y = "Cluster", fill = "AUC") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_wrap(~type, scales='free_x') -> Plot_scores2
 
 ```
 
