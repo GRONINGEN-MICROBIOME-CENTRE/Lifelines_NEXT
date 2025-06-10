@@ -152,6 +152,27 @@ This will perform MSA and create .tre files and .aln files for each of the (sub)
 
 
 
-## Step 4: Make distance matrix from MSA file (makeDistMatAll.sh)
+## Step 4: Make distance matrix from trees
 
-`
+```
+files <- system("ls RAxML_bestTree.t__*.StrainPhlAn4.tre", intern = TRUE)
+
+trees = pblapply(files, read.tree)
+trees <- pblapply(trees, function(x) {
+  x$tip.label <- sub("_.*", "", x$tip.label)
+  x
+})
+
+
+distmats = pblapply(trees, cophenetic.phylo)
+
+distmats = pblapply(distmats,as.matrix)
+
+outputs = paste0("NEXT_RAxML_distmats/",sub("^NEXT_RAxML_trees/","",sub("/RAxML_bestTree.*","",files)), "_DistMat.txt")
+
+
+for(i in 1:length(outputs)){
+  write.table(distmats[[i]],file = outputs[i],sep="\t",quote = F)
+}
+```
+
