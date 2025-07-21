@@ -80,5 +80,5 @@ for_coverage <- lapply(names(myfiles), function(list_name) {
 # Merge all selected and renamed dataframes into a single breadth of coverage talbe
 coverage_table <- for_coverage %>% reduce(full_join, by='X1')
 
-write.table(coverage_table, paste0(args[1], "coverage_table.txt"),  sep='\t', row.names=F, quote=F)
-write.table(count_table, paste0(args[1], "count_table.txt"), sep='\t', row.names=F, quote=F)
+write.table(coverage_table, paste0(dirname(args[1]), "/coverage_table.txt"),  sep='\t', row.names=F, quote=F)
+write.table(count_table, paste0(dirname(args[1]), "/count_table.txt"), sep='\t', row.names=F, quote=F)
