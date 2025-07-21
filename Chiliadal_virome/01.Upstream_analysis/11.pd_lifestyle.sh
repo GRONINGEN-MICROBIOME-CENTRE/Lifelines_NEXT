@@ -23,13 +23,13 @@ module list
 # --- WORKING IN TMP ---
 mkdir ${TMPDIR}/${DB}_LIFESTYLE
 
-cp /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/virus_contigs/fragmented/${DB}.fa ${TMPDIR}/${DB}_LIFESTYLE
+cp /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/virus_contigs/CLEANED/fragmented/${DB}.fa ${TMPDIR}/${DB}_LIFESTYLE
 
 # --- RUNNING BACPHLIP ---
 bacphlip --multi_fasta -i ${TMPDIR}/${DB}_LIFESTYLE/${DB}.fa
 
 # --- COPYING RESULTS ---
-cp ${TMPDIR}/${DB}_LIFESTYLE/${DB}.fa.bacphlip /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/virus_contigs/fragmented/
+cp ${TMPDIR}/${DB}_LIFESTYLE/${DB}.fa.bacphlip /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/virus_contigs/CLEANED/fragmented/
 
 deactivate
 
