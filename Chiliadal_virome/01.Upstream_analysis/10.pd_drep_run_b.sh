@@ -2,8 +2,8 @@
 #SBATCH --job-name=PD_deRep
 #SBATCH --output=./out/09.drp/PD_dRep_b.out
 #SBATCH --mem=32gb
-#SBATCH --time=04:00:00
-#SBATCH --cpus-per-task=2
+#SBATCH --time=24:00:00
+#SBATCH --cpus-per-task=1
 #SBATCH --open-mode=truncate
 
 # Concatenate per-fragment results of all vs all blast
@@ -49,7 +49,7 @@ seqtk \
 
 # --- LOAD MODULES ---
 module purge
-module load R
+module load R/4.3.2-gfbf-2023a
 
 # Getting VC clustering info
 Rscript dereplication_stat.R ../VIR_DB/TMP_EXP_DREP/NEXT_viral_clusters.tsv
