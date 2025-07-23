@@ -6,6 +6,9 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --open-mode=truncate
 
+# Clusterting pipeline is re-used from https://github.com/snayfach/MGV/tree/07c88e92f14ffdf61ce925a0450c952c34229f5a/aai_cluster
+# Source: Nayfach et al. Metagenomic compendium of 189,680 DNA viruses from the human gut microbiome. 2021. https://www.nature.com/articles/s41564-021-00928-6.
+
 INPUT=$1
 WORK_DIR=$2
 
