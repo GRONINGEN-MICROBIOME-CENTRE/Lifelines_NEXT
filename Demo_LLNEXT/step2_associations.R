@@ -26,6 +26,25 @@ metadata_infant = metadata[metadata$Type=="Infant",]
 
 metaphlan = decostand(metaphlan, method = "clr",pseudocount = min(metaphlan[metaphlan>0])/2)
 
+# Additional function to treat zeros jitter used for metacyc
+# INPUT: table - CLR transformed abundance table
+# INPUT: original - non-transformed abundance table
+
+nullify_zeros = function(table,original){
+  for (i in 1:ncol(table)){
+    transformed = table[,i]
+    original_record = original[,i]
+    nonzero_records = transformed[which(original_record>0)]
+    min_nonzero = min(nonzero_records)
+    second_nonzero = min(nonzero_records[nonzero_records>min_nonzero])
+    dist = abs(second_nonzero - min_nonzero)
+    transformed[which(original_record == 0)] = min_nonzero - dist
+    table[,i] = transformed
+  }
+  table
+}
+
+
 
 # 2.1 Static phenotypes -------------------------------------------------------
 # Adopted from https://github.com/GRONINGEN-MICROBIOME-CENTRE/Lifelines_NEXT/Gut_Microbiome/Associations_predictors_SGB/LIFELINES_NEXT_gut_microbiome_alpha_diversity_cross_sectional_infants.R
