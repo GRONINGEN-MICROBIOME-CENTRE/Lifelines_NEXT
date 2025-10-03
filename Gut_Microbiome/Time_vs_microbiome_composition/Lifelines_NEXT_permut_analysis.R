@@ -22,17 +22,21 @@ Get_Pvalues_Permutations = function(dists_cons ,Which_type=  "mother:mother", Wh
     filter(TimeComp == Which_comparison) -> DataAnalysis
   
   Get_values = function(DataAnalysis){
-    DataAnalysis %>% group_by(Comp) %>% summarise(Average_dist=mean(Distance) , SD = sd(Distance), N = n(), SE = SD/N ) ->
-    DataAnalysis_sum
+    DataAnalysis %>% group_by(Comp) %>% summarise(Average_dist=mean(Distance) , Var = var(Distance), N = n()) ->
+      DataAnalysis_sum
     Differences = tibble(
-    Same_vs_related =  DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "SameIndv"] - DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "Related"],
-    Same_vs_unrelated = DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "SameIndv"] - DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "Unrelated"],
-    related_vs_unrelated = DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "Related"] - DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "Unrelated"]
+      Same_vs_related =  DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "SameIndv"] - DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "Related"],
+      Same_vs_unrelated = DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "SameIndv"] - DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "Unrelated"],
+      related_vs_unrelated = DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "Related"] - DataAnalysis_sum$Average_dist[DataAnalysis_sum$Comp == "Unrelated"]
     )
     Differences_SE = tibble(
-      Same_vs_related = sqrt(    DataAnalysis_sum$SE[DataAnalysis_sum$Comp == "SameIndv"]^2 + DataAnalysis_sum$SE[DataAnalysis_sum$Comp == "Related"]^2 ),
-      Same_vs_unrelated = sqrt(    DataAnalysis_sum$SE[DataAnalysis_sum$Comp == "SameIndv"]^2 + DataAnalysis_sum$SE[DataAnalysis_sum$Comp == "Unrelated"]^2),
-      related_vs_unrelated = sqrt(    DataAnalysis_sum$SE[DataAnalysis_sum$Comp == "Related"]^2 + DataAnalysis_sum$SE[DataAnalysis_sum$Comp == "Unrelated"]^2) 
+      Same_vs_related = sqrt(DataAnalysis_sum$Var[DataAnalysis_sum$Comp == "SameIndv"] + DataAnalysis_sum$Var[DataAnalysis_sum$Comp == "Related"] ) / 
+        sqrt (DataAnalysis_sum$N[DataAnalysis_sum$Comp == "SameIndv"] + DataAnalysis_sum$N[DataAnalysis_sum$Comp == "Related"] ),
+      Same_vs_unrelated = sqrt(DataAnalysis_sum$Var[DataAnalysis_sum$Comp == "SameIndv"] + DataAnalysis_sum$Var[DataAnalysis_sum$Comp == "Unrelated"]) /
+        sqrt(DataAnalysis_sum$N[DataAnalysis_sum$Comp == "SameIndv"] + DataAnalysis_sum$N[DataAnalysis_sum$Comp == "Unrelated"]),
+      related_vs_unrelated = sqrt(    DataAnalysis_sum$Var[DataAnalysis_sum$Comp == "Related"] + DataAnalysis_sum$Var[DataAnalysis_sum$Comp == "Unrelated"]) /
+        sqrt(    DataAnalysis_sum$N[DataAnalysis_sum$Comp == "Related"] + DataAnalysis_sum$N[DataAnalysis_sum$Comp == "Unrelated"])
+        
     )
     Differences_Tvalue = Differences/Differences_SE
     
