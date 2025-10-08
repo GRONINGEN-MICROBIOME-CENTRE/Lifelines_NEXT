@@ -2,7 +2,9 @@
 
 #### Authors scripts: Trishla Sinha, Alexander Kurilshikov, Sergio Andreu-Sánchez, Cyrus A. Mallon, Asier Fernández-Pato, Nataliia Kuzub
 
+
 #### Part 1: Maternal gut microbiome is largely stable during pregnancy and postpartum whereas infant gut microbiome is highly dynamic
+
 
 #### Part 2: The composition and function of the infant gut microbiome are primarily shaped by the mode of delivery, followed by feeding mode, with additional influences from parity, pre-pregnancy smoking, infections, and diet.
 
