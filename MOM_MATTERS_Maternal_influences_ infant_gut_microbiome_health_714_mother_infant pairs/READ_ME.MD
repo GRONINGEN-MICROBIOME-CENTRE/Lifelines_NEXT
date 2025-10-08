@@ -6,7 +6,7 @@
 #### Part 1: Maternal gut microbiome is largely stable during pregnancy and postpartum whereas infant gut microbiome is highly dynamic
 
 
-#### Part 2: The composition and function of the infant gut microbiome are primarily shaped by the mode of delivery, followed by feeding mode, with additional influences from parity, pre-pregnancy smoking, infections, and diet.
+#### Part 2: The composition and function of the infant gut microbiome are primarily shaped by the mode of delivery, followed by feeding mode, with additional influences from parity, pre-pregnancy smoking, infections, and diet
 
 #### Part 3: Characteristics of a complicated labor are associated with a decreased abundance of Bacteroides in vaginal deliveries
 
