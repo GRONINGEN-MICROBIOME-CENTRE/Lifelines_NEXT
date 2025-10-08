@@ -1,6 +1,6 @@
 # Scripts for manuscript: Mom Matters: Maternal influences on infant gut microbiome and health in 714 mother-infant pairs in the Lifelines NEXT cohort 
 
-### Authors scripts: Trishla Sinha, Alexander Kurilshikov, , Sergio Andreu-Sánchez, Cyrus A. Mallon, Asier Fernández-Pato, Nataliia Kuzub
+#### Authors scripts: Trishla Sinha, Alexander Kurilshikov, Sergio Andreu-Sánchez, Cyrus A. Mallon, Asier Fernández-Pato, Nataliia Kuzub
 
 #### Part 1: Maternal gut microbiome is largely stable during pregnancy and postpartum whereas infant gut microbiome is highly dynamic
 
