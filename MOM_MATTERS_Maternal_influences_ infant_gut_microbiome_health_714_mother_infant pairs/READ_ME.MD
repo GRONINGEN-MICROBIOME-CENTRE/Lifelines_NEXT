@@ -1,4 +1,4 @@
-# Scripts for manuscript: Mom Matters: Maternal influences on infant gut microbiome and health in 714 mother-infant pairs in the Lifelines NEXT cohort 
+# Mom Matters: Maternal influences on infant gut microbiome and health in 714 mother-infant pairs in the Lifelines NEXT cohort 
 
 #### Authors scripts: Trishla Sinha, Alexander Kurilshikov, Sergio Andreu-Sánchez, Cyrus A. Mallon, Asier Fernández-Pato, Nataliia Kuzub
 
