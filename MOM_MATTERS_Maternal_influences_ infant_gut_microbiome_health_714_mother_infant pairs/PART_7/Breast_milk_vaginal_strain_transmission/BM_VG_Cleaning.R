@@ -275,4 +275,3 @@ plot_taxonomic_level(tax_meta_long_clean, level = "Species", sample_type = "VG",
 # Making final metata 
 write.table(KN_meta, "KN_meta_BM_VG_DS.txt", row.names = F, sep = "\t")
 
-p.adjust(method = )
