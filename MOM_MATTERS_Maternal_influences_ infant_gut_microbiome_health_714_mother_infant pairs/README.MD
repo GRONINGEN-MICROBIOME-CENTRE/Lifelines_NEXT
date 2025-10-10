@@ -16,6 +16,7 @@
 - MEFISTO analysis 
 - PERMANOVA of single timepoints 
 - TCAM analysis 
+- Associations of predictors with SGB's, alpha diversity, pathways
 - Scripts pertaining to figures: Figure 2, S4
 
 #### Part 3: Characteristics of a complicated labor are associated with a decreased abundance of Bacteroides in vaginal deliveries
