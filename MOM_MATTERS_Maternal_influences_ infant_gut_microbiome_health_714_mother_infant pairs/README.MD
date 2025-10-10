@@ -16,7 +16,7 @@
 - MEFISTO analysis 
 - PERMANOVA of single timepoints 
 - TCAM analysis 
-- Associations of predictors with SGB's, alpha diversity, pathways
+- Associations of predictors with SGB's, alpha diversity, pathways in infants 
 - Scripts pertaining to figures: Figure 2, S4
 
 #### Part 3: Characteristics of a complicated labor are associated with a decreased abundance of Bacteroides in vaginal deliveries
@@ -24,19 +24,29 @@
 
 
 #### Part 4: Infant feeding practices, but not breast milk HMO concentrations, are associated with the infant gut microbiome and its neuroactive potential 
--  Scripts pertaining to figures: Figure 3, S5
+- Associations of predictors with HMO profile in infants 
+- Associations of predictors with GBM in infants 
+- Scripts pertaining to figures: S5
 
 #### Part 5: The infant CAZyme profile is highly dynamic during the first year of life and is shaped by the presence of Bacteroides, Parabacteroides, and Phocaeicola
+- Cleaning CAZYme data
+- Associations of CAZYmes with SGB's in mothers and infants 
+- Associations of CAZYmes with time point in mothers and infants 
+- Associations of CAZYmes with predictors in infants 
+- CAZYme subtrate analysis
 - Scripts pertaining to figures:Figure 3, S5, S6
 
 #### Part 6: Maternal gut microbiome is predictive of infant eczema 
+- Associations of predictors with SGB's, alpha diversity, pathways in mothers 
+- Prediction of eczema from maternal microbiome 
 - Scripts pertaining to figures: Figure 4
 
 
 #### Part 7: The maternal gut microbiome is a major reservoir of infant gut strains, with occasional transmission from vaginal and breast milk microbiomes
-- Strain transmission of gut strains 
+- Strain transmission of gut strains and its association with time point, predictors and abundances in mothers and infants 
 - Strain transmission of breastmilk and vaginal strains
 - Scripts pertaining to figures: Figure 5, 6, S7, S8
 
 #### Part 8: Infant microbial intraspecies phylogenies are associated with time, parity and infant complementary food
+- PGLMM analysis 
 - Scripts pertaining to figures: Figure S9 
