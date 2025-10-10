@@ -18,7 +18,7 @@
 - Scripts pertaining to figures: Figure 3
 
 
-#### Part 4: Breastfeeding and later infant dairy intake, but not HMO concentrations in breast milk, are associated with infant gut microbial species
+#### Part 4: Infant feeding practices, but not breast milk HMO concentrations, are associated with the infant gut microbiome and its neuroactive potential 
 -  Scripts pertaining to figures: Figure 3, S5
 
 #### Part 5: The infant CAZyme profile is highly dynamic during the first year of life and is shaped by the presence of Bacteroides, Parabacteroides, and Phocaeicola
