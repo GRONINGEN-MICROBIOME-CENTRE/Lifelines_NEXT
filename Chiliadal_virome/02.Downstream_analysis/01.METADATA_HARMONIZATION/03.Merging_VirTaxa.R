@@ -41,6 +41,63 @@ genus_size <- read.table('06.CLEAN_DATA/genus_clusters_127553vOTUr_labeled_size.
 
 family_clusters <- read.table('06.CLEAN_DATA/family_clusters_127553vOTUr_labeled_long_format.txt', sep='\t', header = T)
 family_size <- read.table('06.CLEAN_DATA/family_clusters_127553vOTUr_labeled_size.txt', sep='\t', header=T)
+
+vOTU_clustering <- read.table('06.CLEAN_DATA/NEXT_viral_clusters_MGS_VLP_long_format.txt', sep='\t', header=T)
+vOTU_clustering <- vOTU_clustering[vOTU_clustering$Representative %in% ETOF_vOTUr$New_CID,]
+
+vOTU_cluster_size <- read.table('06.CLEAN_DATA/NEXT_viral_clusters_MGS_VLP_size.txt', sep='\t', header=T)
+vOTU_cluster_size <- vOTU_cluster_size[vOTU_cluster_size$Representative %in% ETOF_vOTUr$New_CID,]
+
+vOTU_clustering$DB_member <- NA
+vOTU_clustering[grep('NEXT_V', vOTU_clustering$Cluster_member),]$DB_member <- 'NEXT_VLP'
+vOTU_clustering[grep('NEXT_M', vOTU_clustering$Cluster_member),]$DB_member <- 'NEXT_MGS'
+vOTU_clustering[grep('Guerin', vOTU_clustering$Cluster_member),]$DB_member <- 'Guerin'
+vOTU_clustering[grep('Yutin', vOTU_clustering$Cluster_member),]$DB_member <- 'Yutin'
+vOTU_clustering[grep('NCBI_CrAss', vOTU_clustering$Cluster_member),]$DB_member <- 'NCBI_CrAss'
+vOTU_clustering[grep('NL_crAss', vOTU_clustering$Cluster_member),]$DB_member <- 'NL_crAss'
+vOTU_clustering[grep('Benler', vOTU_clustering$Cluster_member),]$DB_member <- 'Benler'
+vOTU_clustering[grep('COPSAC', vOTU_clustering$Cluster_member),]$DB_member <- 'COPSAC'
+vOTU_clustering[grep('GVD', vOTU_clustering$Cluster_member),]$DB_member <- 'GVD'
+vOTU_clustering[grep('IMGVR', vOTU_clustering$Cluster_member),]$DB_member <- 'IMGVR'
+vOTU_clustering[grep('MGV-', vOTU_clustering$Cluster_member),]$DB_member <- 'MGV'
+vOTU_clustering[grep('GPD', vOTU_clustering$Cluster_member),]$DB_member <- 'GPD'
+vOTU_clustering[grep('VREF', vOTU_clustering$Cluster_member),]$DB_member <- 'VREF'
+
+vOTU_clustering$DB_member <- factor(vOTU_clustering$DB_member)
+
+vOTU_by_source <- vOTU_clustering %>%
+  mutate(DB_member = factor(DB_member)) %>%
+  count(Representative, DB_member) %>%
+  pivot_wider(names_from = DB_member, values_from = n, values_fill = 0)
+
+merged <- vOTU_by_source %>%
+  
+  left_join(vOTU_cluster_size, by = "Representative") %>%
+  
+  rename(N_genomes = Cluster_size, vOTU_representative  = Representative) %>%
+  
+  left_join(ETOF_vOTUr %>% select(New_CID, POST_CHV_length, miuvig_quality),
+            by = c("vOTU_representative" = "New_CID"))
+
+merged$DB_sum <- merged$N_genomes - merged$NEXT_MGS - merged$NEXT_VLP
+
+sources <- c("NEXT_VLP","NEXT_MGS","DB_sum")
+
+merged <- merged %>%
+  mutate(
+    vOTU_cluster_type = apply(across(all_of(sources)) > 0, 1,
+                              function(r) { x <- sources[r]; if (length(x)==0) "None" else paste(x, collapse = "+") })
+  )
+
+merged$vOTUr_source <- NA
+merged[grep('NEXT_V', merged$vOTU_representative),]$vOTUr_source <- 'NEXT_VLP'
+merged[grep('NEXT_M', merged$vOTU_representative),]$vOTUr_source <- 'NEXT_MGS'
+merged[is.na(merged$vOTUr_source),"vOTUr_source"] <- "DB"
+
+##### adding info to ETOF_vOTUr:
+ETOF_vOTUr <- merge(ETOF_vOTUr, merged[,c("vOTU_representative", "vOTU_cluster_type", "vOTUr_source")], by.x="New_CID", by.y="vOTU_representative", all = T)
+
+
 #############################################################
 # 3.1 Analysis (merging)
 #############################################################
@@ -341,4 +398,4 @@ write.table(family_RPKM, "06.CLEAN_DATA/02.FINAL/family_RPKM_VLP_MGS.txt", sep='
 # 4. Output
 #############################################################
 write.table(newtax[,add_t_ETOF], "./06.CLEAN_DATA/MergedTaxonomy_127553vOTUr_ab3kbp_in_2200_VLP_MGS.txt", sep='\t', quote=F, row.names=F)
-
+write.table(merged2, "./06.CLEAN_DATA/Minimally_curated_gen_fam_vOTU_clustering.txt", sep = '\t', quote=F, row.names = F)
