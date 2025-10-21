@@ -73,6 +73,53 @@ dna_conc <- read.table("../../../08.Big_gut_NEXT_paper_data/DNA_CONC_ALL_WITH_DU
 dna_conc <- dna_conc[dna_conc$ID!="Sample Name",]
 dna_conc$DNA_CONC <- as.numeric(dna_conc$DNA_CONC)
 
+# chiliadal sample genomic characteristics:
+vlp_raw_reads <- read.table('../../04.RAW_DATA/02.Read_stats/N_raw_reads_all', sep='\t', header=F, col.names = c('Sequencing_ID', 'raw_reads'))
+vlp_human_reads <- read.table('../../04.RAW_DATA/02.Read_stats/N_human_reads_all_27052025', sep='\t', header=F, col.names = c('Sequencing_ID', 'human_reads'))
+
+vlp_clean_reads <- read.table('../../04.RAW_DATA/02.Read_stats/viromeqc_all_CHILIADAL.txt', sep = '\t', header=T)
+colnames(vlp_clean_reads)[grep('Sample', colnames(vlp_clean_reads))] <- 'Sequencing_ID'
+colnames(vlp_clean_reads)[grep('Reads', colnames(vlp_clean_reads))] <- 'clean_reads'
+
+reads_list <- list(vlp_raw_reads, vlp_human_reads, 
+                   vlp_clean_reads[,c("Sequencing_ID", "clean_reads")])
+
+VLP_reads <- reads_list %>% reduce(full_join, by='Sequencing_ID')
+VLP_reads$reads_lost_QC <- 1 - VLP_reads$clean_reads/VLP_reads$raw_reads
+
+contig_stat_vlp <- read.delim('../../04.RAW_DATA/02.Read_stats/Contigs_stat_all', sep = '\t', header=T)
+colnames(contig_stat_vlp) <- janitor::make_clean_names(colnames(contig_stat_vlp))
+colnames(contig_stat_vlp)[grep('assembly', colnames(contig_stat_vlp))] <- 'Sequencing_ID'
+
+vqc_vlp <- vlp_clean_reads
+colnames(vqc_vlp)[-1] <- janitor::make_clean_names(colnames(vqc_vlp[,-1]))
+
+genomics_list <- list(VLP_reads, 
+                      contig_stat_vlp[,c("Sequencing_ID", "contigs_0_bp", "contigs_1000_bp")],
+                      vqc_vlp[,c("Sequencing_ID", "bacterial_markers_alignment_rate")])
+
+chili_genomics <- genomics_list %>% reduce(full_join, by = "Sequencing_ID")
+
+BC_test_key <- read_xlsx('../../01.METADATA/Samples_BaseClear_pilot_sequencing.xlsx', sheet=1)
+
+chili_genomics[grep('VNP', chili_genomics$Sequencing_ID),]$Sequencing_ID <- BC_test_key$Sequencing_ID[match(BC_test_key$SAMPLE, chili_genomics[grep('VNP', chili_genomics$Sequencing_ID),]$Sequencing_ID)]
+
+rm(list = c('reads_list', 'vlp_clean_reads', 'vlp_human_reads', 
+            'vlp_raw_reads', 'BC_test_key', 'contig_stat_vlp', 
+            'genomics_list', 'VLP_reads', 'vqc_vlp'))
+
+# pentachiliadal sample genomic characteristics:
+contig_stat_mgs <- read.delim('../../04.RAW_DATA/02.Read_stats/Contigs_stat_1110_mgs', sep='\t', header=T)
+colnames(contig_stat_mgs) <- janitor::make_clean_names(colnames(contig_stat_mgs))
+colnames(contig_stat_mgs)[grep('assembly', colnames(contig_stat_mgs))] <- 'Sequencing_ID'
+
+vqc_mgs <- read.table('../../04.RAW_DATA/02.Read_stats/viromeqc_1110mgs', sep='\t', header=T)
+colnames(vqc_mgs) <- janitor::make_clean_names(colnames(vqc_mgs))
+colnames(vqc_mgs)[grep('sample', colnames(vqc_mgs))] <- 'Sequencing_ID'
+
+penta_genomics <- full_join(contig_stat_mgs[,c("Sequencing_ID", "contigs_0_bp", "contigs_1000_bp")], 
+                            vqc_mgs[,c("Sequencing_ID", "bacterial_markers_alignment_rate")], by="Sequencing_ID")
+rm(contig_stat_mgs, vqc_mgs)
 #############################################################
 # 3. Combine and clean Chiliadal metadata
 #############################################################
@@ -427,28 +474,19 @@ bgnp_metadata_all$infant_relations <- NULL
 Chiliadal_sequenced_samples$Family_structure <- bgnp_metadata_all$Family_structure[match(Chiliadal_sequenced_samples$Universal_ID, bgnp_metadata_all$Universal_ID)]
 
 # adding reads info etc:
-vlp_raw_reads <- read.table('../../04.RAW_DATA/02.Read_stats/N_raw_reads_all', sep='\t', header=F, col.names = c('Sequencing_ID', 'raw_reads'))
-vlp_human_reads <- read.table('../../04.RAW_DATA/02.Read_stats/N_human_reads_all_27052025', sep='\t', header=F, col.names = c('Sequencing_ID', 'human_reads'))
+Chiliadal_sequenced_samples <- full_join(Chiliadal_sequenced_samples, chili_genomics, by='Sequencing_ID')
 
-vlp_clean_reads <- read.table('../../04.RAW_DATA/02.Read_stats/viromeqc_all_CHILIADAL.txt', sep = '\t', header=T)
-colnames(vlp_clean_reads)[grep('Sample', colnames(vlp_clean_reads))] <- 'Sequencing_ID'
-colnames(vlp_clean_reads)[grep('Reads', colnames(vlp_clean_reads))] <- 'clean_reads'
-
-reads_list <- list(vlp_raw_reads, vlp_human_reads, vlp_clean_reads[,c("Sequencing_ID", "clean_reads")])
-VLP_reads <- reads_list %>% reduce(full_join, by='Sequencing_ID')
-VLP_reads$reads_lost_QC <- 1 - VLP_reads$clean_reads/VLP_reads$raw_reads
-
-BC_test_key <- read_xlsx('../../01.METADATA/Samples_BaseClear_pilot_sequencing.xlsx', sheet=1)
-
-VLP_reads[grep('VNP', VLP_reads$Sequencing_ID),]$Sequencing_ID <- BC_test_key$Sequencing_ID[match(BC_test_key$SAMPLE, VLP_reads[grep('VNP', VLP_reads$Sequencing_ID),]$Sequencing_ID)]
-
-Chiliadal_sequenced_samples <- full_join(Chiliadal_sequenced_samples, VLP_reads, by='Sequencing_ID')
-
-rm(list = c('reads_list', 'vlp_clean_reads', 'vlp_human_reads', 'vlp_raw_reads', 'VLP_reads'))
+rm(chili_genomics)
 
 # keeping only MGS samples that are connected to the VLP samples
 mgs_smeta <- bgnp_metadata_all[bgnp_metadata_all$FAMILY %in% Chiliadal_sequenced_samples[Chiliadal_sequenced_samples$sequencing_status=="Sequenced",]$FAMILY,]
-#rm(bgnp_metadata_all)
+
+# adding contig and vqc data to full overlap data:
+mgs_smeta <- full_join(mgs_smeta, penta_genomics, by="Sequencing_ID")
+rm(penta_genomics)
+
+# cleaning up:
+rm(bgnp_metadata_all)
 
 # there are no VLP samples that are not present in BGNP except for NCs
 Chiliadal_sequenced_samples[!Chiliadal_sequenced_samples$Universal_ID %in% mgs_smeta$Universal_ID, 'Universal_ID']
@@ -507,8 +545,9 @@ long_metadata[long_metadata$FAMILY %in% nondyad,"non_dyads"] <- "Non-dyad"
 column_order <- c('NEXT_ID', 'Type', 'Timepoint_original',
                   'FAMILY', 'Universal_ID', 'Sequencing_ID',
                   'seq_type', 'dna_conc', 'isolation_method',
-                  'sequencing_status', 'replicate_type', 'raw_reads',
+                  'sequencing_status', 'replicate_type', 'raw_reads', 
                   'human_reads', 'clean_reads', 'reads_lost_QC',
+                  'bacterial_markers_alignment_rate', 'contigs_0_bp', 'contigs_1000_bp',
                   'full_overlap', 'chiliadal_status',
                   'excl_chiliadal_reason', 'check_VLP_for_mixup',
                   'isolation_batch', 'sequencing_batch', 'DATE_VLP', 'DATE_DNA',
@@ -522,6 +561,8 @@ column_order <- c('NEXT_ID', 'Type', 'Timepoint_original',
 
 long_metadata <- long_metadata[,column_order]
 long_metadata$bacShannon <- bac_diversity_shannon$diversity[match(long_metadata$Universal_ID, bac_diversity_shannon$Universal_ID)]
+
+rm(bac_diversity_shannon)
                   
 # Files to be exported & shared:
 
@@ -562,10 +603,41 @@ remove_use_VLP_MGS <- c('sequencing_status', 'replicate_type', 'chiliadal_status
 long_VLP_MGS_overlap_metadata <- long_VLP_MGS_overlap_metadata %>%
   select(-all_of(remove_use_VLP_MGS))
   
+# calculating VLP enrichment efficacy using own bacterial marker alignment:
 
+# running calculation for VLPs and MGS sepratately (MGS is relative to own median, which is similar to the median in the original paper, 0.7)
+wider_df <- long_VLP_MGS_overlap_metadata %>%
+  pivot_wider(
+    id_cols = Universal_ID,
+    names_from = seq_type,
+    values_from = bacterial_markers_alignment_rate
+  ) %>%
+  mutate(
+    own_total_VLP_enrich = pmin(MGS / VLP, 100),
+    own_total_MGS_enrich = pmin(median(MGS, na.rm = TRUE) / MGS, 100)
+  )
+
+# adding the new metrics to the table:
+long_VLP_MGS_overlap_metadata <- long_VLP_MGS_overlap_metadata %>%
+  left_join(
+    wider_df %>%
+      select(Universal_ID, own_total_VLP_enrich, own_total_MGS_enrich),
+    by = "Universal_ID"
+  ) %>%
+  mutate(
+    own_vir_enrich = case_when(
+      seq_type == "VLP" ~ own_total_VLP_enrich,
+      seq_type == "MGS" ~ own_total_MGS_enrich,
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  select(-c(own_total_VLP_enrich, own_total_MGS_enrich))
+
+rm(wider_df)
 # metaphlan table for concurrent MGS:
 metaphlan_overlap <- metaphlan[,colnames(metaphlan) %in% long_metadata[long_metadata$full_overlap==T & long_metadata$seq_type=="MGS",]$Sequencing_ID]
 metaphlan_overlap <- metaphlan_overlap[rowSums(metaphlan_overlap) > 0,]
+rm(metaphlan)
 
 # for later: figure out where to reassign
 reass <- long_metadata[long_metadata$seq_type=="MGS" & long_metadata$SAMPLE_ID!=long_metadata$Universal_ID, ]$Universal_ID
@@ -615,16 +687,16 @@ length(infants[infants$infant_birthcard_feeding_mode_after_birth=="MF" & !is.na(
 write.table(mgs_smeta[mgs_smeta$sequencing_status=="Sequenced", "Sequencing_ID"], '../../06.CLEAN_DATA/Intermediate/MGS_NG_IDs_Chiliadal.txt', sep='\t', row.names = F, col.names = F, quote=F)
 
 # Long metadata for all fecal samples from Chiliadal-included individuals:
-write.table(extended_long_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_Ext_v03.txt', sep='\t', row.names = F, quote=F)
+write.table(extended_long_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_Ext_v04.txt', sep='\t', row.names = F, quote=F)
 
 # Long metadata for all successfully sequenced unique fecal samples from Chiliadal-included individuals (both available VLP and MGS samples)
-write.table(use_long_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_ExtFiltered_v03.txt', sep='\t', row.names = F, quote=F)
+write.table(use_long_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_ExtFiltered_v04.txt', sep='\t', row.names = F, quote=F)
 
 # Short VLP metadata for all unique VLP samples from Chiliadal that have a paired MGS sample:
-write.table(use_VLP_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLPmatched_v02.txt', sep='\t', row.names = F, quote=F)
+write.table(use_VLP_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLPmatched_v03.txt', sep='\t', row.names = F, quote=F)
 
 # Long metadata for all unique fecal samples from Chiliadal-included individuals (VLP-MGS overlap, 2220 samples)
-write.table(long_VLP_MGS_overlap_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v02.txt', sep='\t', row.names = F, quote=F)
+write.table(long_VLP_MGS_overlap_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v03.txt', sep='\t', row.names = F, quote=F)
 
 # metaphlan unfiltered full taxonomy for 1110 MGS samples with full overlap to Chiliadal:
 write.table(metaphlan_overlap, '../../06.CLEAN_DATA/02.FINAL/MGS_Chiliadal_metaphlan_full_taxonomy_ver_01_07102025.txt', sep='\t', quote=F)
