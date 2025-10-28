@@ -43,7 +43,7 @@ result_list <- lapply(parsed_json, function(json_obj) {
 })
 
 # Extracted values and columns
-combined_df <- do.call(rbind, result_list)
+combined_df <- do.call(plyr::rbind.fill, result_list)
 
 # Resulting data frame
 result_df <- cbind(DF, combined_df)
