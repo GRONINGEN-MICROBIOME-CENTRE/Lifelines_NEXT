@@ -53,7 +53,7 @@ We used multiple complementary tools to identify viral sequences from assembled 
 ## Data Availability
 All resulting viral genome sets, abundance tables, and associated metadata will be made available through:
 - [Zenodo DOI link (coming soon)](https://zenodo.org/)
-- Lifelines data portal (if applicable)
+- Lifelines (to be added)
 
 ---
 
