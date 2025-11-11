@@ -2,7 +2,7 @@
 Gut virome analysis from metagenomic data on the **Lifelines NEXT Cohort**.
 
 <p align="center">
-  <img src="images/Cohort_overview.png" alt="PentaChiliadal Virome Workflow" width="650">
+  <img src="images/Project_overview.png" alt="PentaChiliadal Virome Workflow" width="650">
 </p>
 
 ---
