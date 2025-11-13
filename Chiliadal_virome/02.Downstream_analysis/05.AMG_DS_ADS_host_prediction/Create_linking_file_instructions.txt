@@ -1,0 +1,9 @@
+/scratch/p309176/chiliadal/results/PP_v1
+grep ">" High_quality_vOTUs_PNT.faa > original.txt
+grep ">" High_quality_vOTUs_PNT_ed.faa > edited.txt
+sed -i 's/^>//' edited.txt
+sed -i 's/^>//' original.txt
+sed -i 's/ .*//' original.txt
+paste original.txt edited.txt > linking_proteins.txt
+rm original.txt
+rm edited.txt

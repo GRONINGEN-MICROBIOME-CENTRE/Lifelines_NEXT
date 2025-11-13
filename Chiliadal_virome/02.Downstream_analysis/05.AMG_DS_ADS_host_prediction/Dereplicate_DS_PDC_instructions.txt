@@ -1,0 +1,35 @@
+# Run the following commands in the interactive mode
+
+# Split defense finder predictions to the defense and antidefense system predictions
+cd /scratch/p309176/chiliadal/results/DSP_v2/DSP_DF/DSP_DF_PNT
+
+(head -n 1 High_quality_vOTUs_PNT_ed_defense_finder_systems.tsv && grep -v "Antidefense" High_quality_vOTUs_PNT_ed_defense_finder_systems.tsv | tail -n +2) > High_quality_vOTUs_PNT_ed_defense_finder_systems_defense.tsv
+(head -n 1 High_quality_vOTUs_PNT_ed_defense_finder_systems.tsv && grep "Antidefense" High_quality_vOTUs_PNT_ed_defense_finder_systems.tsv) > High_quality_vOTUs_PNT_ed_defense_finder_systems_antidefense.tsv
+
+cd /scratch/p309176/chiliadal/results/DSP_v2/DSP_PDC/DSP_PDC_PNT
+tr ',' '\t' < High_quality_vOTUs_PNT_ed_padloc.csv > High_quality_vOTUs_PNT_ed_padloc.tsv
+
+module purge
+module load Python/3.13.1-GCCcore-14.2.0
+
+source /home1/p309176/venvs/pkgs_py3.13.1/bin/activate
+module load
+
+cd /scratch/p309176/chiliadal/scripts/
+
+python convert_padloc_to_DF.py /scratch/p309176/chiliadal/results/DSP_v2/DSP_PDC/DSP_PDC_PNT/High_quality_vOTUs_PNT_ed_padloc.tsv /scratch/p309176/chiliadal/results/DSP_v2/DSP_PDC/DSP_PDC_PNT/High_quality_vOTUs_PNT_ed_padloc_df_format.tsv
+
+mkdir -p /scratch/p309176/chiliadal/results/DSP_v2/COMBINED
+
+python concatenate_padloc_df_outputs.py /scratch/p309176/chiliadal/results/DSP_v2/DSP_PDC/DSP_PDC_PNT/High_quality_vOTUs_PNT_ed_padloc_df_format.tsv /scratch/p309176/chiliadal/results/DSP_v2/DSP_DF/DSP_DF_PNT/High_quality_vOTUs_PNT_ed_defense_finder_systems_defense.tsv /scratch/p309176/chiliadal/results/DSP_v2/COMBINED/High_quality_vOTUs_PNT_ed_padloc_df.tsv
+
+python deduplicate_padloc_and_DF.py /scratch/p309176/chiliadal/results/DSP_v2/COMBINED/High_quality_vOTUs_PNT_ed_padloc_df.tsv /scratch/p309176/chiliadal/results/DSP_v2/COMBINED/deduplicated_defense_systems.tsv /scratch/p309176/chiliadal/results/DSP_v2/COMBINED/successfully_deduplicated_systems.tsv /scratch/p309176/chiliadal/results/DSP_v2/COMBINED/non_deduplicated_overlaps.tsv
+
+# Check the file non_deduplicated_overlaps.tsv: if there's non-deduplicated systems, update the dictionary within the code in deduplicate_padloc_and_DF.py
+less /scratch/p309176/chiliadal/results/DSP_v2/COMBINED/non_deduplicated_overlaps.tsv
+# Move the defensefinder prediction for antidefense systems to the COMBINED folder (combination will be done in R)
+
+mv /scratch/p309176/chiliadal/results/DSP_v2/DSP_DF/DSP_DF_PNT/High_quality_vOTUs_PNT_ed_defense_finder_systems_antidefense.tsv /scratch/p309176/chiliadal/results/DSP_v2/COMBINED/
+
+deactivate
+module purge
