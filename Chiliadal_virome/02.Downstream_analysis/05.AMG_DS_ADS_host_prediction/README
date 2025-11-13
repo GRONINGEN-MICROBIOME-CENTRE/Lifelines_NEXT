@@ -1,0 +1,72 @@
+To run host prediction do: 
+sbatch HP_1.sh {path to virus genomes} {path to output directory} {number of sequences per batch}
+Once everything is finished, run the scrupt for result merging
+sbatch HP_4.sh {path to results directory}
+
+Example:
+sbatch HP_1.sh /scratch/p309176/chiliadal/data/vOTUr_unique_VLP_dec_3kbp.fasta /scratch/p309176/chiliadal/results/HP_v1 100
+sbatch HP_4.sh /scratch/p309176/chiliadal/results/HP_v1
+
+To obtain one virus - one host file, filter the results on the local machine using script Host_prediction_filtering.R
+
+
+
+To run protein prediction do:
+sbatch PP_PNT_1.sh {path to virus genomes} {path to virus metadata} {path to output directory} {number of sequences per batch}
+Once everything is finished, run the scrupt for result merging
+sbatch PP_4.sh {path to results directory}
+
+Example:
+sbatch PP_1.sh /scratch/p309176/chiliadal/data/vOTUr_unique_VLP_dec_3kbp.fasta /scratch/p309176/chiliadal/data/ETOF_vOTUr_in_clean_VLP_RPKM_99ANI_above_3kbp_16Apr25.txt /scratch/p309176/chiliadal/results/PP_v1 100
+sbatch PP_4.sh /scratch/p309176/chiliadal/results/PP_v1
+
+Note:
+Filtering is hevily dependant on the column location in the vOTU metadata (etof) file; check prior running.
+To run PP_4 you'll also need scripts clean_faa.py and clean_gff.py. They are used to clean the names of the proteins, so they are compatible with the other tools.
+
+
+
+
+To run protein annotation for metabolic genes prediction do:
+sbatch --array=1-{n batches} AMGP_PRG_1.sh {path to the folder with the splitted .faa file} {path to output directory} {path to the batch list}
+sbatch AMGP_PRG_2.sh {HMMER output folder: out file from previous script}
+
+sbatch --array=1-{n batches} AMGP_KFS_1.sh {path to KOFam HMM profiles} {path to the folder with the splitted .faa file} {path to output directory} {path to the batch list}
+sbatch AMGP_KFS_2.sh {KoFamScan output folder: out file from previous script}
+
+Example:
+sbatch --array=1-163 AMGP_PRG_1.sh /scratch/p309176/chiliadal/results/PP_v2/PP_PNT /scratch/p309176/chiliadal/results/AMGP_v2/AMGP_PRG_PNT /scratch/p309176/chiliadal/results/PP_v2/batch_list.txt
+sbatch AMGP_PRG_2.sh /scratch/p309176/chiliadal/results/AMGP_v2/AMGP_PRG_PNT/HMMER_RESULTS
+
+sbatch --array=1-163 AMGP_KFS_1.sh /scratch/hb-llnext/databases/KOfam_30072025 /scratch/p309176/chiliadal/results/PP_v2/PP_PNT /scratch/p309176/chiliadal/results/AMGP_v2/AMGP_KFS_PNT /scratch/p309176/chiliadal/results/PP_v2/batch_list.txt
+sbatch AMGP_KFS_2.sh /scratch/p309176/chiliadal/results/AMGP_v2/AMGP_KFS_PNT
+
+To filter and perform initial merging of the PHROG and KofamScan annotations run on the local machine MG_prediction_PRG_KEGG.R
+
+
+To run defense/antidefense systems prediction with DefenseFinder do:
+sbatch DSP_DF.sh {path to the preprocessed .faa file with predicted proteins} {path to output directory}
+
+Example:
+sbatch DSP_DF.sh /scratch/p309176/chiliadal/results/PP_v1/High_quality_vOTUs_PNT_ed.faa /scratch/p309176/chiliadal/results/DSP_v1/DSP_DF/DSP_DF_PNT
+
+
+To run defense systems prediction with PADLOC do:
+sbatch DSP_PDC.sh {path to the preprocessed .faa file with predicted proteins} {path to the .gff file with predicted proteins} {path to output directory}
+
+Example:
+sbatch DSP_PDC.sh /scratch/p309176/chiliadal/results/PP_v1/High_quality_vOTUs_PNT_ed.faa /scratch/p309176/chiliadal/results/PP_v1/High_quality_vOTUs_PNT_ed.gff /scratch/p309176/chiliadal/results/DSP_v1/DSP_PDC/DSP_PDC_PNT
+
+
+To run antidefense systems prediction with dbAPIS do:
+sbatch DSP_DBA.sh {path to the preprocessed .faa file with predicted proteins} {path to output directory}
+
+Example:
+sbatch DSP_DBA.sh /scratch/p309176/chiliadal/results/PP_v1/High_quality_vOTUs_PNT_ed.faa /scratch/p309176/chiliadal/results/DSP_v1/DSP_DBA/DSP_DBA_PNT
+
+To perform initial filtering and dereplication of the PADLOC and DefenseFinder results follow the instructions in the file Dereplicate_DS_PDC_instructions.txt
+
+To further filter, and perform merging and dereplication of the PADLOC, DefenseFinder and dbAPIS results run on the local machine MG_prediction_PRG_KEGG.R
+
+To perform boundaries check for the metabolic genes and defense systems run on the local machine Boundaries_check_AMG_ADDSs.R
+Note: the protein ids were renamed for the defense/antidefense system analysis. To create a linking file for merging the defense/antidefense systems and metabolic genes annotations follow the instructions in the file Create_linking_file_instructions.txt
