@@ -14,13 +14,11 @@ setwd('~/Desktop/Projects_2021/NEXT_virome/09.DATA_ANALYSIS/')
 #############################################################
 ranks <- c("Species","Genus","Family","Order","Class","Phylum","Kingdom","Realm")
 
-# identifies ranks named according to the previous ICTV releases,
-# changes their taxonomy to ICTV latest release
-rename_and_update <- function(df, 
-                              ictv, 
-                              renames, 
-                              rank_col, 
-                              upstream_cols) {
+rename_and_update_patched <- function(df, 
+                                      ictv, 
+                                      renames, 
+                                      rank_col, 
+                                      upstream_cols) {
   rank_col_sym <- sym(rank_col)
   
   # candidates to rename at this rank
@@ -49,11 +47,16 @@ rename_and_update <- function(df,
   
   # 2) attach ICTV lookup (keyed by the *new* rank)
   ictv_lookup <- ictv %>%
-    filter(!is.na(.data[[rank_col]])) %>%
+    #filter(!is.na(.data[[rank_col]])) %>%
     select(all_of(c(rank_col, upstream_cols))) %>%
     distinct()
   
+  
+  unassignders <- df2 %>%
+    filter(!!rank_col_sym == "Unassigned")
+  
   df2 <- df2 %>%
+    filter(!!rank_col_sym != "Unassigned") %>%
     left_join(ictv_lookup, by = rank_col, suffix = c("", ".ictv"))
   
   # rows that actually got renamed
@@ -70,8 +73,10 @@ rename_and_update <- function(df,
     }
   }
   
+  df2 <- bind_rows(df2, unassignders)
   df2
 }
+
 # Driver: iterate ranks and call existing rename_and_update() each time
 rename_all_ranks <- function(df, 
                              ictv, 
@@ -81,7 +86,7 @@ rename_all_ranks <- function(df,
   for (i in seq_along(ranks_vec)) {
     focal    <- ranks_vec[i]
     upstream <- if (i < length(ranks_vec)) ranks_vec[(i + 1):length(ranks_vec)] else character(0)
-    out <- rename_and_update(
+    out <- rename_and_update_patched(
       df            = out,
       ictv          = ictv,
       renames       = ICTV_renaming,
@@ -184,7 +189,7 @@ rename_vitap_placeholders <- function(df,
     }
   }
   
-  df[is.na(df)] <- "Unclassified"
+  #df[is.na(df)] <- "Unclassified"
   
   df
 }
@@ -192,9 +197,9 @@ rename_vitap_placeholders <- function(df,
 # identifies ranks not in ictv, renames them to "Unclassified"
 # identifies ranks in ICTV and renames their upstream ranks to
 # ICTV-approved ranks
-fill_from_ictv <- function(df,
-                           ictv,
-                           ranks) {
+fill_from_ictv_patched <- function(df,
+                                   ictv,
+                                   ranks) {
   # df:   taxonomy table with entries split by ranks
   # ictv: ictv table split by ranks
   
@@ -206,20 +211,24 @@ fill_from_ictv <- function(df,
     
     # 1) mark taxa not present in ictv as Unclassified at this rank
     is_known <- df[[rnk]] %in% ictv[[rnk]]
-    df[[rnk]][!is_known] <- "Unclassified"
+    df[[rnk]][!is_known] <- "Unclassified" # WHAT WILL HAPPEN HERE WHEN FAMILY IS UNASSIGNED??
     
     # if no upstream ranks, nothing more to do at this level
     if (!length(upstream)) next
     
     # 2) build ICTV lookup once per rank
     ictv_lookup <- ictv %>%
-      dplyr::filter(!is.na(.data[[rnk]])) %>%
-      dplyr::select(dplyr::all_of(c(rnk, upstream))) %>%
-      dplyr::distinct()
+      filter(!is.na(.data[[rnk]])) %>%
+      select(all_of(c(rnk, upstream))) %>%
+      distinct()
     
     # 3) join ICTV info onto df for all rows at this rank
+    unassigneders <- df %>%
+      filter(!!sym(rnk) == "Unassigned")
+    
     df <- df %>%
-      dplyr::left_join(ictv_lookup, by = rnk, suffix = c("", ".ictv"))
+      filter(!!sym(rnk) != "Unassigned") %>%
+      left_join(ictv_lookup, by = rnk, suffix = c("", ".ictv"))
     
     # 4) overwrite upstream ranks only where ICTV has a non-NA value
     for (u in upstream) {
@@ -231,10 +240,8 @@ fill_from_ictv <- function(df,
       
       df[[ictv_u]] <- NULL
     }
+    df <- bind_rows(df, unassigneders)
   }
-  
-  # final clean-up
-  df[is.na(df)] <- "Unclassified"
   
   df
 }
@@ -243,7 +250,7 @@ fill_from_ictv <- function(df,
 
 # finds cases when the rank of interest has multiple upstream ranks
 check_fd <- function(df, lower, higher, drop_na_higher = TRUE,
-                     ignore_lower_values = c("Unclassified"),
+                     ignore_lower_values = c("Unclassified", "Unassigned"),
                      ignore_case = TRUE) {
   stopifnot(lower %in% names(df), higher %in% names(df))
   
@@ -297,16 +304,6 @@ check_fd <- function(df, lower, higher, drop_na_higher = TRUE,
   )
 }
 
-# reporting offender checker results:
-report <- map_df(fd_results, function(res) {
-  tibble(
-    rule = paste0(res$lower, " → ", res$higher),
-    offenders = n_distinct(res$offenders[[res$lower]] %||% character()),
-    ok = res$ok
-  )
-})
-
-
 #############################################################
 # 1. Loading libraries
 #############################################################
@@ -322,7 +319,7 @@ unique_taxa <- data.frame("consensus_lineage" = unique(taxa$consensus_lineage))
 
 ictv <- readxl::read_xlsx('06.CLEAN_DATA/ICTV_Master_Species_List_2024_MSL40.v2.xlsx', sheet=2, col_types = "text")
 ictv <- ictv[,colnames(ictv) %in% c('Realm', 'Kingdom', 'Phylum',  'Class', 'Order', 'Family',  'Genus',  'Species', 'Genome')]
-
+ictv[is.na(ictv)] <- "Unassigned"
 # previous ICTV releases:
 msl38 <- readxl::read_xlsx('06.CLEAN_DATA/Previous_ICTV_MSL/ICTV_Master_Species_List_2022_MSL38.v3.xlsx', sheet=4, col_types = "text")
 msl39 <- readxl::read_xlsx('06.CLEAN_DATA/Previous_ICTV_MSL/ICTV_Master_Species_List_2023_MSL39.v4.xlsx', sheet=4, col_types = "text")
@@ -369,7 +366,7 @@ unique_taxa$Species[unique_taxa$Species == "Megavirus chiliensis"] <- "Megavirus
 modified_taxa <- unique_taxa %>% ungroup()
 modified_taxa <- rename_all_ranks(modified_taxa, ictv, ICTV_renaming)
 
-modified_taxa[is.na(modified_taxa)] <- "Unclassified"
+#modified_taxa[is.na(modified_taxa)] <- "Unassigned"
 
 #############################################################
 # 3.2 Analysis: renaming placeholders introduced by VITAP
@@ -384,7 +381,7 @@ modified_taxa <- rename_vitap_placeholders(
 #############################################################
 # 3.3 Analysis: keeping only ICTV-approved ranks
 #############################################################
-modified_taxa_clean <- fill_from_ictv(modified_taxa,
+modified_taxa_clean <- fill_from_ictv_patched(modified_taxa,
                                       ictv,
                                       ranks)
 
@@ -402,6 +399,15 @@ pairs_to_check <- tidyr::expand_grid(
 fd_results <- pairs_to_check %>%
   pmap(function(lower, higher) check_fd(modified_taxa_clean, lower, higher))
 
+# reporting offender checker results:
+report <- map_df(fd_results, function(res) {
+  tibble(
+    rule = paste0(res$lower, " → ", res$higher),
+    offenders = n_distinct(res$offenders[[res$lower]] %||% character()),
+    ok = res$ok
+  )
+})
+
 print(report, n=100) 
 
 # To inspect specific violations, e.g. species -> genus (not the case anymore)
@@ -409,9 +415,9 @@ get_res <- function(results, lower, higher) {
   keep(results, ~ .x$lower == lower && .x$higher == higher)[[1]]
 }
 
-res_genus_family <- get_res(fd_results, "Species", "Genus")
+res_family_order <- get_res(fd_results, "Family", "Order") # caused by Unassigned -> changed the ignored values
 
-rm(list = c("pairs_to_check", "res_genus_family"))
+rm(list = c("pairs_to_check", "res_family_order"))
 #############################################################
 # 3.5 Analysis: check if there is a difference in N assigned
 #############################################################
@@ -427,7 +433,7 @@ for (rank in taxa_change_number$Domain) {
   taxa_change_number[taxa_change_number$Domain==rank,"perc_classified_after"] <- 
     round(sum(modified_taxa_clean[,rank]!="Unclassified") / 1328 * 100, 2)
   
-} # -> there definietely is, but it was expected
+} # -> there definitely is, but it was expected
 
 #############################################################
 # 3.6 Analysis: write new taxonomy for vOTUs
