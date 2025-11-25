@@ -54,143 +54,134 @@ add_lost_taxa <- function(rank_clustering, # table (data.frame) in the long form
   
 }
 
-# propagates taxonomy based on the provided AAI clustering info
-propagate_taxonomy <- function(df, # data.frame with columns representing different ranks
-                               cluster_col, # character, name of the column containing AAI clustering info
-                               length_col, # numeric, length of the virus sequences, need for tie breaking
-                               taxon_col # taxon that is propagated (should match the level of the AAI taxon)
-                               ) {
+# helper, identifies the first rank with classified values (not to use outside the main function!)
+rank_seeker <- function(df, lineage) {
   
-  i <- grep(taxon_col, ranks)
-  rank_cols <- if (i < length(ranks)) ranks[(i + 1):length(ranks)] else character(0)
-  
-  lineage_cols <- c(taxon_col, rank_cols)
-  
-  # Split rows by cluster
-  cluster_indices <- split(seq_len(nrow(df)), df[[cluster_col]])
-  
-  for (sub_idx in cluster_indices) {
-    sub <- df[sub_idx, , drop = FALSE]
+  for (rnk in lineage) {
     
-    # 0) If no unclassified taxon in this cluster -> skip
-    has_unclassified_genus <- any(sub[[taxon_col]] == "Unclassified")
-    if (!has_unclassified_genus) next
+    first_classified <- any(df[,rnk] != "Unclassified")
     
-    # vOTUs with assigned genus
-    assigned_mask_sub <- sub[[taxon_col]]!="Unclassified"
-    if (!any(assigned_mask_sub)) next  # no propagator possible
+    if (first_classified) { break }
     
-    assigned_idx <- sub_idx[assigned_mask_sub]
-    assigned <- df[assigned_idx, , drop = FALSE]
-    
-    unique_taxon_val <- unique(assigned[[taxon_col]])
-    propagator_lineage <- NULL  # will be a named vector
-    
-    ## ===== Case A: only one genus present among assigned vOTUs =====
-    if (length(unique_taxon_val) == 1) {
-      # Distinct lineages (genus + all upstream ranks)
-      lineage_df <- unique(assigned[, lineage_cols, drop = FALSE])
-      
-      if (nrow(lineage_df) == 1) {
-        # Clean single-lineage case
-        propagator_lineage <- as.list(lineage_df[1, ])
-      } else {
-        # Same AAI genus but discordant taxonomic genus -> no propagation
-        propagator_lineage <- NULL
-      }
-      
-      ## ===== Case B: multiple genera present among assigned vOTUs =====
-    } else {
-      # Build lineage keys as strings
-      lineage_mat <- assigned[, lineage_cols, drop = FALSE]
-      lineage_keys <- apply(lineage_mat, 1, function(row)
-        paste(row, collapse = "|^|")
-      )
-      
-      counts <- table(lineage_keys)
-      max_count <- max(counts)
-      majority_keys <- names(counts[counts == max_count])
-      
-      if (length(majority_keys) == 1) {
-        chosen_key <- majority_keys
-      } else {
-        # Tie: pick lineage whose member has largest length;
-        # if still tied, lexicographically smallest key
-        best_key <- NA_character_
-        best_len <- -Inf
-        
-        for (k in majority_keys) {
-          mask_k <- (lineage_keys == k)
-          lengths_k <- assigned[[length_col]][mask_k]
-          max_len_k <- suppressWarnings(max(lengths_k, na.rm = TRUE))
-          
-          if (is.infinite(max_len_k)) next  # all NA lengths, just skip
-          
-          if (max_len_k > best_len) {
-            best_len <- max_len_k
-            best_key <- k
-          } else if (max_len_k == best_len) {
-            if (is.na(best_key) || k < best_key) {
-              best_key <- k
-            }
-          }
-        }
-        
-        chosen_key <- best_key
-      }
-      
-      if (!is.na(chosen_key)) {
-        vals <- strsplit(chosen_key, "\\|\\^\\|")[[1]]
-        names(vals) <- lineage_cols
-        propagator_lineage <- as.list(vals)
-      }
-    }
-    
-    # No propagator determined -> skip cluster
-    if (is.null(propagator_lineage)) {
-      print(unique(sub[[cluster_col]]))
-      next
-    }
-    
-    # ===== Apply propagation to vOTUs with unclassified genus =====
-    unclassified_taxa_mask_sub <- sub[[taxon_col]] == "Unclassified"
-    unclassified_taxa_idx <- sub_idx[unclassified_taxa_mask_sub]
-    
-    for (idx in unclassified_taxa_idx) {
-      row <- df[idx, , drop = FALSE]
-      
-      # Check upper-rank consistency
-      conflict <- FALSE
-      for (col in rank_cols) {
-        val     <- row[[col]][[1]]
-        propval <- propagator_lineage[[col]]
-        
-        if (val == "Unclassified" || propval == "Unclassified") {
-          next
-        } else if (!identical(as.character(val), as.character(propval))) {
-          conflict <- TRUE
-          break
-        }
-      }
-      
-      if (conflict) next  # leave this vOTU untouched
-      
-      # 1) Propagate genus
-      df[idx, taxon_col] <- propagator_lineage[[taxon_col]]
-      
-      # 2) Propagate upstream ranks if unclassified
-      for (col in rank_cols) {
-        val     <- row[[col]][[1]]
-        propval <- propagator_lineage[[col]]
-        
-        if (val == "Unclassified" && propval!="Unclassified") {
-          df[idx, col] <- propval
-        }
-      }
-    }
   }
   
-  df
+  return(rnk)
+  
+}
+
+# helper, chooses the best propagator based on the majority of assignments, in case of ties chooses
+# the assignment with the longest representative
+# further ties are resolved by priority
+propagator_chooser <- function(df, prop_rank, candidates, lineage) {
+  
+  df_filtered <- df %>%
+    filter(!!sym(prop_rank) %in% candidates[[prop_rank]]) %>%
+    group_by(across(all_of(lineage))) %>%
+    summarise(
+      n = n(),                       # number of rows per lineage combo
+      POST_CHV_length = max(POST_CHV_length),  # longest length in that group
+      .groups = "drop"
+    ) %>%
+    arrange(desc(n), desc(POST_CHV_length)) %>%
+    slice_head(n=1)
+  
+  return(df_filtered[,all_of(lineage)])
+}
+
+# helper, runs rank-wise comparison of the given taxonomy and the taxonomy of the propagator
+# only compares them at given lineage
+conflict_seeker <- function(s1, propagator, lineage) {
+  
+  conflict <- FALSE
+  
+  for (rnk in rev(lineage)) {
+    
+    if ( s1[rnk] == propagator[rnk] | s1[rnk] == "Unclassified" ) {
+      
+      next
+      
+    } else {
+      
+      conflict <- TRUE
+      #print(paste0("conflict at ", rnk))
+      
+    }
+    
+    if (conflict) {
+      break
+    }
+    
+  }
+  
+  return(conflict)
+}
+
+# propagates taxonomy
+# it might overdrive "Unassigned", but it does not change the taxonomy composition / distribution
+propagate_taxonomy_patched <- function(df, # df
+                                       cluster_col, # name of the AAI cluster column (tested and written for Genus and Family only)
+                                       taxon_col # name of the taxon where to start propagator seeker
+                                       ) { 
+  
+  n <- grep(taxon_col, ranks)
+  rank_cols <- if (n < length(ranks)) ranks[(n + 1):length(ranks)] else character(0)
+  lineage <- c(rev(rank_cols), taxon_col)
+  
+  for ( i in unique(df[[cluster_col]]) ) {
+    
+    OTU <- df %>%
+      filter(!!sym(cluster_col) == i)
+    
+    most_freq_rows <- OTU[,lineage] %>%
+      count(across(everything())) %>%   # count each unique combination of columns
+      arrange(desc(n))
+    
+    if ( nrow(most_freq_rows) > 1 ) { # if there is something to propagate or somewhere to propagate to
+      
+      prop_rank <- rank_seeker(OTU, rev(lineage)) # rank from which propagation should start
+      
+      candidates <- most_freq_rows %>% # at this rank, is there a single candidate or many?
+        filter(!!sym(prop_rank) != "Unclassified")
+      
+      if ( nrow(candidates) == 1) { # if only one -> it is the propagator
+        
+        propagator <- candidates[,lineage]
+        
+      } else { # if more than 1, choose propagator based on the majority of assignments, in case of ties: first length, then priority
+        
+        propagator <- propagator_chooser(OTU, prop_rank, candidates,lineage)
+        
+      }
+      
+      # preparing propagator (not to overwrite things, just in case):
+      k <- grep(prop_rank, ranks)
+      rank_cols2 <- if (k < length(ranks)) rev(ranks[(k + 1):length(ranks)]) else character(0)
+      prop_lineage <- c(rank_cols2, prop_rank) # select the propagator lineage based on the prop rank, not the entire lineage (i.e., with genus)
+      downstream <- if (k > 1) rev(ranks[(k - 1):2]) else character(0)
+      
+      for (votur in OTU$New_CID) {
+        
+        current_taxonomy <- OTU[OTU$New_CID == votur, lineage]
+        
+        if (conflict_seeker(current_taxonomy, propagator, lineage) ) { # if there is a conflict -> skip this line
+          
+          next
+          
+        } else { # else - propagate
+          
+          if ( all(df[df$New_CID == votur, downstream] == "Unclassified") ) { # if no downstream conflicts
+            df[df$New_CID == votur, prop_lineage] <- propagator[prop_lineage]
+          }
+          
+        }
+        
+      }
+      
+      
+    }
+    else next # keep as it is
+  }
+  return(df)
 }
 
 # reused & modified from 3b
@@ -329,7 +320,7 @@ colnames(family_size_UPD) <- colnames(family_size)
 
 rm(list=c("family_size", "family_clusters", "genus_family_check",
           "family_clusters_UPD", "family_size_UPD",
-          'genus_clusters', 'genus_size', 'major_family', "df", "taxa"))
+          'genus_clusters', 'genus_size', 'major_family', "df"))
 #############################################################
 # 3.3 Analysis: checking AAI ranks vs (higher) taxa ranks conflicts
 #############################################################
@@ -408,18 +399,16 @@ rm(top12_wide)
 # 3.5 Analysis: expanding taxonomy assignment based on genus & family
 #############################################################
 # @ AAI genus level:
-df_updated <- propagate_taxonomy(
+df_updated <- propagate_taxonomy_patched(
   df_fixed,
   cluster_col = "Genus_OTUr",
-  length_col  = "POST_CHV_length",
   taxon_col   = "Genus"
 )
 
 # @ AAI family level:
-df_final <- propagate_taxonomy(
+df_final <- propagate_taxonomy_patched(
   df_updated,
   cluster_col = "Family_OTUr",
-  length_col  = "POST_CHV_length",
   taxon_col   = "Family"
 )
 
@@ -427,7 +416,7 @@ df_final <- propagate_taxonomy(
 # already Crassvirales):
 df_final$Order[grepl('Guerin|Yutin|NCBI_CrAss|NL_crAss', df_final$New_CID)] <- 'Crassvirales'
 
-rm(list = c("df_fixed", "df_updated", "ETOF_vOTUr"))
+rm(list = c("df_fixed", "ETOF_vOTUr"))
 #############################################################
 # 3.6 Analysis: check if there is a difference in N assigned
 #############################################################
@@ -440,13 +429,13 @@ taxa_change_number$Domain <- ranks
 for (rank in taxa_change_number$Domain) {
   
   taxa_change_number[taxa_change_number$Domain==rank,"perc_classified_before"] <- 
-    round(sum(taxa[,rank]!="Unclassified") / 121062 * 100, 2)
+    round(sum(!taxa[,rank] %in% c("Unclassified")) / 121062 * 100, 2)
   
   taxa_change_number[taxa_change_number$Domain==rank,"perc_classified_after_gen"] <- 
-    round(sum(df_updated[,rank]!="Unclassified") / 121062 * 100, 2)
+    round(sum(!df_updated[,rank] %in% c("Unclassified")) / 121062 * 100, 2)
   
   taxa_change_number[taxa_change_number$Domain==rank,"perc_classified_after_fam"] <- 
-    round(sum(df_final[,rank]!="Unclassified") / 121062 * 100, 2)
+    round(sum(!df_final[,rank] %in% c("Unclassified")) / 121062 * 100, 2)
 } # -> Family expansion significantly increases the number of assignments, overshot?
 
 #############################################################
