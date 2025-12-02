@@ -17,13 +17,6 @@ module load R
 Rscript table_of_origin.R /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/table_of_origin/ *_table_of_origin
 ```
 
-To execute combine_coverage.R in the upstream analysis (do that after the dereplication):
-
-```
-module load R
-# mind the / at the end of the first argument
-Rscript combine_coverage.R /scratch/p282752/ANALYSIS_CHILIADAL/VIR_DB/mapping/VLP_to_w_neg_der95/coverage/ *.coverage.txt
-```
 
 # EXTERNAL SCRIPTS:
 fastasplitn is available at: https://github.com/ISUgenomics/common_scripts/blob/master/fastasplitn.c
