@@ -82,3 +82,8 @@ All resulting viral genome sets, abundance tables, and associated metadata will 
 
 ## Code Structure
 Scripts and workflows used in this project are organized as follows:
+
+---
+
+## Citation
+
