@@ -11,7 +11,7 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 ---
 
 ## Table of Contents
-- [Key Findings at a Glance](#key-findings-at-a-glance)
+- [Key Findings](#key-findings)
 - [Overview](#overview)
 - [Cohort & Study Design](#cohort--study-design)
 - [Methods](#methods)
@@ -25,7 +25,7 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 
 ---
 
-## Key Findings at a Glance
+## Key Findings
 
 - 🧬 **Large-scale virome profiling:** We analyzed the DNA virome from 4,523 fecal and 91 breastmilk metagenomes across 714 mother–infant pairs in the Lifelines NEXT cohort, generating a catalog of >31,000 viral operational taxonomic units (vOTUs), including 16,394 not present in major reference databases.
 
