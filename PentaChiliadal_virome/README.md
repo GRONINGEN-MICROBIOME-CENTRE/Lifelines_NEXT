@@ -10,8 +10,13 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 
 ---
 
+## Overview
+The **PentaChiliadal Virome (PCV)** project aims to characterize the gut virome landscape from metagenomic data within the *Lifelines NEXT* cohort.  
+We provide a reproducible pipeline for the detection, filtering, dereplication, and abundance estimation of viral sequences from metagenomic assemblies.
+
+---
+
 ## Table of Contents
-- [Overview](#overview)
 - [Key Findings](#key-findings)
 - [Cohort & Study Design](#cohort--study-design)
 - [Methods](#methods)
@@ -23,12 +28,6 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 - [Code Structure](#code-structure)
 - [Citation](#citation)
 
-
----
-
-## Overview
-The **PentaChiliadal Virome (PCV)** project aims to characterize the gut virome landscape from metagenomic data within the *Lifelines NEXT* cohort.  
-We provide a reproducible pipeline for the detection, filtering, dereplication, and abundance estimation of viral sequences from metagenomic assemblies.
 
 ---
 
