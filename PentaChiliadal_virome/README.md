@@ -1,4 +1,4 @@
-# Pregnancy and Early-Life Gut Virome in the LLNEXT cohort: Origin, Persistence, Influencing Factors and Health Implications
+# Pregnancy and Early-Life Gut Virome in the LLNEXT cohort
 
 Gut virome analysis from metagenomic data on the **Lifelines NEXT Cohort**.
 
