@@ -1,9 +1,11 @@
-# Pregnancy and Early-Life Gut Virome in the LLNEXT cohort: Origin, Persistence, Influencing Factors and Health Implications
+# Pregnancy and Early-Life Gut Virome in the LLNEXT Cohort  
+## Origin, Persistence, Influencing Factors, and Health Implications  
+*(PentaChiliadal Virome Project)*
 
-Gut virome analysis from metagenomic data on the **Lifelines NEXT Cohort**.
+Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mother–infant cohort.
 
 <p align="center">
-  <img src="images/Project_overview.png" alt="PentaChiliadal Virome Workflow" width="650">
+  <img src="images/Project_overview.png" alt="Overview of pregnancy and early-life gut virome analysis workflow" width="750">
 </p>
 
 ---
