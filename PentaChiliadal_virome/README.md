@@ -11,8 +11,8 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 ---
 
 ## Table of Contents
-- [Key Findings](#key-findings)
 - [Overview](#overview)
+- [Key Findings](#key-findings)
 - [Cohort & Study Design](#cohort--study-design)
 - [Methods](#methods)
   - [Viral Detection](#viral-detection)
@@ -22,6 +22,13 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 - [Data Availability](#data-availability)
 - [Code Structure](#code-structure)
 - [Citation](#citation)
+
+
+---
+
+## Overview
+The **PentaChiliadal Virome (PCV)** project aims to characterize the gut virome landscape from metagenomic data within the *Lifelines NEXT* cohort.  
+We provide a reproducible pipeline for the detection, filtering, dereplication, and abundance estimation of viral sequences from metagenomic assemblies.
 
 ---
 
@@ -42,12 +49,6 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 - 🛡️ **Genetic determinants of persistence:** The presence of DNA adenine N6-methyltransferase *hin1523* and diversity-generating retroelements promotes long-term viral persistence in the infant gut.
 
 Together, these findings define the origin, dynamics, and modulating factors of the infant gut virome and uncover genetic strategies that support viral persistence in the developing gut ecosystem.
-
----
-
-## Overview
-The **PentaChiliadal Virome (PCV)** project aims to characterize the gut virome landscape from metagenomic data within the *Lifelines NEXT* cohort.  
-We provide a reproducible pipeline for the detection, filtering, dereplication, and abundance estimation of viral sequences from metagenomic assemblies.
 
 ---
 
