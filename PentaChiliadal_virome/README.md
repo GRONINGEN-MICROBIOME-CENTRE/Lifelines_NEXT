@@ -10,12 +10,17 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 ---
 
 ## Overview
-Here, we present a comprehensive **characterization of early-life gut virome assembly alongside maternal gut viral dynamics during pregnancy**. Leveraging 4,523 fecal metagenomes from 714 mother–infant pairs in the prospective Dutch birth cohort Lifelines NEXT, we constructed an extensive gut viral catalog comprising over 31,000 viral operational taxonomic units (vOTUs). In addition, we profiled the breastmilk virome from 91 mothers to assess its contribution to infant viral colonization. Through strain-level profiling of all vOTUs, we identified and functionally characterized viruses transmitted from maternal reservoirs. Finally, we investigated genetic mechanisms underlying viral persistence by characterizing viral anti-defense repertoires and diversity-generating retroelements (DGRs), and by evaluating their role in promoting long-term phage persistence in the infant gut.
+Here, we present a comprehensive **characterization of early-life gut virome assembly alongside maternal gut viral dynamics during pregnancy**. 
+- 🧬 **Large-scale virome profiling:** We analyzed the DNA virome from 4,523 fecal and 91 breastmilk metagenomes across 714 mother–infant pairs in the Lifelines NEXT cohort, generating a catalog of >31,000 viral operational taxonomic units (vOTUs).
+- 🌱 **Contrasting virome dynamics:** The maternal gut virome is highly stable over time, whereas the infant gut virome undergoes rapid diversification during early life.
+- 🚼 **Drivers of infant virome development:** Delivery mode and feeding mode are the primary determinants of infant virome developmental trajectories, with additional influences from maternal parity (presence of siblings).
+- 🦠 **Virome and health outcomes:** Increased viral diversity in infancy is associated with the development of food allergy.
+- 🔗 **Maternal origin of the infant virome:** Strain-level analyses identify the maternal gut as the dominant source of infant gut viruses (with reduced viral sharing following cesarean delivery) and lower sharing detected from breastmilk.
+- 🛡️ **Genetic determinants of persistence:** The presence of DNA adenine N6-methyltransferase *hin1523* and diversity-generating retroelements promotes long-term viral persistence in the infant gut.
 
 ---
 
 ## Table of Contents
-- [Key Findings](#key-findings)
 - [Cohort & Study Design](#cohort--study-design)
 - [Methods](#methods)
   - [Viral Detection](#viral-detection)
@@ -26,26 +31,6 @@ Here, we present a comprehensive **characterization of early-life gut virome ass
 - [Code Structure](#code-structure)
 - [Citation](#citation)
 
-
----
-
-## Key Findings
-
-- 🧬 **Large-scale virome profiling:** We analyzed the DNA virome from 4,523 fecal and 91 breastmilk metagenomes across 714 mother–infant pairs in the Lifelines NEXT cohort, generating a catalog of >31,000 viral operational taxonomic units (vOTUs), including 16,394 not present in major reference databases.
-
-- 🌱 **Contrasting virome dynamics:** The maternal gut virome is highly stable over time, whereas the infant gut virome undergoes rapid diversification during early life.
-
-- 🚼 **Drivers of infant virome development:** Delivery mode and feeding mode are the primary determinants of infant virome developmental trajectories, with additional influences from maternal parity (presence of siblings).
-
-- 🦠 **Virome and health outcomes:** Increased viral diversity in infancy is associated with the development of food allergy.
-
-- 🔗 **Maternal origin of the infant virome:** Strain-level analyses identify the maternal gut as the dominant source of infant gut viruses, with significantly reduced viral sharing following cesarean delivery; breastmilk serves as a secondary viral reservoir.
-
-- 🧫 **Phage–host co-transmission:** Temperate phages frequently co-transmit with their bacterial hosts, shaping early gut microbial ecology.
-
-- 🛡️ **Genetic determinants of persistence:** The presence of DNA adenine N6-methyltransferase *hin1523* and diversity-generating retroelements promotes long-term viral persistence in the infant gut.
-
-Together, these findings define the origin, dynamics, and modulating factors of the infant gut virome and uncover genetic strategies that support viral persistence in the developing gut ecosystem.
 
 ---
 
