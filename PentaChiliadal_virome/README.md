@@ -10,7 +10,7 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 ---
 
 ## Overview
-The **PentaChiliadal Virome** project aims to characterize the gut virome landscape from metagenomic data within the *Lifelines NEXT* cohort.  
+Here, we present a comprehensive **characterization of early-life gut virome assembly alongside maternal gut viral dynamics during pregnancy**. Leveraging 4,523 fecal metagenomes from 714 mother–infant pairs in the prospective Dutch birth cohort Lifelines NEXT, we constructed an extensive gut viral catalog comprising over 31,000 viral operational taxonomic units (vOTUs). In addition, we profiled the breastmilk virome from 91 mothers to assess its contribution to infant viral colonization. Through strain-level profiling of all vOTUs, we identified and functionally characterized viruses transmitted from maternal reservoirs. Finally, we investigated genetic mechanisms underlying viral persistence by characterizing viral anti-defense repertoires and diversity-generating retroelements (DGRs), and by evaluating their role in promoting long-term phage persistence in the infant gut.
 
 ---
 
