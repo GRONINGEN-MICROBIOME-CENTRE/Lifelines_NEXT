@@ -36,6 +36,34 @@ Together, these findings define the origin, dynamics, and modulating factors of 
 
 ---
 
+## Cohort & Study Design
+
+This study is based on the **Lifelines NEXT (LLNEXT)** cohort, a large, prospective, population-based birth cohort in the Netherlands designed to investigate early-life determinants of health and disease.
+
+- **Cohort overview:**  
+  https://umcgresearch.org/w/lifelines-next
+
+- **Data catalogue and access information:**  
+  https://umcgresearchdatacatalogue.nl/all/cohorts/LIFELINES_NEXT
+
+- **Original cohort description:**  
+  https://pubmed.ncbi.nlm.nih.gov/32100173/
+
+### Study Design
+
+The Lifelines NEXT cohort follows mothers from pregnancy and their children from birth onward, with extensive longitudinal sampling and deep phenotyping.
+
+**Key design features relevant to this study include:**
+- 🤰 Maternal stool sampling during pregnancy  
+- 👶 Longitudinal infant stool sampling during early life  
+- 🍼 Breastmilk sampling in a subset of mothers  
+- 📊 Shotgun metagenomic sequencing of fecal and breastmilk samples  
+- 📋 Detailed metadata covering clinical, perinatal, environmental, and socioeconomic factors  
+
+This design enables high-resolution investigation of maternal–infant virome transmission, early-life virome development, and factors influencing viral persistence and health-associated outcomes.
+
+---
+
 ## Methods
 
 ### Viral Detection
