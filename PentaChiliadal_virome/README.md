@@ -1,6 +1,5 @@
 # Pregnancy and Early-Life Gut Virome in the LLNEXT Cohort  
 ## Origin, Persistence, Influencing Factors, and Health Implications  
-*(PentaChiliadal Virome Project)*
 
 Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mother–infant cohort.
 
@@ -11,8 +10,7 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 ---
 
 ## Overview
-The **PentaChiliadal Virome (PCV)** project aims to characterize the gut virome landscape from metagenomic data within the *Lifelines NEXT* cohort.  
-We provide a reproducible pipeline for the detection, filtering, dereplication, and abundance estimation of viral sequences from metagenomic assemblies.
+The **PentaChiliadal Virome** project aims to characterize the gut virome landscape from metagenomic data within the *Lifelines NEXT* cohort.  
 
 ---
 
