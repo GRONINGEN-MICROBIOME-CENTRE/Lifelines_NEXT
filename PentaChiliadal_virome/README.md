@@ -18,7 +18,7 @@ Gut virome analysis from metagenomic data in the **Lifelines NEXT (LLNEXT)** mot
 </p>
 
 <p align="center">
-  <img src="images/Overview.png" alt="Overview of pregnancy and early-life gut virome analysis workflow" width="900">
+  <img src="images/Overview LLNEXT.png" alt="Overview of pregnancy and early-life gut virome analysis workflow" width="900">
 </p>
 
 ---
