@@ -107,16 +107,14 @@ Viral abundance was estimated by mapping quality-controlled reads to the derepli
 ### Strain-Level Profiling and Characterization of Shared Viruses
 
 - **Strain-level viral profiling:** **inStrain**, with strain sharing defined as popANI ≥ 99.999%.
-- **Phage–bacterial host co-sharing:** Mapping of temperate phages to MAGs using **minimap2**, followed by detection in maternal–infant MAG pairs shared at the strain level (SKANI ANI > 99.9%).
+- **Phage–bacterial host co-sharing:** Mapping of temperate phages to MAGs using **minimap2**, followed by detection in maternal–infant MAG pairs shared at the strain level (**SKANI** ANI > 99.9%).
 - **Viral protein clustering:** Two-step clustering using **MMseqs2**, following the UHGV framework.
 - **Protein and protein-family functional annotation:**  
-  Representative proteins from protein families were annotated against HMM profiles from **PHROGs**, **KOfam**, and **AntiDefenseFinder**.  
-  Unannotated protein families were further analyzed using:
-  - Multiple sequence alignments against **UniRef30**
-  - Structural prediction with **ColabFold**
+  (A) Representative proteins from protein families were annotated against HMM profiles from **PHROGs**, **KOfam**, and **AntiDefenseFinder**.  
+  (B) Unannotated protein families were further analyzed using:
+  - Structural prediction with **ColabFold** (using MSAs enriched with **UniRef30** sequences)
   - Structural similarity searches using **Foldseek** against the Protein Data Bank (PDB), AlphaFold Database (AFDB), and the Big Fantastic Virus Database (BFDV).
 
----
 ---
 
 ## Data Availability
