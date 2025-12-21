@@ -96,7 +96,7 @@ Viral abundance was estimated by mapping quality-controlled reads to the derepli
 
 - **Taxonomic assignment:** Hierarchical approach combining RefSeq annotations, **geNomad**, and **VITAP**.
 - **Bacteriophage lifestyle prediction:** **BACPHLIP**.
-- **Host prediction:** **iPHoP** (default database supplemented with dereplicated metagenome-assembled genomes (MAGs) generated in this study).
+- **Host prediction:** **iPHoP** (default DB and DB supplemented with dereplicated metagenome-assembled genomes (MAGs) generated in this study).
 - **Anti-defense system identification:** **DefenseFinder**.
 - **Diversity-generating retroelement (DGR) detection:**  
   https://bitbucket.org/srouxjgi/dgr_scripts/src/master/
