@@ -146,7 +146,7 @@ scripts/
 │   ├── checkv/                 # Prophage trimming and completeness estimation
 │   ├── dereplication/          # ANI-based deduplication and vOTU clustering
 │   └── database_matching/      # Comparison to public viral genome databases
-
+```
 ---
 
 ## Citation
