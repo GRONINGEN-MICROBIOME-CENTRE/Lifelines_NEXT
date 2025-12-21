@@ -64,26 +64,20 @@ This study is based on the **Lifelines NEXT (LLNEXT)** cohort, a large, prospect
 
 ## Methods
 
-### Viral Detection
+### Viral Identification and abundance profiling
 We used multiple complementary tools to identify viral sequences from assembled contigs:
 - **VirSorter2**, **DeepVirFinder**, and **geNomad** for initial viral prediction.
+- **COBRA** for extension of predicted viral contigs.
+- **geNomad** for initial prunning of prophage regions and additional filtering of extended viral contigs.
+- **CheckV** for host contamination removal (final prophage prunning) and viral completeness estimation/filtering.
+- **CheckV** anicalc.py and aniclust.py scripts for dereplication of predcicted viral genomes. Viral genomed were dereplicated:
+  (A) Internally within the dataset (deduplication using 99% ANI / 95% AF; dereplication using 95% ANI / 85% AF).
+  (B) Against public viral genome databases (95% ANI / 85% AF). Databases used included: MGV, GPD, IMG/VR, ELGV, RefSeq, Shah et al, Benler et al., and CrAss-like phage databases (Gulyaeva et al., Yutin et al. and Guerin et al.)
+- **Bowtie2** for abundance estimation via read mapping.
 
-### Contig Extension & Filtering
-- Predicted viral contigs were extended using **COBRA**.
-- Bacterial regions in prophages were trimmed using **geNomad** filters.
+### Viral Characterization
 
-### Quality Control & Host Removal
-- **CheckV** was used to:
-  - Estimate genome completeness.
-  - Remove host contamination from prophages.
-  - Exclude sequences with ≤50% completeness.
-
-### Dereplication & Abundance Estimation
-- Viral sequences were dereplicated:
-  - (A) Internally within the dataset.
-  - (B) Against public viral genome databases.
-- Viral abundance was estimated by mapping reads back to the dereplicated viral genome set.
-
+  
 ---
 
 ## Data Availability
