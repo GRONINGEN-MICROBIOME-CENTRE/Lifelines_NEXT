@@ -134,15 +134,18 @@ The LLNEXT gut viral (LLNEXT-GV) and breastmilk (LLNEXT-BMV) catalogs are freely
 
 ## Code Structure
 All scripts used in this project can be found within scripts and are organized as follows:
-assembly/                # Metagenomic assembly and viral detection
-├── metaspades/          # Assembly workflows
-├── viral_detection/     # VirSorter2, DeepVirFinder, geNomad
-└── contig_extension/    # COBRA-based viral contig extension
 
-qc/                      # Quality control and dereplication
-├── checkv/              # Prophage trimming and completeness estimation
-├── dereplication/       # ANI-based deduplication and vOTU clustering
-└── database_matching/   # Comparison to public viral genome databases
+```text
+scripts/
+├── assembly/                   # Metagenomic assembly and viral detection
+│   ├── metaspades/             # Assembly workflows
+│   ├── viral_detection/        # VirSorter2, DeepVirFinder, geNomad
+│   └── contig_extension/       # COBRA-based viral contig extension
+│
+├── qc/                         # Quality control and dereplication
+│   ├── checkv/                 # Prophage trimming and completeness estimation
+│   ├── dereplication/          # ANI-based deduplication and vOTU clustering
+│   └── database_matching/      # Comparison to public viral genome databases
 
 ---
 
