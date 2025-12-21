@@ -147,7 +147,7 @@ If you use this resource in your research, please cite both the publication and 
 
 > **Pregnancy and Early-Life Gut Virome in the Lifelines NEXT Cohort: Origin, Persistence, Influencing Factors, and Health Implications**  
 > Author list to be added.  
-> *Nature* (Year).
+> *Journal* (Year).
 
 ---
 
