@@ -39,10 +39,10 @@ Together, these findings define the origin, dynamics, and modulating factors of 
 ## Table of Contents
 - [Cohort](#cohort)
 - [Methods](#methods)
-  - [Viral Detection](#viral-detection)
-  - [Contig Extension & Filtering](#contig-extension--filtering)
-  - [Quality Control & Host Removal](#quality-control--host-removal)
-  - [Dereplication & Abundance Estimation](#dereplication--abundance-estimation)
+  - [Assembly](#assembly)
+  - [Viral Identification and Abundance Profiling](#viral-identification-and-abundance-profiling)
+  - [Viral Characterization](#viral-characterization)
+  - [Strain-Level Profiling and Characterization of Shared Viruses](#strain-level-profiling-and-characterization-of-shared-viruses)
 - [Data Availability](#data-availability)
 - [Code Structure](#code-structure)
 - [Citation](#citation)
@@ -64,20 +64,59 @@ This study is based on the **Lifelines NEXT (LLNEXT)** cohort, a large, prospect
 
 ## Methods
 
-### Viral Identification and abundance profiling
-We used multiple complementary tools to identify viral sequences from assembled contigs:
-- **VirSorter2**, **DeepVirFinder**, and **geNomad** for initial viral prediction.
+### Assembly
+
+Metagenomic reads were assembled per sample using **metaSPAdes**.
+
+---
+
+### Viral Identification and Abundance Profiling
+
+Multiple complementary tools were used to identify viral sequences from assembled contigs:
+
+- **VirSorter2**, **DeepVirFinder**, and **geNomad** for initial viral sequence prediction.
 - **COBRA** for extension of predicted viral contigs.
-- **geNomad** for initial prunning of prophage regions and additional filtering of extended viral contigs.
-- **CheckV** for host contamination removal (final prophage prunning) and viral completeness estimation/filtering.
-- **CheckV** anicalc.py and aniclust.py scripts for dereplication of predcicted viral genomes. Viral genomed were dereplicated:
-  (A) Internally within the dataset (deduplication using 99% ANI / 95% AF; dereplication using 95% ANI / 85% AF).
-  (B) Against public viral genome databases (95% ANI / 85% AF). Databases used included: MGV, GPD, IMG/VR, ELGV, RefSeq, Shah et al, Benler et al., and CrAss-like phage databases (Gulyaeva et al., Yutin et al. and Guerin et al.)
-- **Bowtie2** for abundance estimation via read mapping.
+- **geNomad** for initial pruning of prophage regions and additional filtering of extended viral contigs.
+- **CheckV** for host contamination removal (final prophage pruning) and viral genome completeness estimation and filtering.
+
+Viral genomes were dereplicated using **CheckV** `anicalc.py` and `aniclust.py`:
+
+- **Internal dereplication within the dataset**  
+  - Deduplication: 99% ANI / 95% alignment fraction (AF)  
+  - Dereplication: 95% ANI / 85% AF  
+
+- **Dereplication against public viral genome databases** (95% ANI / 85% AF), including:  
+  MGV, GPD, IMG/VR, ELGV, RefSeq, Shah *et al.*, Benler *et al.*, and CrAss-like phage databases (Gulyaeva *et al.*, Yutin *et al.*, and Guerin *et al.*).
+
+Viral abundance was estimated by mapping quality-controlled reads to the dereplicated viral genome catalog using **Bowtie2**.
+
+---
 
 ### Viral Characterization
 
-  
+- **Taxonomic assignment:** Hierarchical approach combining RefSeq annotations, **geNomad**, and **VITAP**.
+- **Bacteriophage lifestyle prediction:** **BACPHLIP**.
+- **Host prediction:** **iPHoP** (default database supplemented with dereplicated metagenome-assembled genomes (MAGs) generated in this study).
+- **Anti-defense system identification:** **DefenseFinder**.
+- **Diversity-generating retroelement (DGR) detection:**  
+  https://bitbucket.org/srouxjgi/dgr_scripts/src/master/
+- **DGR activity analysis:** **Anvi’o** (`anvi-gen-variability-profile`).
+
+---
+
+### Strain-Level Profiling and Characterization of Shared Viruses
+
+- **Strain-level viral profiling:** **inStrain**, with strain sharing defined as popANI ≥ 99.999%.
+- **Phage–bacterial host co-sharing:** Mapping of temperate phages to MAGs using **minimap2**, followed by detection in maternal–infant MAG pairs shared at the strain level (SKANI ANI > 99.9%).
+- **Viral protein clustering:** Two-step clustering using **MMseqs2**, following the UHGV framework.
+- **Protein and protein-family functional annotation:**  
+  Representative proteins from protein families were annotated against HMM profiles from **PHROGs**, **KOfam**, and **AntiDefenseFinder**.  
+  Unannotated protein families were further analyzed using:
+  - Multiple sequence alignments against **UniRef30**
+  - Structural prediction with **ColabFold**
+  - Structural similarity searches using **Foldseek** against the Protein Data Bank (PDB), AlphaFold Database (AFDB), and the Big Fantastic Virus Database (BFDV).
+
+---
 ---
 
 ## Data Availability
