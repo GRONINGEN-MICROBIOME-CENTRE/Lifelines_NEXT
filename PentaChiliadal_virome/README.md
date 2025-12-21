@@ -118,9 +118,19 @@ Viral abundance was estimated by mapping quality-controlled reads to the derepli
 ---
 
 ## Data Availability
-All resulting viral genome sets, abundance tables, and associated metadata will be made available through:
-- [Zenodo DOI link (coming soon)](https://zenodo.org/)
-- Lifelines (to be added)
+
+The LLNEXT gut viral (LLNEXT-GV) and breastmilk (LLNEXT-BMV) catalogs are freely available via **Zenodo** (DOI forthcoming).
+
+### Main files
+
+| File | Description | Link |
+|------|-------------|------|
+| `LLNEXT_GV_vOTU_representatives.fna.gz` | LLNEXT-GV vOTU representative viral genomes | [Download](https://zenodo.org/record/XXXXXXX/files/LLNEXT_GV_representatives.fna.gz) |
+| `LLNEXT_GV_metadata.tsv` | Metadata for all LLNEXT-GV species-level vOTUs | [Download](https://zenodo.org/record/XXXXXXX/files/LLNEXT_GV_metadata.tsv) |
+| `LLNEXT_vOTU_representatives.fna.gz` | LLNEXT vOTU representative viral genomes (not including external DBs) | [Download](https://zenodo.org/record/XXXXXXX/files/LLNEXT_GV_representatives.fna.gz) |
+| `LLNEXT_viral_genomes.fna.gz` | LLNEXT deduplicated viral genomes (not including external DBs) | [Download](https://zenodo.org/record/XXXXXXX/files/LLNEXT_GV_representatives.fna.gz) |
+| `LLNEXT_BMV_representatives.fna.gz` | LLNEXT-GV representative viral genomes | [Download](https://zenodo.org/record/XXXXXXX/files/LLNEXT_BMV_representatives.fna.gz) |
+| `LLNEXT_BMV_metadata.tsv` | Metadata for all LLNEXT-BMV species-level vOTUs | [Download](https://zenodo.org/record/XXXXXXX/files/LLNEXT_BMV_metadata.tsv) |
 
 ---
 
@@ -130,4 +140,19 @@ Scripts and workflows used in this project are organized as follows:
 ---
 
 ## Citation
+
+If you use this resource in your research, please cite both the publication and the associated data resource.
+
+### Publication
+
+> **Pregnancy and Early-Life Gut Virome in the Lifelines NEXT Cohort: Origin, Persistence, Influencing Factors, and Health Implications**  
+> Author list to be added.  
+> *Nature* (Year).
+
+---
+
+### Data resource
+
+> Author list to be added. (Year). **Pregnancy and Early-Life Gut Virome in the Lifelines NEXT Cohort** [Data set]. Zenodo.  
+> https://doi.org/10.5281/zenodo.XXXXXXX
 
