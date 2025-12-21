@@ -110,7 +110,7 @@ Viral abundance was estimated by mapping quality-controlled reads to the derepli
 - **Phage–bacterial host co-sharing:** Mapping of temperate phages to MAGs using **minimap2**, followed by detection in maternal–infant MAG pairs shared at the strain level (**SKANI** ANI > 99.9%).
 - **Viral protein clustering:** Two-step clustering using **MMseqs2**, following the UHGV framework.
 - **Protein and protein-family functional annotation:**  
-  (A) Representative proteins from protein families were annotated against HMM profiles from **PHROGs**, **KOfam**, and **AntiDefenseFinder**.  
+  (A) Representative proteins from protein families were annotated against HMM profiles from **PHROGs**, **KOfam**, and **(Anti)DefenseFinder**.  
   (B) Unannotated protein families were further analyzed using:
   - Structural prediction with **ColabFold** (using MSAs enriched with **UniRef30** sequences)
   - Structural similarity searches using **Foldseek** against the Protein Data Bank (PDB), AlphaFold Database (AFDB), and the Big Fantastic Virus Database (BFDV).
