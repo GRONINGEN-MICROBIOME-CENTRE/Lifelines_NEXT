@@ -121,8 +121,6 @@ Viral abundance was estimated by mapping quality-controlled reads to the derepli
 
 The LLNEXT gut viral (LLNEXT-GV) and breastmilk (LLNEXT-BMV) catalogs are freely available via **Zenodo** (DOI forthcoming).
 
-### Main files
-
 | File | Description | Link |
 |------|-------------|------|
 | `LLNEXT_GV_vOTU_representatives.fna.gz` | LLNEXT-GV vOTU representative viral genomes | [Download](https://zenodo.org/record/XXXXXXX/files/LLNEXT_GV_representatives.fna.gz) |
