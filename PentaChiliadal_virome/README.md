@@ -98,7 +98,7 @@ Viral abundance was estimated by mapping quality-controlled reads to the derepli
 - **Bacteriophage lifestyle prediction:** **BACPHLIP**.
 - **Host prediction:** **iPHoP**, using (A) the default reference database and (B) a database supplemented with dereplicated metagenome-assembled genomes (MAGs) generated in this study.
 - **Anti-defense system identification:** **DefenseFinder**.
-- **Diversity-generating retroelement (DGR) detection:**  
+- **Diversity-generating retroelement (DGR) detection:** DGR scripts described by Roux *et al.* (2021)  
   https://bitbucket.org/srouxjgi/dgr_scripts/src/master/
 - **DGR activity analysis:** **Anvi’o** (`anvi-gen-variability-profile`).
 
