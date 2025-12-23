@@ -64,31 +64,18 @@ This study is based on the **Lifelines NEXT (LLNEXT)** cohort, a large, prospect
 
 ## Methods
 
-### Assembly
-
-Metagenomic reads were assembled per sample using **metaSPAdes**.
-
----
-
 ### Viral Identification and Abundance Profiling
 
-Multiple complementary tools were used to identify viral sequences from assembled contigs:
+Multiple complementary tools were used to identify viral sequences from assembled contigs (**metaSPAdes** assembly):
 
 - **VirSorter2**, **DeepVirFinder**, and **geNomad** for initial viral sequence prediction.
 - **COBRA** for extension of predicted viral contigs.
 - **geNomad** for initial pruning of prophage regions and additional filtering of extended viral contigs.
 - **CheckV** for host contamination removal (final prophage pruning) and viral genome completeness estimation and filtering.
-
-Viral genomes were dereplicated using **CheckV** `anicalc.py` and `aniclust.py`:
-
-- **Internal dereplication within the dataset**  
-  - Deduplication: 99% ANI / 95% alignment fraction (AF)  
-  - Dereplication: 95% ANI / 85% AF  
-
-- **Dereplication against public viral genome databases** (95% ANI / 85% AF), including:  
-  MGV, GPD, IMG/VR, ELGV, RefSeq, Shah *et al.*, Benler *et al.*, and CrAss-like phage databases (Gulyaeva *et al.*, Yutin *et al.*, and Guerin *et al.*).
-
-Viral abundance was estimated by mapping quality-controlled reads to the dereplicated viral genome catalog using **Bowtie2**.
+- **Dereplication** using CheckV scripts (`anicalc.py` and `aniclust.py`):
+    - Within dataset: 99% ANI / 95% AF for deduplication, 95% ANI / 85% AF for dereplication
+    - Against public viral genome databases (95% ANI / 85% AF): MGV, GPD, IMG/VR, ELGV, RefSeq, Shah et al., Benler et al., and CrAss-like phage datasets (Gulyaeva et al., Yutin et al., Guerin et al.)
+- **Abundance estimation**: mapping quality-controlled reads to dereplicated viral genome catalog using **Bowtie2**
 
 ---
 
