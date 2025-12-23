@@ -64,7 +64,7 @@ This study is based on the **Lifelines NEXT (LLNEXT)** cohort, a large, prospect
 
 ## Methods
 
-### Viral Identification and Abundance Profiling
+### Virus Identification and Abundance Profiling
 
 Multiple complementary tools were used to identify viral sequences from assembled contigs (**metaSPAdes** assembly):
 
