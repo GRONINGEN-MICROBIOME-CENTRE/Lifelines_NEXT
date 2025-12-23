@@ -40,8 +40,8 @@ Together, these findings define the origin, dynamics, and modulating factors of 
 - [Cohort](#cohort)
 - [Methods](#methods)
   - [Assembly](#assembly)
-  - [Viral Identification and Abundance Profiling](#viral-identification-and-abundance-profiling)
-  - [Viral Characterization](#viral-characterization)
+  - [Virus Identification and Abundance Profiling](#virus-identification-and-abundance-profiling)
+  - [Virus Characterization](#viral-characterization)
   - [Strain-Level Profiling and Characterization of Shared Viruses](#strain-level-profiling-and-characterization-of-shared-viruses)
 - [Data Availability](#data-availability)
 - [Code Structure](#code-structure)
@@ -79,7 +79,7 @@ Multiple complementary tools were used to identify viral sequences from assemble
 
 ---
 
-### Viral Characterization
+### Virus Characterization
 
 - **Taxonomic assignment:** Hierarchical approach combining RefSeq annotations, **geNomad**, and **VITAP**.
 - **Bacteriophage lifestyle prediction:** **BACPHLIP**.
