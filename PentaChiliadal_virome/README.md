@@ -137,15 +137,35 @@ All scripts used in this project can be found within scripts and are organized a
 
 ```text
 scripts/
-├── assembly/                   # Metagenomic assembly and viral detection
-│   ├── metaspades/             # Assembly workflows
-│   ├── viral_detection/        # VirSorter2, DeepVirFinder, geNomad
-│   └── contig_extension/       # COBRA-based viral contig extension
+├── A_Virus_Identification/
+│   ├── Virus_detection/                  # VirSorter2, DeepVirFinder, geNomad
+│   ├── Virus_contig_extension/           # COBRA-based viral contig extension
+│   ├── Virus_filtering/                  # geNomad filtering and prophage pruning
+│   └── Contamination_quality_check/      # Quality control
 │
-├── qc/                         # Quality control and dereplication
-│   ├── checkv/                 # Prophage trimming and completeness estimation
-│   ├── dereplication/          # ANI-based deduplication and vOTU clustering
-│   └── database_matching/      # Comparison to public viral genome databases
+├── B_Dereplication/                      # BLAST DB generation and ANI-based dereplication (aniclust.py, anicalc.py)
+│
+├── C_Abundance_estimation/               # Viral abundance estimation (read mapping)
+│
+├── D_Virus_Characterization/
+│   ├── Genome_quality/                   # Viral genome completeness estimation
+│   ├── ORF_prediction_and_clustering/    # ORF prediction (Prodigal-gv) and genome clustering (AAI)
+│   ├── Taxonomy/                         # Viral taxonomy (geNomad, ViTAP)
+│   ├── Host_and_lifestyle_prediction/    # Host prediction (iPHoP) and lifestyle (BACPHLIP)
+│   └── Functional_profiling/
+│       ├── Anti_defense/                 # Anti-defense system detection
+│       └── DGRs/                         # DGR detection and activity
+│
+├── E_Strain_sharing/
+│   ├── Strain_level_profiling/            # Strain-level viral profiling with inStrain
+│   ├── Virus_bacteria_co_sharing/         # Virus–MAG mapping and MAG ANI comparison
+│   └── Characterization_enriched_proteins/
+│       ├── Protein_clustering/            # MMseqs2 two-step clustering
+│       ├── Sequence_based_annotation/     # HMM matching (AntiDefenseFinder, PHROGs, KOfam)
+│       └── Structure_based_annotation/    # Structure prediction (ColabFold) and Foldseek search
+│
+└── Downstream_scripts/                   # Statistical analyses and figure generation
+
 ```
 ---
 
