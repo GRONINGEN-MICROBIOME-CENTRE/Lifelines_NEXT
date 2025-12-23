@@ -153,11 +153,11 @@ scripts/
 │   ├── Taxonomy/                         # Viral taxonomy (geNomad, ViTAP)
 │   ├── Host_and_lifestyle_prediction/    # Host prediction (iPHoP) and lifestyle (BACPHLIP)
 │   └── Functional_profiling/
-│       ├── Anti_defense/                 # Anti-defense system detection
+│       ├── Anti_defense/                 # Anti-defense system detection (AntiDefenseFinder)
 │       └── DGRs/                         # DGR detection and activity
 │
 ├── E_Strain_sharing/
-│   ├── Strain_level_profiling/            # Strain-level viral profiling with inStrain
+│   ├── Strain_level_profiling/            # Strain-level viral profiling (inStrain)
 │   ├── Virus_bacteria_co_sharing/         # Virus–MAG mapping and MAG ANI comparison
 │   └── Characterization_enriched_proteins/
 │       ├── Protein_clustering/            # MMseqs2 two-step clustering
