@@ -41,7 +41,7 @@ Together, these findings define the origin, dynamics, and modulating factors of 
 - [Methods](#methods)
   - [Assembly](#assembly)
   - [Virus Identification and Abundance Profiling](#virus-identification-and-abundance-profiling)
-  - [Virus Characterization](#viral-characterization)
+  - [Virus Characterization](#virus-characterization)
   - [Strain-Level Profiling and Characterization of Shared Viruses](#strain-level-profiling-and-characterization-of-shared-viruses)
 - [Data Availability](#data-availability)
 - [Code Structure](#code-structure)
