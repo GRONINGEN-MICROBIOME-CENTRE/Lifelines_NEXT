@@ -48,14 +48,6 @@ metadata$sc_enrichment <- NA
 metadata$sc_enrichment[metadata$seq_type == "VLP"] <- tmp$sc_enrichment_vlp[match(metadata$Universal_ID[metadata$seq_type == "VLP"], tmp$Universal_ID)]
 metadata$sc_enrichment[metadata$seq_type == "MGS"] <- tmp$sc_enrichment_vlp[match(metadata$Universal_ID[metadata$seq_type == "MGS"], tmp$Universal_ID)]
 
-# Longitudinal phenotypes:
-L_phenos <- read.table('06.CLEAN_DATA/Phenotypes/masterfile_longitudinal_2023_09_29.txt', sep='\t', header=T)
-L_phenos <- L_phenos[L_phenos$FAMILY %in% metadata$FAMILY,]
-
-# Cross-sectional phenotypes:
-C_phenos <- read.table('06.CLEAN_DATA/Phenotypes/masterfile_cross_sectional_2023_11_15.txt', sep = '\t', header=T)
-C_phenos <- C_phenos[C_phenos$FAMILY %in% metadata$FAMILY,]
-
 # virome technical features:
 tech_features <- c("isolation_method", "isolation_batch", "sequencing_batch", 
                    "dna_conc", "raw_reads", "human_reads",
@@ -67,7 +59,6 @@ tech_features <- c("isolation_method", "isolation_batch", "sequencing_batch",
 
 RPKM <- read.table("06.CLEAN_DATA/02.FINAL/VLP_only_RPKM_table_VLP_MGS_dec99ANI_ab3kbp_1110_samples.txt", sep='\t', header=T)
 
-phenos <- c('bitss', 'crying', 'infant_growth', 'eczema_relaxed', 'eczema_strict', 'infant_sleep')
 #############################################################
 # 3.1 Analysis: identify inter-correlation between virome metrices:
 #############################################################
