@@ -155,9 +155,11 @@ rm(list = c('BaseClear_controls','Chiliadal_sequencing',
 #known sample swap (confirmed by the downstream VLP analysis)
 Chiliadal_sequenced_samples$NEXT_ID[Chiliadal_sequenced_samples$Sequencing_ID == "CHV024503E02"] <- "LLNEXT206301"
 Chiliadal_sequenced_samples$Type[Chiliadal_sequenced_samples$Sequencing_ID == "CHV024503E02"] <- "K"
+Chiliadal_sequenced_samples$Universal_ID[Chiliadal_sequenced_samples$Sequencing_ID == "CHV024503E02"] <- "LLNEXT206301_M3"
 
 Chiliadal_sequenced_samples$NEXT_ID[Chiliadal_sequenced_samples$Sequencing_ID == "CHV020702E09"] <- "LLNEXT206295"
 Chiliadal_sequenced_samples$Type[Chiliadal_sequenced_samples$Sequencing_ID == "CHV020702E09"] <- "M"
+Chiliadal_sequenced_samples$Universal_ID[Chiliadal_sequenced_samples$Sequencing_ID == "CHV020702E09"] <- "LLNEXT206295_M3"
 #############################################################
 # 4. Process BGNP Metadata
 #############################################################
