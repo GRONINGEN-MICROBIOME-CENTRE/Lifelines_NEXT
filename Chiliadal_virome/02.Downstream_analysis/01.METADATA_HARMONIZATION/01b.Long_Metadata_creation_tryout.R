@@ -17,6 +17,11 @@ setwd('~/Desktop/Projects_2021/NEXT_virome/09.DATA_ANALYSIS/02.SCRIPTS/01.METADA
 ## Chiliadal_virome_sequencing_batch_II.xlsx: list of Chiliadal VLP extractions sent for sequencing in December 2022
 ## Samples_BaseClear_pilot_sequencing.xlsx: list of NEXT samples included in the Big Gut NEXT paper that were extracted and sequenced to test the new VLP protocol
 ## Controls_BaseClear_sequencing.xlsx: list of all sequencing control samples from BaseClear
+## genomics:
+## N_raw_reads_all: concatenated raw reads counts derived from per-sample bbduk.log
+## N_human_reads_all_27052025: concatenated human reads counts derived from per-sample kneaddata.log
+## viromeqc_all_CHILIADAL.txt: concatenated viromeQC output for all Chiliadal samples
+## Contigs_stat_all: concatenated Quast output for all Chiliadal sample assemblies
 
 ## MGS datasets' metadata
 ## LLNEXT_metadata_03_01_2024.txt: metadata for NEXT samples included in the Big Gut NEXT paper
@@ -24,7 +29,9 @@ setwd('~/Desktop/Projects_2021/NEXT_virome/09.DATA_ANALYSIS/02.SCRIPTS/01.METADA
 ## QC_MGS_TS.xlsx (sheet 3): all previously excluded from the Big Gut NEXT paper samples
 ## LLNEXT_metaphlan_4_complete_10_02_2023.txt: merged MetaPhlAn4 output file for NEXT samples included in the Big Gut NEXT paper
 ## DNA_CONC_ALL_WITH_DUPLICATES_MERGED_15_07_2022_TS.txt: DNA concentration measurements by Qubit received from Novogene sample QC reports
-
+## genomics:
+## Contigs_stat_1110_mgs: concatenated Quast output for all Chiliadal-connected MGS sample assemblies
+## viromeqc_1110mgs: concatenated viromeQC output for all Chiliadal-connected MGS samples
 #############################################################
 # Functions
 #############################################################
@@ -142,7 +149,15 @@ Chiliadal_sequenced_samples <- rbind(Chiliadal_sequencing, Chiliadal_sequencing2
 
 rm(list = c('BaseClear_controls','Chiliadal_sequencing',
             'Chiliadal_sequencing2', 'Prechiliadal_sequencing'))
+#############################################################
+# 3.1 Fixing sample swaps
+#############################################################
+#known sample swap (confirmed by the downstream VLP analysis)
+Chiliadal_sequenced_samples$NEXT_ID[Chiliadal_sequenced_samples$Sequencing_ID == "CHV024503E02"] <- "LLNEXT206301"
+Chiliadal_sequenced_samples$Type[Chiliadal_sequenced_samples$Sequencing_ID == "CHV024503E02"] <- "K"
 
+Chiliadal_sequenced_samples$NEXT_ID[Chiliadal_sequenced_samples$Sequencing_ID == "CHV020702E09"] <- "LLNEXT206295"
+Chiliadal_sequenced_samples$Type[Chiliadal_sequenced_samples$Sequencing_ID == "CHV020702E09"] <- "M"
 #############################################################
 # 4. Process BGNP Metadata
 #############################################################
@@ -280,10 +295,29 @@ bgnp_metadata_all <- bgnp_metadata_all %>%
          contaminant_1_Sphingomonas_sp_FARSPH, contaminant_2_Phyllobacterium_myrsinacearum,
          metaphlan4_unclassified_with_contaminants, metaphlan4_unclassified_high_contaminants_factor_75,
          Timepoint_original, Universal_ID, check_VLP_for_mixup, Modified_NEXT_ID_without_preg_number, 
-         infant_relations)
-
-
-
+         infant_relations) %>%
+  add_row(NG_ID = "FSKXNCTR20B3",
+          NEXT_ID = "LLNEXTBLANK",
+          Type = "BLANK", 
+          FAMILY = "Controls",
+          BGNP = "Excluded: LOW_RD",
+          raw_reads = 4387732*2,
+          clean_reads = 3746094*2,
+          human_reads = 371328*2,
+          reads_lost_QC = (4387732 - 3746094)/4387732,
+          sequence_control = "no",
+          isolation_control = "no", 
+          dna_conc = 0.01, 
+          isolation_method = "fsk_vortex_gro",
+          NG_ID_short = "FSKXNCTR",
+          Timepoint_categorical = "BLANK", 
+          SAMPLE_ID ="FSKXNCTR_BLANK", 
+          Timepoint_original = "BLANK",
+          Universal_ID = "LLNEXTBLANK_BLANK",
+          check_VLP_for_mixup = F,
+          Modified_NEXT_ID_without_preg_number = "LLNEXTBLANK"
+          )
+  
 # Clean up intermediate variables
 rm(list = c("bgnp_metadata", "early_bgnp", "excluded_bgnp", 
             "contaminants", "strains",  
@@ -357,6 +391,7 @@ Chiliadal_sequenced_samples[Chiliadal_sequenced_samples$isolation_method!='BC_co
 # renaming the column w batch:
 colnames(bgnp_metadata_all)[grep('BATCH_NUMBER', colnames(bgnp_metadata_all))] <- 'sequencing_batch'
 bgnp_metadata_all[!is.na(bgnp_metadata_all$sequencing_batch),"sequencing_batch"] <- paste0('mgs_', stringr::str_pad(bgnp_metadata_all[!is.na(bgnp_metadata_all$sequencing_batch),"sequencing_batch"], 2, pad=0))
+bgnp_metadata_all$sequencing_batch[bgnp_metadata_all$NEXT_ID == "LLNEXTBLANK"] <- "mgs_17"
 
 colnames(Chiliadal_sequenced_samples)[grep('BATCH_SEQ', colnames(Chiliadal_sequenced_samples))] <- 'sequencing_batch'
 Chiliadal_sequenced_samples[is.na(Chiliadal_sequenced_samples$sequencing_batch),"sequencing_batch"] <- 'BC_control'
@@ -523,7 +558,7 @@ for (fam in unique(na.omit(long_metadata$FAMILY))) {
  N_members <- length(unique(long_metadata[long_metadata$FAMILY==fam & long_metadata$sequencing_status=="Sequenced",]$NEXT_ID))
  
  members <- sort(unique(long_metadata[long_metadata$FAMILY==fam & long_metadata$sequencing_status=="Sequenced",]$Family_structure))
- 
+
 if (N_members!= 2 | all(members!=dummy)) {
   nondyad_candidates[fam] <- fam 
 }
@@ -539,6 +574,7 @@ long_metadata$non_dyads <- "Dyad"
 long_metadata[long_metadata$FAMILY %in% twin_fams,"non_dyads"] <- "Twin family"
 long_metadata[long_metadata$FAMILY %in% mult_preg_fams,"non_dyads"] <- "Multiple pregnancy family"
 long_metadata[long_metadata$FAMILY %in% nondyad,"non_dyads"] <- "Non-dyad"
+long_metadata[long_metadata$FAMILY == 'Controls',"non_dyads"] <- "Controls"
 
 # Sorting the columns:
 
@@ -644,42 +680,8 @@ reass <- long_metadata[long_metadata$seq_type=="MGS" & long_metadata$SAMPLE_ID!=
 View(use_VLP_metadata[use_VLP_metadata$Universal_ID %in% reass, ])
 
 
-# check:
-for (i in colnames(long_metadata)) {
-  
-  print(paste0("NA in ", i, " ", sum(is.na(long_metadata[,i]))) )
-  
-}
-
-
-# quick work on phenotypes:
-
-phenos <- read.table('../../06.CLEAN_DATA/Phenotypes/masterfile_cross_sectional_2023_11_15.txt', sep='\t', header=T)
-
-infants <- phenos[phenos$next_id_infant %in% mgs_smeta[mgs_smeta$Type=='K',]$NEXT_ID,]
-
-inf_n_sample <- as.data.frame(table(mgs_smeta[mgs_smeta$Type=="K",]$NEXT_ID))
-moth_n_sample <- as.data.frame(table(mgs_smeta[mgs_smeta$Type=="M",]$NEXT_ID))
-
-median(inf_n_sample$Freq)
-median(moth_n_sample$Freq)
-
-median(infants$mother_birthcardself_gestational_age_weeks)
-length(infants[infants$birth_delivery_mode_simple=="VG" & !is.na(infants$birth_delivery_mode_simple),]$birth_delivery_mode_simple)
-276/335
-
-length(infants[infants$birth_deliverybirthcard_place_delivery_simple=="home" & !is.na(infants$birth_deliverybirthcard_place_delivery_simple),]$birth_delivery_mode_simple)
-81/335
-unique(infants$birth_deliverybirthcard_place_delivery_simple)
-
-unique(infants$infant_birthcard_feeding_mode_after_birth)
-
-length(infants[infants$infant_birthcard_feeding_mode_after_birth=="BF" & !is.na(infants$infant_birthcard_feeding_mode_after_birth),]$birth_delivery_mode_simple)
-203/335
-
-length(infants[infants$infant_birthcard_feeding_mode_after_birth=="MF" & !is.na(infants$infant_birthcard_feeding_mode_after_birth),]$birth_delivery_mode_simple)
-32/335
-22/335
+# check missing:
+skimr::skim(long_metadata)
 
 #############################################################
 # X. OUTPUT
@@ -687,16 +689,16 @@ length(infants[infants$infant_birthcard_feeding_mode_after_birth=="MF" & !is.na(
 write.table(mgs_smeta[mgs_smeta$sequencing_status=="Sequenced", "Sequencing_ID"], '../../06.CLEAN_DATA/Intermediate/MGS_NG_IDs_Chiliadal.txt', sep='\t', row.names = F, col.names = F, quote=F)
 
 # Long metadata for all fecal samples from Chiliadal-included individuals:
-write.table(extended_long_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_Ext_v04.txt', sep='\t', row.names = F, quote=F)
+write.table(extended_long_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_Ext_v05.txt', sep='\t', row.names = F, quote=F)
 
 # Long metadata for all successfully sequenced unique fecal samples from Chiliadal-included individuals (both available VLP and MGS samples)
-write.table(use_long_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_ExtFiltered_v04.txt', sep='\t', row.names = F, quote=F)
+write.table(use_long_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_ExtFiltered_v05.txt', sep='\t', row.names = F, quote=F)
 
 # Short VLP metadata for all unique VLP samples from Chiliadal that have a paired MGS sample:
-write.table(use_VLP_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLPmatched_v03.txt', sep='\t', row.names = F, quote=F)
+write.table(use_VLP_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLPmatched_v04.txt', sep='\t', row.names = F, quote=F)
 
 # Long metadata for all unique fecal samples from Chiliadal-included individuals (VLP-MGS overlap, 2220 samples)
-write.table(long_VLP_MGS_overlap_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v03.txt', sep='\t', row.names = F, quote=F)
+write.table(long_VLP_MGS_overlap_metadata, '../../06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v04.txt', sep='\t', row.names = F, quote=F)
 
 # metaphlan unfiltered full taxonomy for 1110 MGS samples with full overlap to Chiliadal:
 write.table(metaphlan_overlap, '../../06.CLEAN_DATA/02.FINAL/MGS_Chiliadal_metaphlan_full_taxonomy_ver_01_07102025.txt', sep='\t', quote=F)
