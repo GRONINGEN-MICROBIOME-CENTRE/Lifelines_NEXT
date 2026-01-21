@@ -114,4 +114,7 @@ cd /scratch/p282752/ANALYSIS_CHILIADAL/scripts
 ## Running the all vs all blast per fragment
 sbatch --array=1-1000 10m.pd_drep_run_a.sh ../VIR_DB/VLP_MGS_DREP/split_list
 
+# Tidy up
+# rm ../VIR_DB/VLP_MGS_DREP/all_virus.fasta
+# rm ../VIR_DB/VLP_MGS_DREP/Extended_TOF
 module purge
