@@ -192,32 +192,10 @@ library(vegan)
 #############################################################
 
 # calculating the decontamination efficacy:
-esmeta <- read.delim('06.CLEAN_DATA/02.FINAL/Chiliadal_meta_ExtFiltered_v04.txt', sep='\t', header=T) 
+esmeta <- read.delim('06.CLEAN_DATA/02.FINAL/Chiliadal_meta_ExtFiltered_v05.txt', sep='\t', header=T) 
 esmeta$Timepoint_new <- esmeta$Timepoint_original
 esmeta[esmeta$Type=="M",]$Timepoint_new <- 'Mother'
 esmeta$Timepoint_new <- factor(esmeta$Timepoint_new, levels=c("M1", "M3", "M6", "M12", "Mother"), ordered = T)
-
-# adding the MGS NC data:
-esmeta <- esmeta %>%
-  add_row(NEXT_ID = "LLNEXTBLANK",
-          Type = "BLANK", 
-          Timepoint_original = "BLANK",
-          FAMILY = "Controls",
-          Universal_ID = "LLNEXTBLANK_BLANK",
-          Sequencing_ID = "FSKXNCTR20B3", 
-          seq_type = "MGS", 
-          dna_conc = 0.01,
-          isolation_method = "fsk_vortex_gro",
-          replicate_type = "none",
-          raw_reads = 4387732*2,
-          clean_reads = 3746094*2,
-          human_reads = 371328*2,
-          reads_lost_QC = (4387732 - 3746094)/4387732,
-          full_overlap = FALSE,
-          isolation_batch = "mgs_17",
-          bgnp_status = "Excluded",
-          excl_bgnp_reason = "Excluded: LOW_RD",
-          SAMPLE_ID = "FSKXNCTR")
 
 prechili <- read.table('~/Desktop/Projects_2021/Baseclear/01.TEST_22_samples/BC_PILOT_new_ids_chiliadal_format.txt', sep='\t')
 prechili <- prechili[,c('V1', 'V2')]
@@ -735,8 +713,6 @@ fs <- c("Type", "Timepoint_original", "seq_type",
         "metaphlan4_unclassified_high_contaminants_factor_75", 
         "Family_structure", "non_dyads", "Timepoint_categorical")
 
-unique(esmeta$Timepoint_original)
-
 esmeta_sumstat <- esmeta %>%
   mutate(across(all_of(fs), as.factor)) %>%
   skimr::skim() %>%
@@ -746,7 +722,6 @@ work_VLP_esmeta_sumstat <- VLP_working_esmeta %>%
   mutate(across(all_of( fs[fs %in% colnames(VLP_working_esmeta)] ), as.factor)) %>%
   skimr::skim() %>%
   select(-all_of(c("character.min", "character.max", "character.empty", "character.whitespace")))
-# add summary stat for working_ETOF and working_esmeta to update new column explanations
 
 #############################################################
 # 4. Output
@@ -774,13 +749,13 @@ write.table(baseETOF_vOTUr, '06.CLEAN_DATA/02.FINAL/Basic_ETOF_120997vOTUr_ab3kb
 write.table(working_ETOF, "06.CLEAN_DATA/02.FINAL/Working_ETOF_120997vOTUr_ab3kbp_in_2200_VLP_MGS.txt", sep='\t', quote=F, row.names=F)
 
 # saving full esmeta:
-write.table(esmeta,"./06.CLEAN_DATA/02.FINAL/Chiliadal_meta_Ext_v04_suppl_w_virmetrics.txt", sep='\t', quote=F)
+write.table(esmeta,"./06.CLEAN_DATA/02.FINAL/Chiliadal_meta_Ext_v05_suppl_w_virmetrics.txt", sep='\t', quote=F)
 
 # saving succinct esmeta:
-write.table(working_esmeta,"./06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v04_suppl_w_virmetrics.txt", sep='\t', quote=F)
+write.table(working_esmeta,"./06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v05_suppl_w_virmetrics.txt", sep='\t', quote=F)
 
 # saving succinct VLP esmeta:
-write.table(VLP_working_esmeta,"./06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_matched_v04_suppl_w_virmetrics.txt", sep='\t', quote=F)
+write.table(VLP_working_esmeta,"./06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_matched_v05_suppl_w_virmetrics.txt", sep='\t', quote=F)
 
 # virus species table:
 write.table(by_sp, "./06.CLEAN_DATA/02.FINAL/by_virus_rank/virus_species_table_2220samples_120997vOTUr.txt", sep='\t', quote=F)
@@ -795,10 +770,10 @@ write.table(by_family, "./06.CLEAN_DATA/02.FINAL/by_virus_rank/virus_family_tabl
 write.table(by_class, "./06.CLEAN_DATA/02.FINAL/by_virus_rank/virus_class_table_2220samples_120997vOTUr.txt", sep='\t', quote=F)
 
 # summary stat for the full esmeta:
-write.table(esmeta_sumstat, "./06.CLEAN_DATA/02.FINAL/Summary_stat_Chiliadal_meta_Ext_v04_suppl.txt", sep='\t', quote=F, row.names = F)
+write.table(esmeta_sumstat, "./06.CLEAN_DATA/02.FINAL/Summary_stat_Chiliadal_meta_Ext_v05_suppl.txt", sep='\t', quote=F, row.names = F)
 
 # summary stat for the full esmeta:
-write.table(work_VLP_esmeta_sumstat, "./06.CLEAN_DATA/02.FINAL/Summary_stat_Chiliadal_meta_VLP_Ext_v04_suppl.txt", sep='\t', quote=F, row.names = F)
+write.table(work_VLP_esmeta_sumstat, "./06.CLEAN_DATA/02.FINAL/Summary_stat_Chiliadal_meta_VLP_Ext_v05_suppl.txt", sep='\t', quote=F, row.names = F)
 
 # summary stat for the working esmeta:
 write.table(wETOF_sumstat, "./06.CLEAN_DATA/02.FINAL/Summary_stat_Working_ETOF_120997vOTUr.txt", sep='\t', quote=F, row.names = F)
