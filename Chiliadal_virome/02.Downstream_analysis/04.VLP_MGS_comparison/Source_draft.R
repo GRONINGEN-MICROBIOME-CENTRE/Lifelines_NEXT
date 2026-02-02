@@ -1,7 +1,7 @@
 setwd('~/Desktop/Projects_2021/NEXT_virome/09.DATA_ANALYSIS/')
 
 #############################################################
-# Functions
+# 1. Functions
 #############################################################
 # saturation_stat_fast is a function for creating "plot_data" 
 # necessary for the viral entities saturation plot
@@ -60,7 +60,8 @@ saturation_stat_fast <- function(count_table, n_permutations) {
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
-
+library(see)
+library(UpSetR)
 #############################################################
 # 2. Load Input Data
 #############################################################
@@ -100,6 +101,21 @@ cleanest <- cleanest[row.names(cleanest) %in% ETOF_vOTUr[ETOF_vOTUr$POST_CHV_len
 
 cleanest <- cleanest[rowSums(cleanest) >0,]
 cleanest <- cleanest[,colSums(cleanest) >0]
+
+# clean RPKM table only for VLP samples from full overlap:
+cleanest_VLP <- cleanest[,colnames(cleanest) %in% full_overlap$VLP]
+cleanest_VLP <- cleanest_VLP[rowSums(cleanest_VLP) > 0,]
+colnames(cleanest_VLP)[colnames(cleanest_VLP) %in% prechili$V1] <- prechili$V2[match(colnames(cleanest_VLP)[colnames(cleanest_VLP) %in% prechili$V1],
+                                                                                     prechili$V1)]
+
+# saving point for cleanest_VLP
+
+cleanest_MGS <- cleanest[,colnames(cleanest) %in% full_overlap$MGS]
+cleanest_MGS <- cleanest_MGS[rowSums(cleanest_MGS) > 0,]
+
+# saving point for cleanest_MGS
+
+
 ETOF_vOTUr <- ETOF[ETOF$New_CID %in% row.names(cleanest),]
 baseETOF_vOTUr <- ETOF_vOTUr
 
@@ -115,6 +131,7 @@ lifestyle_raw <- read.table('06.CLEAN_DATA/Lifestyle_prediction_bacphlip', sep='
 colnames(lifestyle_raw)[1] <- 'New_CID'
 ETOF_vOTUr <- merge(ETOF_vOTUr, lifestyle_raw, by="New_CID")
 ETOF_vOTUr$lifestyle <- NA
+ETOF_vOTUr$lifestyle <- as.character(ETOF_vOTUr$lifestyle)
 ETOF_vOTUr[ETOF_vOTUr$Temperate >=0.5,]$lifestyle <- "Temperate"
 ETOF_vOTUr[ETOF_vOTUr$Virulent >0.5 & ETOF_vOTUr$completeness >= 90 & !is.na(ETOF_vOTUr$completeness),]$lifestyle <- "Virulent"
 ETOF_vOTUr[is.na(ETOF_vOTUr$lifestyle),]$lifestyle <- "Unknown"
@@ -125,6 +142,29 @@ ETOF_vOTUr <- merge(ETOF_vOTUr, newtax,
                     by.x="New_CID", by.y="Genome_ID", all.x=T)
 
 dim(cleanest)
+
+VLP_metadata_to_update <- read.delim('06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLPmatched_v02.txt', sep='\t', header=T)
+vlpdiv <- data.frame(vegan::diversity(t(cleanest_VLP), "shannon")) %>%
+  set_names("diversity")
+
+temperates <- ETOF_vOTUr[ETOF_vOTUr$lifestyle=="Temperate",]$New_CID
+
+VLP_metadata_to_update$virshannon <- vlpdiv$diversity[match(VLP_metadata_to_update$Sequencing_ID, row.names(vlpdiv))]
+VLP_metadata_to_update$N_temperate <- colSums(cleanest_VLP[row.names(cleanest_VLP) %in% temperates,] > 0)[match(VLP_metadata_to_update$Sequencing_ID, colnames(cleanest_VLP))]
+VLP_metadata_to_update$RAb_temperate <- 100*(colSums(cleanest_VLP[row.names(cleanest_VLP) %in% temperates,])/colSums(cleanest_VLP))[match(VLP_metadata_to_update$Sequencing_ID, colnames(cleanest_VLP))]
+
+# for Cyrus
+
+VLP_MGS_metadata_to_UPD <- read.delim('06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v02.txt', sep='\t', header=T)
+vlpdivall <- data.frame(vegan::diversity(t(cleanest), "shannon")) %>%
+  set_names("diversity")
+
+VLP_MGS_metadata_to_UPD$virshannon <- vlpdivall$diversity[match(VLP_MGS_metadata_to_UPD$Sequencing_ID, row.names(vlpdivall))]
+colnames(cleanest)[colnames(cleanest) %in% prechili$V1] <- prechili$V2[match(colnames(cleanest)[colnames(cleanest) %in% prechili$V1],
+                                                                                     prechili$V1)]
+
+VLP_MGS_metadata_to_UPD$N_temperate <- colSums(cleanest[row.names(cleanest) %in% temperates,] > 0)[match(VLP_MGS_metadata_to_UPD$Sequencing_ID, colnames(cleanest))]
+VLP_MGS_metadata_to_UPD$RAb_temperate <- 100*(colSums(cleanest[row.names(cleanest) %in% temperates,])/colSums(cleanest))[match(VLP_MGS_metadata_to_UPD$Sequencing_ID, colnames(cleanest))]
 
 
 #############################################################
@@ -281,6 +321,122 @@ merged[is.na(merged$vOTUr_source),"vOTUr_source"] <- "DB"
 ##### adding info to ETOF_vOTUr:
 ETOF_vOTUr <- merge(ETOF_vOTUr, merged[,c("vOTU_representative", "vOTU_cluster_type", "vOTUr_source")], by.x="New_CID", by.y="vOTU_representative", all = T)
 
+# UpSet plot (all vOTUs)
+listInput <- list(DB=merged[merged$DB_sum>0,]$vOTU_representative,
+                  MGS=merged[merged$NEXT_MGS>0,]$vOTU_representative,
+                  VLP=merged[merged$NEXT_VLP>0,]$vOTU_representative)
+
+
+upset_all <- upset(fromList(listInput), order.by = "freq", sets.bar.color = "#C00000", 
+      number.angles = 20,
+      sets.x.label = "N vOTUs", scale.sets = "identity",
+      text.scale = c(1, 1, 1, 0.7, 1, 1))
+ 
+png('05.PLOTS/05.VLP_MGS/UpSet_plot_all_vOTUs.png', width=10, height=7, units="cm", res = 300)
+upset_all
+dev.off()
+
+# UpSet plot (HQ vOTUs)
+listInputHQ <- list(DB=merged_HQ[merged_HQ$DB_sum>0,]$vOTU_representative,
+                  MGS=merged_HQ[merged_HQ$NEXT_MGS>0,]$vOTU_representative,
+                  VLP=merged_HQ[merged_HQ$NEXT_VLP>0,]$vOTU_representative)
+
+
+upset_allhq <- upset(fromList(listInputHQ), order.by = "freq", sets.bar.color = "#C00000", 
+      number.angles = 20,
+      sets.x.label = "N vOTUs", scale.sets = "identity",
+      text.scale = c(1, 1, 1, 0.7, 1, 1))
+
+png('05.PLOTS/05.VLP_MGS/UpSet_plot_HQ_vOTUs.png', width=10, height=7, units="cm", res = 300)
+upset_allhq
+dev.off()
+
+### CALCUATING TRUE NOVELS taking into account the QoL:
+# derive the Quality of the Longest (QoL) contig per contributing source per vOTUr,
+# to truly understand which source is indespensible
+vOTU_clustering$length <- ETOF$POST_CHV_length[match(vOTU_clustering$Cluster_member, ETOF$New_CID)]
+vOTU_clustering$quality <- ETOF$miuvig_quality[match(vOTU_clustering$Cluster_member, ETOF$New_CID)]
+
+summary_df <- vOTU_clustering %>%
+  filter(Representative %in% hq_votus) %>%
+  mutate(DB_member = if_else(DB_member %in% c("NEXT_MGS", "NEXT_VLP"), DB_member, "DB")) %>%
+  arrange(desc(length), desc(quality)) %>%
+  group_by(Representative, DB_member) %>%
+  slice_head(n = 1) %>%    ungroup() %>%
+  select(Representative, DB_member, quality) %>%
+  pivot_wider(
+    names_from = DB_member,
+    values_from = quality,
+    names_prefix = ""
+  ) %>%
+  rename(DB_QoL = DB, MGS_QoL=NEXT_MGS, VLP_QoL=NEXT_VLP) %>%
+  replace_na(list(
+    DB_QoL = "Absent",
+    MGS_QoL = "Absent",
+    VLP_QoL = "Absent"
+  ))
+
+summary_df <- merge(summary_df, ETOF_vOTUr[,c("New_CID", "vOTU_cluster_type", "vOTUr_source")],
+                    by.x="Representative", by.y="New_CID")
+
+summary_table <- summary_df %>%
+  group_by(vOTU_cluster_type) %>%
+  summarise(
+    N_HQ = n(),  # Total number of vOTUs in this cluster type
+    HQ_MGS = sum(MGS_QoL == "High-quality"),
+    HQ_VLP = sum(VLP_QoL == "High-quality"),
+    HQ_DB  = sum(DB_QoL  == "High-quality"),
+    HQ_MGS_VLP = sum(MGS_QoL == "High-quality" & VLP_QoL == "High-quality"),
+    HQ_DB_VLP = sum(DB_QoL == "High-quality" & VLP_QoL == "High-quality"),
+    HQ_DB_MGS = sum(DB_QoL == "High-quality" & MGS_QoL == "High-quality"),
+    HQ_DB_MGS_VLP = sum(DB_QoL == "High-quality" & MGS_QoL == "High-quality" & VLP_QoL == "High-quality")
+  ) %>%
+  arrange(desc(N_HQ))
+
+
+# total VLP HQ:
+3374 + 4045 + 3399 # hq but derep w MGS & DB + unique + hq but derep w MGS
+
+# prop novel then:
+(4045 + 3399)/(3374 + 4045 + 3399) #68.8
+
+
+# 86.8% of all novels would have been recovered by VLPs alone 
+
+# total MGS HQ:
+2766 + 439 + 1846 # hq but derep w VLP & DB + unique + hq but derep w VLP
+(439 + 1846)/(2766 + 439 + 1846) # 45.2
+
+# 26.4% of novels would have been recovered by MGS alone
+
+# does every VLP sample just carries more HQs to start with? (judge based on ETOF)
+
+# also solves problem with saturation curve -> use this method to recalculate the saturation curve p method
+# but not sure what to do about the stacked bar plot
+
+#############################################################
+# 2. Analysis: testing how frequent it is for a genome-fragment
+# quality vOTU to have high quality members
+#############################################################
+# vOTU_clustering$quality <- ETOF$miuvig_quality[match(vOTU_clustering$Cluster_member, 
+#                                                      ETOF$New_CID)]
+# vOTU_clustering$length <- ETOF$POST_CHV_length[match(vOTU_clustering$Cluster_member, 
+#                                                      ETOF$New_CID)]
+# 
+# cluster_summary <- vOTU_clustering %>%
+#   group_by(Representative) %>%  
+#   summarise(
+#     N_high = sum(quality == "High-quality"),
+#     N_low  = sum(quality == "Genome-fragment")
+#   )
+# 
+# cluster_summary$rmiuvig_quality <- ETOF_vOTUr$miuvig_quality[match(df_summary$Representative, 
+#                                                                    ETOF_vOTUr$New_CID)]
+# 
+# dim(df_summary[df_summary$N_high > 0 & df_summary$rmiuvig_quality=="Genome-fragment",])
+# there are only 248 cases like that (1.5%), some of them are caused by CheckV erroneously 
+# considering some short genomes HQ (as w vOTU==NEXT_V0156_N33_L31446_K2.8_E0_P0_F0)
+# DECISION: IGNORE IT
 #############################################################
 # 2. Analysis: every sample contributing to novel discovery
 #############################################################
@@ -301,21 +457,93 @@ tmp2$Method <- "MGS"
 
 TMP <- rbind(tmp, tmp2)
 
-ggplot(TMP, aes(x = Samples, y = Mean_Detected_vOTUs, color=Method)) +
+novel_satu <- ggplot(TMP, aes(x = Samples, y = Mean_Detected_vOTUs, color=Method)) +
   geom_line() +
   geom_point() +
   geom_errorbar(aes(ymin = Mean_Detected_vOTUs - SD, ymax = Mean_Detected_vOTUs + SD), width = 0.1) +
-  labs(title = "N vOTUs detected with increasing number of samples",
-       x = "Number of fecal VLP samples", y = "Number of vOTUs detected in the NEXT virome") +
+  labs(title = "N novel vOTUs discovered with increasing number of samples",
+       x = "Number of fecal samples", y = "N vOTUs") +
   theme_minimal()
 
-
-smeta$clean_richness_VLP <- colSums(clean_RPKM > 0)[match(smeta$Sequencing_ID_VLP, colnames(clean_RPKM))]
-smeta$clean_richness_MGS <- colSums(clean_RPKM > 0)[match(smeta$NG_ID, colnames(clean_RPKM))]
+ggsave('05.PLOTS/05.VLP_MGS/Novel_detected_saturation.png',
+       novel_satu,  "png", width=16, height=12, units="cm", dpi = 300)
+#############################################################
+# 2. Analysis: sample-based method assessment
+#############################################################
+smeta$clean_richness_VLP <- colSums(cleanest > 0)[match(smeta$Sequencing_ID_VLP, colnames(cleanest))]
+smeta$clean_richness_MGS <- colSums(cleanest > 0)[match(smeta$NG_ID, colnames(cleanest))]
 
 wilcox.test(smeta$clean_richness_VLP, smeta$clean_richness_MGS, paired=T)
 
 
+p_VLP_MGS_richness <- smeta %>%
+  filter(Universal_ID %in% full_overlap$Universal_ID) %>%
+  select(Universal_ID, clean_richness_MGS, clean_richness_VLP) %>%
+  pivot_longer(!Universal_ID, 
+               names_to = "Source",
+               values_to = "Richness") %>%
+  ggplot(aes(Source, Richness)) +
+  geom_violinhalf(aes(Source, Richness, fill = Source, color=Source), flip=1) +
+  scale_color_manual(values=c("darkred", "#234C6A")) +
+  ggnewscale::new_scale_color() +
+  geom_boxplot(aes(Source, Richness, fill = Source, color=Source),width = 0.1, outlier.shape = NA) +
+  scale_color_manual(values=c("darkred", "#234C6A")) +
+  geom_rect(xmin=1, xmax=1.1, ymin=10, ymax=2000, fill="white") +
+  geom_rect(xmin=1.9, xmax=2, ymin=10, ymax=2000, fill="white") +
+  geom_line(aes(group = Universal_ID),alpha=0.1, color="darkgrey") +
+  geom_point(aes(Source, Richness, color=Source), size=1.5, alpha=0.3) + 
+  scale_x_discrete(labels = c("MGS", "VLP")) +
+  theme_bw() +
+  theme(legend.position = "none")
+
+ggsave('05.PLOTS/05.VLP_MGS/Overall_richness_comparison.png',
+       p_VLP_MGS_richness,  "png", width=10, height=10, units="cm", dpi = 300)
+
+# For HQs:
+
+hq_votus <- ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$New_CID
+smeta$clean_richness_VLPHQ <- colSums(cleanest[row.names(cleanest) %in% hq_votus,] > 0)[match(smeta$Sequencing_ID_VLP, colnames(cleanest))]
+smeta$clean_richness_MGSHQ <- colSums(cleanest[row.names(cleanest) %in% hq_votus,] > 0)[match(smeta$NG_ID, colnames(cleanest))]
+
+p_VLP_MGS_richnessHQ <- smeta %>%
+  filter(Universal_ID %in% full_overlap$Universal_ID) %>%
+  select(Universal_ID, clean_richness_MGSHQ, clean_richness_VLPHQ) %>%
+  pivot_longer(!Universal_ID, 
+               names_to = "Source",
+               values_to = "Richness") %>%
+  ggplot(aes(Source, Richness)) +
+  geom_violinhalf(aes(Source, Richness, fill = Source, color=Source), flip=1) +
+  scale_color_manual(values=c("darkred", "#234C6A")) +
+  ggnewscale::new_scale_color() +
+  geom_boxplot(aes(Source, Richness, fill = Source, color=Source),width = 0.1, outlier.shape = NA) +
+  scale_color_manual(values=c("darkred", "#234C6A")) +
+  geom_rect(xmin=1, xmax=1.1, ymin=10, ymax=50, fill="white") +
+  geom_rect(xmin=1.9, xmax=2, ymin=10, ymax=100, fill="white") +
+  geom_line(aes(group = Universal_ID),alpha=0.1, color="darkgrey") +
+  geom_point(aes(Source, Richness, color=Source), size=1.5, alpha=0.3) + 
+  labs(y="Richness of HQ vOTUs") +
+  scale_x_discrete(labels = c("MGS", "VLP")) +
+  theme_bw() +
+  theme(legend.position = "none")
+
+ggsave('05.PLOTS/05.VLP_MGS/HQ_richness_comparison.png',
+       p_VLP_MGS_richnessHQ,  "png", width=10, height=10, units="cm", dpi = 300)
+
+Richness_MGS_VLP <- cor.test(smeta$clean_richness_MGS, smeta$clean_richness_VLP, method = "spearman")
+Richness_MGS_VLP$p.value
+
+# explanation why HQs are higher in VLP vs MGS:
+hq_votus_ssDNA <- ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality" &
+                               ETOF_vOTUr$genome_simple=="ssDNA",]$New_CID
+smeta$clean_richness_VLPHQss <- colSums(cleanest[row.names(cleanest) %in% hq_votus_ssDNA,] > 0)[match(smeta$Sequencing_ID_VLP, colnames(cleanest))]
+smeta$clean_richness_MGSHQss <- colSums(cleanest[row.names(cleanest) %in% hq_votus_ssDNA,] > 0)[match(smeta$NG_ID, colnames(cleanest))]
+
+HQ_VLP_VLPssDNA <- cor.test(smeta$clean_richness_VLPHQ, smeta$clean_richness_VLPHQss, method = "spearman")
+HQ_VLP_VLPssDNA$p.value
+
+table(ETOF_vOTUr[ETOF_vOTUr$vOTU_cluster_type=="NEXT_VLP" &
+                   ETOF_vOTUr$miuvig_quality=="High-quality" &
+                   ETOF_vOTUr$genome_simple %in% c('ssDNA', 'RNA'), genome_simple]) #123 RNA, 2825 ssDNA
 
 
 #############################################################
@@ -323,5 +551,25 @@ wilcox.test(smeta$clean_richness_VLP, smeta$clean_richness_MGS, paired=T)
 #############################################################
 write.table(row.names(cleanest), "./06.CLEAN_DATA/VLP_MGS_vOTUr_dec99ANI_ab3kbp_2220samples.txt", sep='\t', row.names=F, col.names = F, quote=F)
 write.table(cleanest, "./06.CLEAN_DATA/RPKM_table_VLP_MGS_dec99ANI_ab3kbp_2220_samples.txt", sep='\t', quote=F)
-write.table(baseETOF_vOTUr, "./06.CLEAN_DATA/ETOF_127553vOTUr_ab3kbp_in_2200_VLP_MGS.txt", sep='\t', quote=F)
+write.table(baseETOF_vOTUr, "./06.CLEAN_DATA/ETOF_127553vOTUr_ab3kbp_in_2200_VLP_MGS.txt", sep='\t', quote=F, row.names=F)
 write.table(ETOF_vOTUr, "./06.CLEAN_DATA/Extended_ETOF_127553vOTUr_ab3kbp_in_2200_VLP_MGS.txt", sep='\t', quote=F)
+
+
+# clean VLP RPKM table based on all 127553 vOTUs discovered in MGS-VLP full overlap samples:
+write.table(cleanest_VLP, './06.CLEAN_DATA/02.FINAL/VLP_only_RPKM_table_VLP_MGS_dec99ANI_ab3kbp_1110_samples.txt', sep='\t', quote=F)
+
+# Updated VLP only metadata now containing temperate phage relative abundance and richness of temperate phages
+write.table(VLP_metadata_to_update, '06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLPmatched_v02.1.txt', sep='\t', quote=F, row.names=F)
+
+# Updated VLP-MGS metadata now containing temperate phage relative abundance and richness of temperate phages & virshannin
+write.table(VLP_MGS_metadata_to_UPD, '06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v02.1.txt', sep='\t', quote=F, row.names=F)
+
+# clean MGS RPKM table based on all 127553 vOTUs discovered in MGS-VLP full overlap samples:
+write.table(cleanest_MGS, './06.CLEAN_DATA/02.FINAL/MGS_only_RPKM_table_VLP_MGS_dec99ANI_ab3kbp_1110_samples.txt', sep='\t', quote=F)
+
+# table with per-contig HQ vOTU recovery info by source
+write.table(summary_df, './06.CLEAN_DATA/03.RESULTS_to_plot/HQ_vOTU_recoverable_by_source.txt', sep='\t', quote=F, row.names=F)
+
+# summary stats of HQ vOTU recovery across sources
+write.table(summary_table, './06.CLEAN_DATA/03.RESULTS_to_plot/HQ_vOTU_recovery_stat.txt', sep='\t', quote=F, row.names=F)
+
