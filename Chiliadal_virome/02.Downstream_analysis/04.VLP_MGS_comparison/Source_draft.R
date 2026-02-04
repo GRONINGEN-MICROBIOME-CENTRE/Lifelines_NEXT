@@ -56,68 +56,114 @@ saturation_stat_fast <- function(count_table, n_permutations) {
   )
 }
 
+# get iqrs:
+get_iqr <- function(vec) {
+  
+  SMR <- summary(vec)
+  
+  print(paste0(round(SMR[3], 2), ' (', round(SMR[2], 2), ' - ', round(SMR[5], 2), ')')) 
+  
+}
+
+# gets the summaries of different curve fittings
+podgonian <- function(DF, x, y){
+  
+  logger <- list()
+  
+  F1 <- as.formula(paste0("log(", y, ") ~ log(", x, ")"))
+  
+  fit_power <- lm(F1, data = DF)
+  logger[["lm_fit_power"]] <- summary(fit_power)
+  
+  b <- unname(fit_power$coefficients[2])
+  median_index <- round(median(DF[,x]))
+  a <- sqrt(DF[median_index,y])
+  
+  # power function
+  F2 <- as.formula(paste(y, " ~ a * ", x, "^b"))
+  
+  fit_root <- nls(F2, 
+                  data = DF, 
+                  start = list(a=a,b=b))
+  logger[["fit_root"]] <- summary(fit_root)
+  
+  root_params <- coef(fit_root)
+  MDR <- root_params["a"] * root_params["b"] * (nrow(DF)^(root_params["b"]-1))
+  logger[["MDR"]] <- MDR
+  
+  # plateau:
+  F3 <- as.formula(paste(y, " ~ ", x))
+  fit_plat <- drc::drm(F3, # drc is called here in the isolated way, otherwise it masks "select" from dplyr
+                       data = DF, 
+                       fct = drc::L.4())
+  
+  logger[["fit_plat"]] <- summary(fit_plat)
+  
+  logger[["plat_vs_root"]] <- AIC(fit_plat, fit_root)
+  
+  # asymptotic model
+  F4 <- as.formula( paste(y, " ~ SSasymp(", x, ", Asym, R0, lrc)"))
+  
+  fit_asym <- nls(F4, 
+                  data = DF)
+  
+  logger[["fit_asym"]] <- summary(fit_asym)
+  
+  logger[["asym_vs_root"]] <- AIC(fit_asym, fit_root)
+  logger[["asym_vs_plat"]] <- AIC(fit_asym, fit_plat)
+  
+  
+  params <- coef(fit_asym)
+  Asym <- params["Asym"]
+  R0   <- params["R0"]
+  lrc  <- params["lrc"]
+  
+  rate <- exp(lrc)
+  # first derivative
+  slope <- (Asym - R0) * rate * exp(-rate * nrow(DF))
+  
+  logger[["slope"]] <- slope
+  
+  return(logger)
+  
+  
+}
+
+smart_round <- function(x){
+  
+  ifelse(x < 0.01,
+        as.numeric(formatC(x, format = "e", digits = 2)),
+                round(x, 2))
+
+}
 
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(see)
 library(UpSetR)
+library(lme4)
+library(lmerTest)
+library(purrr)
+library(broom)
+#library(drc) # for fitting curves
 #############################################################
 # 2. Load Input Data
 #############################################################
 
-clean_RPKM <- data.table::fread('06.CLEAN_DATA/VLP_MGS_decontaminated_RPKM_overlap.txt', sep='\t', header=T)
-row.names(clean_RPKM) <- clean_RPKM$vOTUs
-clean_RPKM$vOTUs <- NULL
+clean_RPKM <- read.table('06.CLEAN_DATA/02.FINAL/RPKM_table_VLP_MGS_dec99ANI_ALL_CS_ab3kbp_2220_samples.txt', sep='\t', header=T)
 
-full_overlap <- read.table('06.CLEAN_DATA/Intermediate/MGS_VLP_samples_full_overlap.txt', sep='\t', header=T)
-
-all_overlap <- c(full_overlap$VLP, full_overlap$MGS)
-
-setdiff(colnames(clean_RPKM), all_overlap)
-
-smeta <- read.delim('06.CLEAN_DATA/Intermediate/Chiliadal_metadata_ver_05_25052025.txt', sep='\t', header=T)
+smeta <- read.delim('06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v05_suppl_w_virmetrics.txt', sep='\t', header=T)
 smeta$Timepoint_new <- factor(smeta$Timepoint_new, levels=c("M1", "M3", "M6", "M12", "Mother"), ordered = T)
 
-prechili <- read.table('~/Desktop/Projects_2021/Baseclear/01.TEST_22_samples/BC_PILOT_new_ids_chiliadal_format.txt', sep='\t')
-prechili <- prechili[,c('V1', 'V2')]
+ETOF <- read.table('06.CLEAN_DATA/VLP_MGS_ETOF_full_rep.txt', sep='\t', header = T)
 
-smeta$VLP_ID_UPD <- smeta$Sequencing_ID_VLP
-smeta$VLP_ID_UPD <- prechili$V2[match(smeta$Sequencing_ID_VLP, prechili$V1)]
-smeta[is.na(smeta$VLP_ID_UPD),"VLP_ID_UPD"] <- smeta[is.na(smeta$VLP_ID_UPD),"Sequencing_ID_VLP"]
-unique(smeta$Timepoint_new)
+ETOF_only <- ETOF %>%
+  filter(grepl('NEXT_', ETOF$New_CID)) %>%
+  mutate(sample = gsub('_.*', '', Original_CID)) %>%
+  mutate( method = ifelse(grepl('NEXT_V', New_CID), 'VLP', 'MGS') )
 
-ETOF <- data.table::fread('06.CLEAN_DATA/VLP_MGS_ETOF_full_rep.txt', sep='\t', header=T)
-ETOF_only <- ETOF[grep('NEXT_', ETOF$New_CID),]
-ETOF_only$sample <- gsub('_.*', '', ETOF_only$Original_CID)
-
-ETOF_only$method <- ifelse(grepl('NEXT_V', ETOF_only$New_CID), 'VLP', 'MGS')
-
-# cleanest RPKM (to filter vOTUs etc):
-clean_RPKM <- as.data.frame(clean_RPKM, row.names = row.names(clean_RPKM))
-cleanest <- clean_RPKM[, colnames(clean_RPKM) %in% all_overlap]
-ETOF_vOTUr <- ETOF[ETOF$New_CID %in% row.names(cleanest),]
-cleanest <- cleanest[row.names(cleanest) %in% ETOF_vOTUr[ETOF_vOTUr$POST_CHV_length >=3000,]$New_CID,]
-
-cleanest <- cleanest[rowSums(cleanest) >0,]
-cleanest <- cleanest[,colSums(cleanest) >0]
-
-# clean RPKM table only for VLP samples from full overlap:
-cleanest_VLP <- cleanest[,colnames(cleanest) %in% full_overlap$VLP]
-cleanest_VLP <- cleanest_VLP[rowSums(cleanest_VLP) > 0,]
-colnames(cleanest_VLP)[colnames(cleanest_VLP) %in% prechili$V1] <- prechili$V2[match(colnames(cleanest_VLP)[colnames(cleanest_VLP) %in% prechili$V1],
-                                                                                     prechili$V1)]
-
-# saving point for cleanest_VLP
-
-cleanest_MGS <- cleanest[,colnames(cleanest) %in% full_overlap$MGS]
-cleanest_MGS <- cleanest_MGS[rowSums(cleanest_MGS) > 0,]
-
-# saving point for cleanest_MGS
-
-
-ETOF_vOTUr <- ETOF[ETOF$New_CID %in% row.names(cleanest),]
-baseETOF_vOTUr <- ETOF_vOTUr
+ETOF_vOTUr <- read.table('06.CLEAN_DATA/02.FINAL/Working_ETOF_120997vOTUr_ab3kbp_in_2200_VLP_MGS.txt', sep='\t', header=T)
 
 vOTU_clustering <- read.table('06.CLEAN_DATA/NEXT_viral_clusters_MGS_VLP_long_format.txt', sep='\t', header=T)
 vOTU_clustering <- vOTU_clustering[vOTU_clustering$Representative %in% ETOF_vOTUr$New_CID,]
@@ -125,50 +171,11 @@ vOTU_clustering <- vOTU_clustering[vOTU_clustering$Representative %in% ETOF_vOTU
 vOTU_cluster_size <- read.table('06.CLEAN_DATA/NEXT_viral_clusters_MGS_VLP_size.txt', sep='\t', header=T)
 vOTU_cluster_size <- vOTU_cluster_size[vOTU_cluster_size$Representative %in% ETOF_vOTUr$New_CID,]
 
-ETOF_vOTUr$vOTU_size <- vOTU_cluster_size$Cluster_size[match(ETOF_vOTUr$New_CID, vOTU_cluster_size$Representative)]
+VLP <- read.table('06.CLEAN_DATA/02.FINAL/VLP_only_RPKM_table_VLP_MGS_dec99ANI_ALL_CS_ab3kbp_1110_samples.txt', sep='\t', header=T)
 
-lifestyle_raw <- read.table('06.CLEAN_DATA/Lifestyle_prediction_bacphlip', sep='\t', header=T)
-colnames(lifestyle_raw)[1] <- 'New_CID'
-ETOF_vOTUr <- merge(ETOF_vOTUr, lifestyle_raw, by="New_CID")
-ETOF_vOTUr$lifestyle <- NA
-ETOF_vOTUr$lifestyle <- as.character(ETOF_vOTUr$lifestyle)
-ETOF_vOTUr[ETOF_vOTUr$Temperate >=0.5,]$lifestyle <- "Temperate"
-ETOF_vOTUr[ETOF_vOTUr$Virulent >0.5 & ETOF_vOTUr$completeness >= 90 & !is.na(ETOF_vOTUr$completeness),]$lifestyle <- "Virulent"
-ETOF_vOTUr[is.na(ETOF_vOTUr$lifestyle),]$lifestyle <- "Unknown"
-
-newtax <- read.table('06.CLEAN_DATA/MergedTaxonomy_127553vOTUr_ab3kbp_in_2200_VLP_MGS.txt', sep='\t', header=T)
-
-ETOF_vOTUr <- merge(ETOF_vOTUr, newtax, 
-                    by.x="New_CID", by.y="Genome_ID", all.x=T)
-
-dim(cleanest)
-
-VLP_metadata_to_update <- read.delim('06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLPmatched_v02.txt', sep='\t', header=T)
-vlpdiv <- data.frame(vegan::diversity(t(cleanest_VLP), "shannon")) %>%
-  set_names("diversity")
-
-temperates <- ETOF_vOTUr[ETOF_vOTUr$lifestyle=="Temperate",]$New_CID
-
-VLP_metadata_to_update$virshannon <- vlpdiv$diversity[match(VLP_metadata_to_update$Sequencing_ID, row.names(vlpdiv))]
-VLP_metadata_to_update$N_temperate <- colSums(cleanest_VLP[row.names(cleanest_VLP) %in% temperates,] > 0)[match(VLP_metadata_to_update$Sequencing_ID, colnames(cleanest_VLP))]
-VLP_metadata_to_update$RAb_temperate <- 100*(colSums(cleanest_VLP[row.names(cleanest_VLP) %in% temperates,])/colSums(cleanest_VLP))[match(VLP_metadata_to_update$Sequencing_ID, colnames(cleanest_VLP))]
-
-# for Cyrus
-
-VLP_MGS_metadata_to_UPD <- read.delim('06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v02.txt', sep='\t', header=T)
-vlpdivall <- data.frame(vegan::diversity(t(cleanest), "shannon")) %>%
-  set_names("diversity")
-
-VLP_MGS_metadata_to_UPD$virshannon <- vlpdivall$diversity[match(VLP_MGS_metadata_to_UPD$Sequencing_ID, row.names(vlpdivall))]
-colnames(cleanest)[colnames(cleanest) %in% prechili$V1] <- prechili$V2[match(colnames(cleanest)[colnames(cleanest) %in% prechili$V1],
-                                                                                     prechili$V1)]
-
-VLP_MGS_metadata_to_UPD$N_temperate <- colSums(cleanest[row.names(cleanest) %in% temperates,] > 0)[match(VLP_MGS_metadata_to_UPD$Sequencing_ID, colnames(cleanest))]
-VLP_MGS_metadata_to_UPD$RAb_temperate <- 100*(colSums(cleanest[row.names(cleanest) %in% temperates,])/colSums(cleanest))[match(VLP_MGS_metadata_to_UPD$Sequencing_ID, colnames(cleanest))]
-
-
+MGS <- read.table('06.CLEAN_DATA/02.FINAL/MGS_only_RPKM_table_VLP_MGS_dec99ANI_ALL_CS_ab3kbp_1110_samples.txt', sep='\t', header=T)
 #############################################################
-# 2. Analysis: redundant & complete genomes per method
+# 3.1 Analysis: redundant & hq genomes per method
 #############################################################
 
 N_disc_total <- as.vector.data.frame(table(ETOF_only$method))
@@ -178,55 +185,35 @@ N_disc_HQ <- as.vector.data.frame(table(ETOF_only[ETOF_only$checkv_quality %in% 
 N_disc_HQ10 <- table(ETOF_only[ETOF_only$checkv_quality %in% c('High-quality', 'Complete') & 
                   ETOF_only$POST_CHV_length >= 10000,]$method)
 
-MedLen_dischq <- as.vector.data.frame(c())
+disc <- data.frame(table(ETOF_only$sample))
 
-for (i in c("MGS", "VLP")) {
-  
-  SM <- summary(ETOF_only[ETOF_only$checkv_quality %in% c('High-quality', 'Complete') &
-                            ETOF_only$method == i,]$POST_CHV_length)
-  
-  char_method <- paste0(SM[3], ", IQR: (", SM[2], ", ", SM[5], ")")
-  
-  MedLen_dischq[i] <- char_method
-  
-}
+disc_hq <- data.frame(table(ETOF_only$sample[ETOF_only$checkv_quality %in% c('High-quality', 'Complete')]))
+
+disc_hq10 <- data.frame(table(ETOF_only[ETOF_only$checkv_quality %in% c('High-quality', 'Complete') &
+                                          ETOF_only$POST_CHV_length >= 10000,]$sample))
+
+smeta[, "N_discovered"] <- disc$Freq[match(smeta$Sequencing_ID, disc$Var1)]
+
+smeta[, "N_discovered_HQ"] <- disc_hq$Freq[match(smeta$Sequencing_ID, disc_hq$Var1)]
+
+smeta[, "N_discovered_HQ10"] <- disc_hq10$Freq[match(smeta$Sequencing_ID, disc_hq10$Var1)]
 
 # sample-wise:
-
+MedLen_dischq <- as.vector.data.frame(c())
 Med_disc <- as.vector.data.frame(c())
 Med_disc_hq <- as.vector.data.frame(c())
 Med_disc_hq10 <- as.vector.data.frame(c())
 
 for (i in c("MGS", "VLP")) {
   
-  disc <- data.frame(table(ETOF_only[ETOF_only$method==i,]$sample))
-  SM <- summary(disc$Freq)
-  Med_disc[i] <- paste0(SM[3], ", IQR: (", SM[2], ", ", SM[5], ")")
+  MedLen_dischq[i] <- get_iqr(ETOF_only[ETOF_only$checkv_quality %in% c('High-quality', 'Complete') &
+                                          ETOF_only$method == i,]$POST_CHV_length)
   
-  disc_hq <- data.frame(table(ETOF_only[ETOF_only$method==i & 
-                                        ETOF_only$checkv_quality %in% c('High-quality', 'Complete'),]$sample))
-  SM <- summary(disc_hq$Freq)
-  Med_disc_hq[i] <- paste0(SM[3], ", IQR: (", SM[2], ", ", SM[5], ")")
+  Med_disc[i] <- get_iqr(smeta$N_discovered[smeta$seq_type == i])
   
-  disc_hq10 <- data.frame(table(ETOF_only[ETOF_only$method==i & 
-                                          ETOF_only$checkv_quality %in% c('High-quality', 'Complete') &
-                                          ETOF_only$POST_CHV_length >= 10000,]$sample))
-  SM <- summary(disc_hq10$Freq)
-  Med_disc_hq10[i] <- paste0(SM[3], ", IQR: (", SM[2], ", ", SM[5], ")")
+  Med_disc_hq[i] <- get_iqr(smeta$N_discovered_HQ[smeta$seq_type == i])
   
-  if (i=="MGS") {
-    smeta[, paste0("disc_", i)] <- disc$Freq[match(smeta$NG_ID, disc$Var1)]
-    
-    smeta[, paste0("disc_hq_", i)] <- disc_hq$Freq[match(smeta$NG_ID, disc_hq$Var1)]
-    
-    smeta[, paste0("disc_hq10_", i)] <- disc_hq10$Freq[match(smeta$NG_ID, disc_hq10$Var1)]
-    
-  } else {
-    smeta[, paste0("disc_", i)] <- disc$Freq[match(smeta$VLP_ID_UPD, disc$Var1)]
-    smeta[, paste0("disc_hq_", i)] <- disc_hq$Freq[match(smeta$VLP_ID_UPD, disc_hq$Var1)]
-    smeta[, paste0("disc_hq10_", i)] <- disc_hq10$Freq[match(smeta$VLP_ID_UPD, disc_hq10$Var1)]
-  }
-
+  Med_disc_hq10[i] <- get_iqr(smeta$N_discovered_HQ10[smeta$seq_type == i])
   
 }
 
@@ -238,75 +225,251 @@ per_m <- rbind(N_disc_total,
                Med_disc_hq,
                Med_disc_hq10)
 
+# tidying up
+rm(list=setdiff(ls(), c("clean_RPKM", "ETOF", "ETOF_only", "ETOF_vOTUr", "per_m", "smeta", "get_iqr", "saturation_stat_fast", "VLP", "MGS")))
+#############################################################
+# 3.2 Analysis: N detected vOTUs saturation curves
+#############################################################
+# since there is a lot of interdependency (paired samples, 
+# longitudinal samples) no sense to make saturation over 2,220
+# -> merging to holovirome table
+
+##### creating aholovirome binary table
+colnames(VLP) <- smeta$Universal_ID[match(colnames(VLP), smeta$Sequencing_ID)]
+
+colnames(MGS) <- smeta$Universal_ID[match(colnames(MGS), smeta$Sequencing_ID)]
+
+## ordering
+MGS <- MGS[, colnames(VLP)]  # if needed
+
+all_votus <- ETOF_vOTUr$New_CID
+
+# initiate matrix
+m1 <- matrix(0,
+             nrow = length(all_votus),
+             ncol = ncol(VLP),
+             dimnames = list(all_votus, colnames(VLP)))
+m2 <- m1
+
+# populating matrices
+m1[rownames(VLP), ] <- (as.matrix(VLP) > 0) * 1
+m2[rownames(MGS), ] <- (as.matrix(MGS) > 0) * 1
+
+## unified presence/absence
+unified <- ((m1 + m2) > 0) * 1
+
+holo <- as.data.frame(unified)
+rm(list = c("m1", "m2", "all_votus", "unified"))
+
+gen_holo <- holo %>%
+  rownames_to_column("New_CID") %>%
+  left_join(ETOF_vOTUr %>% select(New_CID, Genus_OTUr)) %>% # library(drc) masks "select", wtf!  
+  group_by(Genus_OTUr) %>%
+  summarise(across(where(is.numeric), sum)) %>% # 27,017 genera detected
+  column_to_rownames("Genus_OTUr")
+
+fam_holo <- holo %>%
+  rownames_to_column("New_CID") %>%
+  left_join(ETOF_vOTUr %>% select(New_CID, Family_OTUr)) %>% # library(drc) masks "select", wtf!  
+  group_by(Family_OTUr) %>%
+  summarise(across(where(is.numeric), sum)) %>% # 7,596 families detected
+  column_to_rownames("Family_OTUr")
+
+all_vOTU_cumulative <- saturation_stat_fast(holo, 1000)
+all_gOTU_cumulative <- saturation_stat_fast(gen_holo, 1000)
+all_fOTU_cumulative <- saturation_stat_fast(fam_holo, 1000)
+
+all_cumulative <- all_vOTU_cumulative[["permuted"]] %>%
+  mutate(Rank = "Species") %>%
+  bind_rows(all_gOTU_cumulative[["permuted"]] %>% mutate(Rank = "Genus")) %>%
+  bind_rows(all_fOTU_cumulative[["permuted"]] %>% mutate(Rank = "Family"))
+
+all_satu <- ggplot(all_cumulative, aes(x = Samples, y = Mean_Detected_vOTUs, color=Rank)) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin = Mean_Detected_vOTUs - SD, ymax = Mean_Detected_vOTUs + SD), width = 0.1) +
+  labs(x = "Number of fecal samples", y = "Number of OTUs") +
+  scale_color_manual(values = c("#7C3E66", "#A5BECC", "#243A73")) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+ggsave('05.PLOTS/05.VLP_MGS/all_OTUs_detected_holovirome.png',
+       all_satu,  "png", width=10, height=8, units="cm", dpi = 300)
+
+# looking for approximation:
+# Species looks like something * sqrt()
+
+all_cumulative %>%
+  filter(Rank == "Species") %>%
+  ggplot(aes(log(Samples), log(Mean_Detected_vOTUs))) +
+  geom_point() +
+  theme_minimal() +
+  labs(y="log(mean detected species)") # ehm kind of straight line?
+
+sp_stat <- podgonian(all_cumulative[all_cumulative$Rank == "Species",],
+                  "Samples",
+                  "Mean_Detected_vOTUs") # best is root square
+
+gn_stat <- podgonian(all_cumulative[all_cumulative$Rank == "Genus",],
+                     "Samples",
+                     "Mean_Detected_vOTUs") # best is root square, but gain is only 2 genera ps -> plateau
+
+fm_stat <- podgonian(all_cumulative[all_cumulative$Rank == "Family",],
+                     "Samples",
+                     "Mean_Detected_vOTUs") # best is root square, but gain is only 1 (0.5) ps -> def plateau
+
+#############################################################
+# 3.3 Analysis: descriptive stat NEXT virome catalog
+#############################################################
+# % genomes, % temperate etc was derived from summary stat of ETOF
+virclass <- ETOF_vOTUr  %>%
+  separate(
+    col    = tax_ictv_aai,
+    into = c('Life', 'Realm', 'Kingdom', 'Phylum',  'Class', 'Order', 'Family',  'Genus',  'Species', 'Strain'),
+    sep    = ";",
+    fill   = "right",               
+    remove = FALSE                  
+  ) %>%
+  group_by(Class) %>%
+  summarise(sum=n()) %>%
+  mutate(perc = round(sum / nrow(ETOF_vOTUr) * 100, 1))
+
+#############################################################
+# 3.4 Analysis: staton on MGS vs VLP genomics
+#############################################################
+genomics_compare <- c('raw_reads', 'human_reads', 'clean_reads',
+                      'contigs_0_bp', 'contigs_1000_bp', 'sc_enrichment')
+
+results_genomics <- map_dfr(genomics_compare, function(genomics) {
+    
+    print(paste("Data:", genomics))
+  
+  f1 <- paste("log10(", genomics, ")", "~ seq_type")
+    
+    formula <- as.formula(paste0(f1, "+ (1 | NEXT_ID)"))
+    
+    model <- lmer(
+      formula,
+      REML = FALSE,
+      data = smeta
+    )
+   
+    eff_res <- effsize::cohen.d(as.formula(f1), data = smeta) 
+    
+    model_summary <- summary(model)$coefficients %>%
+      as.data.frame() %>%
+      rownames_to_column() %>%
+      filter(rowname != "(Intercept)") %>%
+      mutate(Cohens_D = abs(eff_res$estimate)) %>%
+      mutate(rowname = gsub('seq_type', '', rowname)) %>%
+      rename(`Metavirome type` = rowname) %>%
+      mutate(`Genomic metric` = genomics) %>%
+      mutate(across(where(is.numeric), ~ smart_round(.)) ) %>%
+      relocate(`Genomic metric`)
+    
+    model_summary
+    
+  }) 
+
+write.table(results_genomics, '07.RESULTS/Compare_genomic_metrics_MGS_VLP.txt', sep='\t', quote=F, row.names=F)
+#############################################################
+# 3.3 Analysis: N novel discovered vOTUs saturation curves
+#############################################################
+# vOTUs_uniq_to_vlp <- ETOF_vOTUr %>%
+#   filter(vOTU_cluster_type %in% c("NEXT_VLP", "NEXT_VLP+NEXT_MGS", "")) %>%
+#   pull(New_CID)
+# 
+# vOTUs_uniq_to_mgs <- ETOF_vOTUr %>%
+#   filter(vOTU_cluster_type %in% c("NEXT_MGS", "NEXT_VLP+NEXT_MGS")) %>%
+#   pull(New_CID)
+# 
+# VLP_uniq <- clean_RPKM[, colnames(clean_RPKM) %in% smeta$Sequencing_ID[smeta$seq_type == "VLP"]]
+# VLP_uniq <- VLP_uniq [rowSums(VLP_uniq) >0,]
+# MGS_uniq <- clean_RPKM[row.names(clean_RPKM) %in% vOTUs_uniq_to_mgs, colnames(clean_RPKM) %in% smeta$Sequencing_ID[smeta$seq_type == "MGS"]]
+# MGS_uniq <- MGS_uniq [rowSums(MGS_uniq) >0,]
+# 
+# VLP_vOTU_HQ_new_cumulative <- saturation_stat_fast(VLP_uniq, 100)
+# MGS_vOTU_HQ_new_cumulative <- saturation_stat_fast(MGS_uniq, 100)
+# 
+# novel_satu <- ggplot(TMP, aes(x = Samples, y = Mean_Detected_vOTUs, color=Method)) +
+#   geom_line() +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = Mean_Detected_vOTUs - SD, ymax = Mean_Detected_vOTUs + SD), width = 0.1) +
+#   labs(title = "N vOTUs detected with increasing number of samples",
+#        x = "Number of fecal samples", y = "N vOTUs") +
+#   theme_minimal()
+# 
+# ggsave('05.PLOTS/05.VLP_MGS/vOTUs_detected_MGS_VLP.png',
+#        novel_satu,  "png", width=16, height=12, units="cm", dpi = 300)
+
 #############################################################
 # 2. Analysis: Unique & novel genomes recovery
 #############################################################
 
-#ETOF <- ETOF[ETOF$New_CID %in% vOTU_clustering$Cluster_member,] #613,189
-table(ETOF_vOTUr$miuvig_quality) # 16,208 complete or nearly complete (>90%)
-min(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length)
-max(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length)
+table(ETOF_vOTUr$miuvig_quality) # 15,969 complete or nearly complete (>90%)
+min(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length) #3,000
+max(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length) #396,781 
 
-vOTU_clustering$DB_member <- NA
-vOTU_clustering[grep('NEXT_V', vOTU_clustering$Cluster_member),]$DB_member <- 'NEXT_VLP'
-vOTU_clustering[grep('NEXT_M', vOTU_clustering$Cluster_member),]$DB_member <- 'NEXT_MGS'
-vOTU_clustering[grep('Guerin', vOTU_clustering$Cluster_member),]$DB_member <- 'Guerin'
-vOTU_clustering[grep('Yutin', vOTU_clustering$Cluster_member),]$DB_member <- 'Yutin'
-vOTU_clustering[grep('NCBI_CrAss', vOTU_clustering$Cluster_member),]$DB_member <- 'NCBI_CrAss'
-vOTU_clustering[grep('NL_crAss', vOTU_clustering$Cluster_member),]$DB_member <- 'NL_crAss'
-vOTU_clustering[grep('Benler', vOTU_clustering$Cluster_member),]$DB_member <- 'Benler'
-vOTU_clustering[grep('COPSAC', vOTU_clustering$Cluster_member),]$DB_member <- 'COPSAC'
-vOTU_clustering[grep('GVD', vOTU_clustering$Cluster_member),]$DB_member <- 'GVD'
-vOTU_clustering[grep('IMGVR', vOTU_clustering$Cluster_member),]$DB_member <- 'IMGVR'
-vOTU_clustering[grep('MGV-', vOTU_clustering$Cluster_member),]$DB_member <- 'MGV'
-vOTU_clustering[grep('GPD', vOTU_clustering$Cluster_member),]$DB_member <- 'GPD'
-vOTU_clustering[grep('VREF', vOTU_clustering$Cluster_member),]$DB_member <- 'VREF'
+# vOTU_clustering$DB_member <- NA
+# vOTU_clustering[grep('NEXT_V', vOTU_clustering$Cluster_member),]$DB_member <- 'NEXT_VLP'
+# vOTU_clustering[grep('NEXT_M', vOTU_clustering$Cluster_member),]$DB_member <- 'NEXT_MGS'
+# vOTU_clustering[grep('Guerin', vOTU_clustering$Cluster_member),]$DB_member <- 'Guerin'
+# vOTU_clustering[grep('Yutin', vOTU_clustering$Cluster_member),]$DB_member <- 'Yutin'
+# vOTU_clustering[grep('NCBI_CrAss', vOTU_clustering$Cluster_member),]$DB_member <- 'NCBI_CrAss'
+# vOTU_clustering[grep('NL_crAss', vOTU_clustering$Cluster_member),]$DB_member <- 'NL_crAss'
+# vOTU_clustering[grep('Benler', vOTU_clustering$Cluster_member),]$DB_member <- 'Benler'
+# vOTU_clustering[grep('COPSAC', vOTU_clustering$Cluster_member),]$DB_member <- 'COPSAC'
+# vOTU_clustering[grep('GVD', vOTU_clustering$Cluster_member),]$DB_member <- 'GVD'
+# vOTU_clustering[grep('IMGVR', vOTU_clustering$Cluster_member),]$DB_member <- 'IMGVR'
+# vOTU_clustering[grep('MGV-', vOTU_clustering$Cluster_member),]$DB_member <- 'MGV'
+# vOTU_clustering[grep('GPD', vOTU_clustering$Cluster_member),]$DB_member <- 'GPD'
+# vOTU_clustering[grep('VREF', vOTU_clustering$Cluster_member),]$DB_member <- 'VREF'
 
-vOTU_clustering$DB_member <- factor(vOTU_clustering$DB_member)
+#vOTU_clustering$DB_member <- factor(vOTU_clustering$DB_member)
 
-vOTU_by_source <- vOTU_clustering %>%
-  mutate(DB_member = factor(DB_member)) %>%
-  count(Representative, DB_member) %>%
-  pivot_wider(names_from = DB_member, values_from = n, values_fill = 0)
+#vOTU_by_source <- vOTU_clustering %>%
+#  mutate(DB_member = factor(DB_member)) %>%
+#  count(Representative, DB_member) %>%
+#  pivot_wider(names_from = DB_member, values_from = n, values_fill = 0)
 
-merged <- vOTU_by_source %>%
+#merged <- vOTU_by_source %>%
   
-  left_join(vOTU_cluster_size, by = "Representative") %>%
+#  left_join(vOTU_cluster_size, by = "Representative") %>%
   
-  rename(N_genomes = Cluster_size, vOTU_representative  = Representative) %>%
+#  rename(N_genomes = Cluster_size, vOTU_representative  = Representative) %>%
   
-  #left_join(genera, by = c("vOTU_representative" = "Cluster_member")) %>%
+ # #left_join(genera, by = c("vOTU_representative" = "Cluster_member")) %>%
   
-  #rename(Genus = Representative) %>%
+#  #rename(Genus = Representative) %>%
   
-  left_join(ETOF %>% select(New_CID, POST_CHV_length, miuvig_quality),
-            by = c("vOTU_representative" = "New_CID")) #%>%
+ # left_join(ETOF %>% select(New_CID, POST_CHV_length, miuvig_quality),
+ #           by = c("vOTU_representative" = "New_CID")) #%>%
   
-  #left_join(families,  by = c("vOTU_representative" = "Cluster_member")) %>%
+#  #left_join(families,  by = c("vOTU_representative" = "Cluster_member")) %>%
   
-  #rename(Family = Representative) %>%
+#  #rename(Family = Representative) %>%
   
-  # mutate(
-  #   vOTU_cluster_type = if_else(N_genomes == NEXT, "NEXT", "Mixed"),
-  #   miuvig_quality = factor(miuvig_quality,
-  #                           levels = c("High-quality", "Genome-fragment"),
-  #                           ordered = TRUE)
+#  # mutate(
+#  #   vOTU_cluster_type = if_else(N_genomes == NEXT, "NEXT", "Mixed"),
+#  #   miuvig_quality = factor(miuvig_quality,
+#  #                           levels = c("High-quality", "Genome-fragment"),
+#  #                           ordered = TRUE)
   
-merged$DB_sum <- merged$N_genomes - merged$NEXT_MGS - merged$NEXT_VLP
+#merged$DB_sum <- merged$N_genomes - merged$NEXT_MGS - merged$NEXT_VLP
 
-sources <- c("NEXT_VLP","NEXT_MGS","DB_sum")
+#sources <- c("NEXT_VLP","NEXT_MGS","DB_sum")
 
-merged <- merged %>%
-  mutate(
-    vOTU_cluster_type = apply(across(all_of(sources)) > 0, 1,
-                         function(r) { x <- sources[r]; if (length(x)==0) "None" else paste(x, collapse = "+") })
-  )
-
-merged_HQ <- merged[merged$miuvig_quality=="High-quality",] %>%
-  mutate(
-    vOTU_cluster_type = apply(across(all_of(sources)) > 0, 1,
-                              function(r) { x <- sources[r]; if (length(x)==0) "None" else paste(x, collapse = "+") })
-  )
+# merged <- merged %>%
+#   mutate(
+#     vOTU_cluster_type = apply(across(all_of(sources)) > 0, 1,
+#                          function(r) { x <- sources[r]; if (length(x)==0) "None" else paste(x, collapse = "+") })
+#   )
+# 
+# merged_HQ <- merged[merged$miuvig_quality=="High-quality",] %>%
+#   mutate(
+#     vOTU_cluster_type = apply(across(all_of(sources)) > 0, 1,
+#                               function(r) { x <- sources[r]; if (length(x)==0) "None" else paste(x, collapse = "+") })
+#   )
 
 all <- table(merged$vOTU_cluster_type)
 hq_only <- table(merged_HQ$vOTU_cluster_type)
@@ -437,36 +600,7 @@ summary_table <- summary_df %>%
 # there are only 248 cases like that (1.5%), some of them are caused by CheckV erroneously 
 # considering some short genomes HQ (as w vOTU==NEXT_V0156_N33_L31446_K2.8_E0_P0_F0)
 # DECISION: IGNORE IT
-#############################################################
-# 2. Analysis: every sample contributing to novel discovery
-#############################################################
-vOTUs_uniq_to_vlp <- merged_HQ[merged_HQ$vOTU_cluster_type %in% c("NEXT_VLP", "NEXT_VLP+NEXT_MGS"),]$vOTU_representative
-vOTUs_uniq_to_mgs <- merged_HQ[merged_HQ$vOTU_cluster_type %in% c("NEXT_MGS", "NEXT_VLP+NEXT_MGS"),]$vOTU_representative
 
-VLP_hq_uniq <- cleanest[row.names(cleanest) %in% vOTUs_uniq_to_vlp, colnames(cleanest) %in% full_overlap$VLP]
-MGS_hq_uniq <- cleanest[row.names(cleanest) %in% vOTUs_uniq_to_mgs, colnames(cleanest) %in% full_overlap$MGS]
-
-VLP_vOTU_HQ_new_cumulative <- saturation_stat_fast(VLP_hq_uniq, 100)
-MGS_vOTU_HQ_new_cumulative <- saturation_stat_fast(MGS_hq_uniq, 100)
-
-tmp <- VLP_vOTU_HQ_new_cumulative[["permuted"]]
-tmp$Method <- "VLP"
-
-tmp2 <- MGS_vOTU_HQ_new_cumulative[["permuted"]]
-tmp2$Method <- "MGS"
-
-TMP <- rbind(tmp, tmp2)
-
-novel_satu <- ggplot(TMP, aes(x = Samples, y = Mean_Detected_vOTUs, color=Method)) +
-  geom_line() +
-  geom_point() +
-  geom_errorbar(aes(ymin = Mean_Detected_vOTUs - SD, ymax = Mean_Detected_vOTUs + SD), width = 0.1) +
-  labs(title = "N novel vOTUs discovered with increasing number of samples",
-       x = "Number of fecal samples", y = "N vOTUs") +
-  theme_minimal()
-
-ggsave('05.PLOTS/05.VLP_MGS/Novel_detected_saturation.png',
-       novel_satu,  "png", width=16, height=12, units="cm", dpi = 300)
 #############################################################
 # 2. Analysis: sample-based method assessment
 #############################################################
