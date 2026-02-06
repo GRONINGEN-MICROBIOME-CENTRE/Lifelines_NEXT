@@ -137,6 +137,25 @@ smart_round <- function(x){
 
 }
 
+# identifies the DB origin of the vOTU cluster member
+# writes it to column "DB_member"
+get_member_origin <- function(df, member_col, dbs, class_col="DB_member"){
+  
+  df[class_col] <- NA
+  
+  for (db in dbs) {
+    
+    idx <- grepl(db, df[[member_col]], fixed = T)
+    
+    df[[class_col]][idx] <- gsub('-', '', db, fixed = T)
+    
+  }
+  df[[class_col]][grepl('NEXT_V', df[[member_col]], fixed = T)] <- "NEXT_VLP"
+  df[[class_col]][grepl('NEXT_M', df[[member_col]], fixed = T)] <- "NEXT_MGS"
+  
+  df
+}
+
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -226,7 +245,11 @@ per_m <- rbind(N_disc_total,
                Med_disc_hq10)
 
 # tidying up
-rm(list=setdiff(ls(), c("clean_RPKM", "ETOF", "ETOF_only", "ETOF_vOTUr", "per_m", "smeta", "get_iqr", "saturation_stat_fast", "VLP", "MGS")))
+rm(list=setdiff(ls(), c("clean_RPKM", "ETOF", "ETOF_only", 
+                        "ETOF_vOTUr", "per_m", "smeta", "get_iqr", 
+                        "get_member_origin", "podgonian", "smart_round",
+                        "saturation_stat_fast", "VLP", "MGS",
+                        "vOTU_clustering", "vOTU_cluster_size")))
 #############################################################
 # 3.2 Analysis: N detected vOTUs saturation curves
 #############################################################
@@ -312,16 +335,21 @@ sp_stat <- podgonian(all_cumulative[all_cumulative$Rank == "Species",],
 
 gn_stat <- podgonian(all_cumulative[all_cumulative$Rank == "Genus",],
                      "Samples",
-                     "Mean_Detected_vOTUs") # best is root square, but gain is only 2 genera ps -> plateau
+                     "Mean_Detected_vOTUs") # best is root square, but gain is only 8 or 2 genera ps -> plateau
 
 fm_stat <- podgonian(all_cumulative[all_cumulative$Rank == "Family",],
                      "Samples",
-                     "Mean_Detected_vOTUs") # best is root square, but gain is only 1 (0.5) ps -> def plateau
+                     "Mean_Detected_vOTUs") # best is root square, but gain is only 2 or (0.5) ps -> def plateau
 
 #############################################################
 # 3.3 Analysis: descriptive stat NEXT virome catalog
 #############################################################
+
+table(ETOF_vOTUr$miuvig_quality) # 15,969 complete or nearly complete (>90%)
+min(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length) #3,000
+max(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length) #396,781 
 # % genomes, % temperate etc was derived from summary stat of ETOF
+
 virclass <- ETOF_vOTUr  %>%
   separate(
     col    = tax_ictv_aai,
@@ -364,14 +392,203 @@ results_genomics <- map_dfr(genomics_compare, function(genomics) {
       mutate(rowname = gsub('seq_type', '', rowname)) %>%
       rename(`Metavirome type` = rowname) %>%
       mutate(`Genomic metric` = genomics) %>%
-      mutate(across(where(is.numeric), ~ smart_round(.)) ) %>%
       relocate(`Genomic metric`)
     
     model_summary
     
   }) 
 
+results_genomics <- results_genomics %>%
+  mutate(p_adj = p.adjust(`Pr(>|t|)`, "BH")) %>%
+  mutate(across(where(is.numeric), ~ smart_round(.)) )
+
 write.table(results_genomics, '07.RESULTS/Compare_genomic_metrics_MGS_VLP.txt', sep='\t', quote=F, row.names=F)
+
+#############################################################
+# 3.5 Analysis: VLP and MGS contribution to the NEXT virome
+#############################################################
+
+# all DBs used for the dereplication:
+dbs <- c('NEXT_V', 'NEXT_M', 'Guerin', 
+         'Yutin', 'NCBI_CrAss', 'NL_crAss',
+         'Benler', 'COPSAC', 'GVD', 
+         'IMGVR', 'MGV-', 'GPD', 'VREF')
+
+vOTU_clustering <- get_member_origin(vOTU_clustering, "Cluster_member", dbs)
+
+# calculating db contributions:
+vOTU_by_source <- vOTU_clustering %>%
+  mutate(DB_member = factor(DB_member)) %>%
+  count(Representative, DB_member) %>%
+  pivot_wider(names_from = DB_member, values_from = n, values_fill = 0) %>%
+  left_join(vOTU_cluster_size, by = "Representative") %>%
+  rename(N_genomes = Cluster_size, vOTU_representative  = Representative) %>%
+  left_join(ETOF_vOTUr %>% select(New_CID, POST_CHV_length, miuvig_quality, vOTU_cluster_type),
+            by = c("vOTU_representative" = "New_CID"))
+
+# cumulative external db input:
+vOTU_by_source$DB_sum <- vOTU_by_source$N_genomes - vOTU_by_source$NEXT_MGS - vOTU_by_source$NEXT_VLP
+
+listInput <- list(DB=vOTU_by_source[vOTU_by_source$DB_sum>0,]$vOTU_representative,
+                  MGS=vOTU_by_source[vOTU_by_source$NEXT_MGS>0,]$vOTU_representative,
+                  VLP=vOTU_by_source[vOTU_by_source$NEXT_VLP>0,]$vOTU_representative)
+
+
+upset_all <- upset(fromList(listInput), order.by = "freq", sets.bar.color = c("#71C9CE", "#A6E3E9", "#CBF1F5"), 
+                   number.angles = 0,
+                   sets.x.label = "N vOTUs", scale.sets = "identity",
+                   text.scale = c(1, 1, 1, 0.7, 1, 1))
+
+png('05.PLOTS/05.VLP_MGS/UpSet_plot_all_vOTUs.png', width=10, height=7, units="cm", res = 300)
+upset_all
+dev.off()
+
+catcont <- ETOF_vOTUr %>%
+  group_by(vOTU_cluster_type) %>%
+  summarise(sum = n()) %>%
+  mutate(perc = sum/nrow(ETOF_vOTUr) * 100)
+
+#############################################################
+# 3.6 Analysis: VLP vs MGS genome recovery taking into
+# account QoL
+#############################################################
+
+# sub-analysis: how frequent it is for vOTUs w "Genome-fragment" miuvig quality" to have high quality members
+vOTU_clustering <- vOTU_clustering %>%
+  left_join(ETOF %>% select(New_CID, miuvig_quality, POST_CHV_length), by = c("Cluster_member" = "New_CID"))
+
+cluster_summary <- vOTU_clustering %>%
+  group_by(Representative) %>%
+  summarise(
+    N_high = sum(miuvig_quality == "High-quality"),
+    N_low  = sum(miuvig_quality == "Genome-fragment")
+  ) %>%
+  left_join(ETOF_vOTUr %>% select(New_CID, miuvig_quality, POST_CHV_length), by=c("Representative" = "New_CID"))
+
+dim(cluster_summary[cluster_summary$N_high > 0 & cluster_summary$miuvig_quality=="Genome-fragment",])
+#there are only 229 cases like that, some of them are caused by CheckV erroneously
+##considering some short genomes HQ (as w vOTU==NEXT_V0156_N33_L31446_K2.8_E0_P0_F0)
+#######DECISION: IGNORE IT
+
+### hq only:
+HQ_vOTU_by_source <- vOTU_by_source %>%
+  filter(miuvig_quality == 'High-quality')
+
+# UpSet plot (HQ vOTUs)
+listInputHQ <- list(DB=HQ_vOTU_by_source[HQ_vOTU_by_source$DB_sum > 0,]$vOTU_representative,
+                    MGS=HQ_vOTU_by_source[HQ_vOTU_by_source$NEXT_MGS > 0,]$vOTU_representative,
+                    VLP=HQ_vOTU_by_source[HQ_vOTU_by_source$NEXT_VLP > 0,]$vOTU_representative)
+
+
+upset_allhq <- upset(fromList(listInputHQ), order.by = "freq", sets.bar.color = c("#71C9CE", "#A6E3E9", "#CBF1F5"), 
+                     number.angles = 0,
+                     sets.x.label = "N (near-)complete\nvOTUs", scale.sets = "identity",
+                     text.scale = c(1, 1, 1, 0.7, 1, 1))
+
+png('05.PLOTS/05.VLP_MGS/UpSet_plot_HQ_vOTUs.png', width=8, height=7, units="cm", res = 300)
+upset_allhq
+dev.off()
+
+clustering_hq_sum <- HQ_vOTU_by_source %>%
+  group_by(vOTU_cluster_type) %>%
+  summarise(sum = n()) %>%
+  mutate(perc = sum/sum(clustering_hq_sum$sum) * 100) # pay attention; since adding iteratively, no errors, but if run without initiating df first, problems
+
+sum(clustering_hq_sum$sum[!grepl('DB', clustering_hq_sum$vOTU_cluster_type)])
+
+### CALCUATING TRUE NOVELS taking into account the QoL:
+# derive the Quality of the Longest (QoL) contig per contributing source per vOTUr,
+# to truly understand which source is indispensible
+sources <- c("DB_QoL", "MGS_QoL", "VLP_QoL")
+
+hq_recovery_source <- vOTU_clustering %>%
+  filter(Representative %in% HQ_vOTU_by_source$vOTU_representative) %>%
+  mutate(DB_member = if_else(DB_member %in% c("NEXT_MGS", "NEXT_VLP"), DB_member, "DB")) %>%
+  arrange(desc(POST_CHV_length), desc(miuvig_quality)) %>%
+  group_by(Representative, DB_member) %>%
+  slice_head(n = 1) %>%    
+  ungroup() %>%
+  select(Representative, DB_member, miuvig_quality) %>%
+  pivot_wider(
+    names_from = DB_member,
+    values_from = miuvig_quality,
+    names_prefix = ""
+  ) %>%
+  rename(DB_QoL = DB, MGS_QoL=NEXT_MGS, VLP_QoL=NEXT_VLP) %>%
+  replace_na(list(
+    DB_QoL = "Absent",
+    MGS_QoL = "Absent",
+    VLP_QoL = "Absent"
+  )) %>% # at this point: per-vOTU (HQ) whether the longest sequence coming from 3 sources is also of High-quality
+  mutate(recoverable_by = apply(across(all_of(sources)), 1, function(r) {
+    matches <- sources[r == "High-quality"]
+    if(length(matches) > 0) paste(matches, collapse = "+") else NA
+  })) %>%
+  left_join(ETOF_vOTUr %>% select(New_CID, vOTU_cluster_type, genome), by = c("Representative" = "New_CID")) 
+
+saver_hq_recovery <- hq_recovery_source 
+
+# UpSet plot (HQ vOTUs recoverability)
+listInputHQrecover <- list(DB=hq_recovery_source[hq_recovery_source$DB_QoL=="High-quality",]$Representative,
+                    MGS=hq_recovery_source[hq_recovery_source$MGS_QoL=="High-quality",]$Representative,
+                    VLP=hq_recovery_source[hq_recovery_source$VLP_QoL=="High-quality",]$Representative)
+
+
+upset_allhq_rec <- upset(fromList(listInputHQrecover), order.by = "freq", sets.bar.color = c("#71C9CE", "#A6E3E9", "#CBF1F5"), 
+                     number.angles = 0,
+                     sets.x.label = "N (near-)complete\nvOTUs", scale.sets = "identity",
+                     text.scale = c(1, 1, 1, 0.7, 1, 1))
+
+png('05.PLOTS/05.VLP_MGS/UpSet_plot_HQ_vOTUs_recovery.png', width=8, height=7, units="cm", res = 300)
+upset_allhq_rec
+dev.off()
+
+
+summary_hq_recovery <- hq_recovery_source %>%
+  filter(!grepl('DB', vOTU_cluster_type)) %>%
+  group_by(recoverable_by) %>%
+  summarise(sum = n()) %>%
+  mutate(perc = sum/sum(sum)*100)
+
+#### genome composition of these:
+
+tmp <- hq_recovery_source %>%
+  filter(recoverable_by == "DB_QoL") %>%
+  group_by(genome) %>%
+  summarise(sum = n())
+
+
+
+# just not considering the exclusive db?
+
+### not verified math:
+# total VLP HQ:
+3374 + 4045 + 3399 # hq but derep w MGS & DB + unique + hq but derep w MGS
+
+# prop novel then:
+(4045 + 3399)/(3374 + 4045 + 3399) #68.8
+
+
+# 86.8% of all novels would have been recovered by VLPs alone 
+
+# total MGS HQ:
+2766 + 439 + 1846 # hq but derep w VLP & DB + unique + hq but derep w VLP
+(439 + 1846)/(2766 + 439 + 1846) # 45.2
+
+# 26.4% of novels would have been recovered by MGS alone
+
+# does every VLP sample just carries more HQs to start with? (judge based on ETOF)
+
+# also solves problem with saturation curve -> use this method to recalculate the saturation curve p method
+# but not sure what to do about the stacked bar plot
+
+#############################################################
+# 2. Analysis: testing how frequent it is for a genome-fragment
+# quality vOTU to have high quality members
+#############################################################
+
+
+
 #############################################################
 # 3.3 Analysis: N novel discovered vOTUs saturation curves
 #############################################################
@@ -406,200 +623,10 @@ write.table(results_genomics, '07.RESULTS/Compare_genomic_metrics_MGS_VLP.txt', 
 # 2. Analysis: Unique & novel genomes recovery
 #############################################################
 
-table(ETOF_vOTUr$miuvig_quality) # 15,969 complete or nearly complete (>90%)
-min(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length) #3,000
-max(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length) #396,781 
-
-# vOTU_clustering$DB_member <- NA
-# vOTU_clustering[grep('NEXT_V', vOTU_clustering$Cluster_member),]$DB_member <- 'NEXT_VLP'
-# vOTU_clustering[grep('NEXT_M', vOTU_clustering$Cluster_member),]$DB_member <- 'NEXT_MGS'
-# vOTU_clustering[grep('Guerin', vOTU_clustering$Cluster_member),]$DB_member <- 'Guerin'
-# vOTU_clustering[grep('Yutin', vOTU_clustering$Cluster_member),]$DB_member <- 'Yutin'
-# vOTU_clustering[grep('NCBI_CrAss', vOTU_clustering$Cluster_member),]$DB_member <- 'NCBI_CrAss'
-# vOTU_clustering[grep('NL_crAss', vOTU_clustering$Cluster_member),]$DB_member <- 'NL_crAss'
-# vOTU_clustering[grep('Benler', vOTU_clustering$Cluster_member),]$DB_member <- 'Benler'
-# vOTU_clustering[grep('COPSAC', vOTU_clustering$Cluster_member),]$DB_member <- 'COPSAC'
-# vOTU_clustering[grep('GVD', vOTU_clustering$Cluster_member),]$DB_member <- 'GVD'
-# vOTU_clustering[grep('IMGVR', vOTU_clustering$Cluster_member),]$DB_member <- 'IMGVR'
-# vOTU_clustering[grep('MGV-', vOTU_clustering$Cluster_member),]$DB_member <- 'MGV'
-# vOTU_clustering[grep('GPD', vOTU_clustering$Cluster_member),]$DB_member <- 'GPD'
-# vOTU_clustering[grep('VREF', vOTU_clustering$Cluster_member),]$DB_member <- 'VREF'
-
-#vOTU_clustering$DB_member <- factor(vOTU_clustering$DB_member)
-
-#vOTU_by_source <- vOTU_clustering %>%
-#  mutate(DB_member = factor(DB_member)) %>%
-#  count(Representative, DB_member) %>%
-#  pivot_wider(names_from = DB_member, values_from = n, values_fill = 0)
-
-#merged <- vOTU_by_source %>%
-  
-#  left_join(vOTU_cluster_size, by = "Representative") %>%
-  
-#  rename(N_genomes = Cluster_size, vOTU_representative  = Representative) %>%
-  
- # #left_join(genera, by = c("vOTU_representative" = "Cluster_member")) %>%
-  
-#  #rename(Genus = Representative) %>%
-  
- # left_join(ETOF %>% select(New_CID, POST_CHV_length, miuvig_quality),
- #           by = c("vOTU_representative" = "New_CID")) #%>%
-  
-#  #left_join(families,  by = c("vOTU_representative" = "Cluster_member")) %>%
-  
-#  #rename(Family = Representative) %>%
-  
-#  # mutate(
-#  #   vOTU_cluster_type = if_else(N_genomes == NEXT, "NEXT", "Mixed"),
-#  #   miuvig_quality = factor(miuvig_quality,
-#  #                           levels = c("High-quality", "Genome-fragment"),
-#  #                           ordered = TRUE)
-  
-#merged$DB_sum <- merged$N_genomes - merged$NEXT_MGS - merged$NEXT_VLP
-
-#sources <- c("NEXT_VLP","NEXT_MGS","DB_sum")
-
-# merged <- merged %>%
-#   mutate(
-#     vOTU_cluster_type = apply(across(all_of(sources)) > 0, 1,
-#                          function(r) { x <- sources[r]; if (length(x)==0) "None" else paste(x, collapse = "+") })
-#   )
-# 
-# merged_HQ <- merged[merged$miuvig_quality=="High-quality",] %>%
-#   mutate(
-#     vOTU_cluster_type = apply(across(all_of(sources)) > 0, 1,
-#                               function(r) { x <- sources[r]; if (length(x)==0) "None" else paste(x, collapse = "+") })
-#   )
-
-all <- table(merged$vOTU_cluster_type)
-hq_only <- table(merged_HQ$vOTU_cluster_type)
-
-vOTUstat <- cbind(all, hq_only)
-
-merged$vOTUr_source <- NA
-merged[grep('NEXT_V', merged$vOTU_representative),]$vOTUr_source <- 'NEXT_VLP'
-merged[grep('NEXT_M', merged$vOTU_representative),]$vOTUr_source <- 'NEXT_MGS'
-merged[is.na(merged$vOTUr_source),"vOTUr_source"] <- "DB"
-
-##### adding info to ETOF_vOTUr:
-ETOF_vOTUr <- merge(ETOF_vOTUr, merged[,c("vOTU_representative", "vOTU_cluster_type", "vOTUr_source")], by.x="New_CID", by.y="vOTU_representative", all = T)
-
-# UpSet plot (all vOTUs)
-listInput <- list(DB=merged[merged$DB_sum>0,]$vOTU_representative,
-                  MGS=merged[merged$NEXT_MGS>0,]$vOTU_representative,
-                  VLP=merged[merged$NEXT_VLP>0,]$vOTU_representative)
 
 
-upset_all <- upset(fromList(listInput), order.by = "freq", sets.bar.color = "#C00000", 
-      number.angles = 20,
-      sets.x.label = "N vOTUs", scale.sets = "identity",
-      text.scale = c(1, 1, 1, 0.7, 1, 1))
- 
-png('05.PLOTS/05.VLP_MGS/UpSet_plot_all_vOTUs.png', width=10, height=7, units="cm", res = 300)
-upset_all
-dev.off()
-
-# UpSet plot (HQ vOTUs)
-listInputHQ <- list(DB=merged_HQ[merged_HQ$DB_sum>0,]$vOTU_representative,
-                  MGS=merged_HQ[merged_HQ$NEXT_MGS>0,]$vOTU_representative,
-                  VLP=merged_HQ[merged_HQ$NEXT_VLP>0,]$vOTU_representative)
 
 
-upset_allhq <- upset(fromList(listInputHQ), order.by = "freq", sets.bar.color = "#C00000", 
-      number.angles = 20,
-      sets.x.label = "N vOTUs", scale.sets = "identity",
-      text.scale = c(1, 1, 1, 0.7, 1, 1))
-
-png('05.PLOTS/05.VLP_MGS/UpSet_plot_HQ_vOTUs.png', width=10, height=7, units="cm", res = 300)
-upset_allhq
-dev.off()
-
-### CALCUATING TRUE NOVELS taking into account the QoL:
-# derive the Quality of the Longest (QoL) contig per contributing source per vOTUr,
-# to truly understand which source is indespensible
-vOTU_clustering$length <- ETOF$POST_CHV_length[match(vOTU_clustering$Cluster_member, ETOF$New_CID)]
-vOTU_clustering$quality <- ETOF$miuvig_quality[match(vOTU_clustering$Cluster_member, ETOF$New_CID)]
-
-summary_df <- vOTU_clustering %>%
-  filter(Representative %in% hq_votus) %>%
-  mutate(DB_member = if_else(DB_member %in% c("NEXT_MGS", "NEXT_VLP"), DB_member, "DB")) %>%
-  arrange(desc(length), desc(quality)) %>%
-  group_by(Representative, DB_member) %>%
-  slice_head(n = 1) %>%    ungroup() %>%
-  select(Representative, DB_member, quality) %>%
-  pivot_wider(
-    names_from = DB_member,
-    values_from = quality,
-    names_prefix = ""
-  ) %>%
-  rename(DB_QoL = DB, MGS_QoL=NEXT_MGS, VLP_QoL=NEXT_VLP) %>%
-  replace_na(list(
-    DB_QoL = "Absent",
-    MGS_QoL = "Absent",
-    VLP_QoL = "Absent"
-  ))
-
-summary_df <- merge(summary_df, ETOF_vOTUr[,c("New_CID", "vOTU_cluster_type", "vOTUr_source")],
-                    by.x="Representative", by.y="New_CID")
-
-summary_table <- summary_df %>%
-  group_by(vOTU_cluster_type) %>%
-  summarise(
-    N_HQ = n(),  # Total number of vOTUs in this cluster type
-    HQ_MGS = sum(MGS_QoL == "High-quality"),
-    HQ_VLP = sum(VLP_QoL == "High-quality"),
-    HQ_DB  = sum(DB_QoL  == "High-quality"),
-    HQ_MGS_VLP = sum(MGS_QoL == "High-quality" & VLP_QoL == "High-quality"),
-    HQ_DB_VLP = sum(DB_QoL == "High-quality" & VLP_QoL == "High-quality"),
-    HQ_DB_MGS = sum(DB_QoL == "High-quality" & MGS_QoL == "High-quality"),
-    HQ_DB_MGS_VLP = sum(DB_QoL == "High-quality" & MGS_QoL == "High-quality" & VLP_QoL == "High-quality")
-  ) %>%
-  arrange(desc(N_HQ))
-
-
-# total VLP HQ:
-3374 + 4045 + 3399 # hq but derep w MGS & DB + unique + hq but derep w MGS
-
-# prop novel then:
-(4045 + 3399)/(3374 + 4045 + 3399) #68.8
-
-
-# 86.8% of all novels would have been recovered by VLPs alone 
-
-# total MGS HQ:
-2766 + 439 + 1846 # hq but derep w VLP & DB + unique + hq but derep w VLP
-(439 + 1846)/(2766 + 439 + 1846) # 45.2
-
-# 26.4% of novels would have been recovered by MGS alone
-
-# does every VLP sample just carries more HQs to start with? (judge based on ETOF)
-
-# also solves problem with saturation curve -> use this method to recalculate the saturation curve p method
-# but not sure what to do about the stacked bar plot
-
-#############################################################
-# 2. Analysis: testing how frequent it is for a genome-fragment
-# quality vOTU to have high quality members
-#############################################################
-# vOTU_clustering$quality <- ETOF$miuvig_quality[match(vOTU_clustering$Cluster_member, 
-#                                                      ETOF$New_CID)]
-# vOTU_clustering$length <- ETOF$POST_CHV_length[match(vOTU_clustering$Cluster_member, 
-#                                                      ETOF$New_CID)]
-# 
-# cluster_summary <- vOTU_clustering %>%
-#   group_by(Representative) %>%  
-#   summarise(
-#     N_high = sum(quality == "High-quality"),
-#     N_low  = sum(quality == "Genome-fragment")
-#   )
-# 
-# cluster_summary$rmiuvig_quality <- ETOF_vOTUr$miuvig_quality[match(df_summary$Representative, 
-#                                                                    ETOF_vOTUr$New_CID)]
-# 
-# dim(df_summary[df_summary$N_high > 0 & df_summary$rmiuvig_quality=="Genome-fragment",])
-# there are only 248 cases like that (1.5%), some of them are caused by CheckV erroneously 
-# considering some short genomes HQ (as w vOTU==NEXT_V0156_N33_L31446_K2.8_E0_P0_F0)
-# DECISION: IGNORE IT
 
 #############################################################
 # 2. Analysis: sample-based method assessment
@@ -681,29 +708,10 @@ table(ETOF_vOTUr[ETOF_vOTUr$vOTU_cluster_type=="NEXT_VLP" &
 
 
 #############################################################
-# 3. Intermediate output: contig IDs for further analysis
+# 4. OUTPUT
 #############################################################
-write.table(row.names(cleanest), "./06.CLEAN_DATA/VLP_MGS_vOTUr_dec99ANI_ab3kbp_2220samples.txt", sep='\t', row.names=F, col.names = F, quote=F)
-write.table(cleanest, "./06.CLEAN_DATA/RPKM_table_VLP_MGS_dec99ANI_ab3kbp_2220_samples.txt", sep='\t', quote=F)
-write.table(baseETOF_vOTUr, "./06.CLEAN_DATA/ETOF_127553vOTUr_ab3kbp_in_2200_VLP_MGS.txt", sep='\t', quote=F, row.names=F)
-write.table(ETOF_vOTUr, "./06.CLEAN_DATA/Extended_ETOF_127553vOTUr_ab3kbp_in_2200_VLP_MGS.txt", sep='\t', quote=F)
-
-
-# clean VLP RPKM table based on all 127553 vOTUs discovered in MGS-VLP full overlap samples:
-write.table(cleanest_VLP, './06.CLEAN_DATA/02.FINAL/VLP_only_RPKM_table_VLP_MGS_dec99ANI_ab3kbp_1110_samples.txt', sep='\t', quote=F)
-
-# Updated VLP only metadata now containing temperate phage relative abundance and richness of temperate phages
-write.table(VLP_metadata_to_update, '06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLPmatched_v02.1.txt', sep='\t', quote=F, row.names=F)
-
-# Updated VLP-MGS metadata now containing temperate phage relative abundance and richness of temperate phages & virshannin
-write.table(VLP_MGS_metadata_to_UPD, '06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v02.1.txt', sep='\t', quote=F, row.names=F)
-
-# clean MGS RPKM table based on all 127553 vOTUs discovered in MGS-VLP full overlap samples:
-write.table(cleanest_MGS, './06.CLEAN_DATA/02.FINAL/MGS_only_RPKM_table_VLP_MGS_dec99ANI_ab3kbp_1110_samples.txt', sep='\t', quote=F)
-
 # table with per-contig HQ vOTU recovery info by source
-write.table(summary_df, './06.CLEAN_DATA/03.RESULTS_to_plot/HQ_vOTU_recoverable_by_source.txt', sep='\t', quote=F, row.names=F)
+write.table(hq_recovery_source, './06.CLEAN_DATA/03.RESULTS_to_plot/HQ_vOTU_recoverable_by_source.txt', sep='\t', quote=F, row.names=F)
 
-# summary stats of HQ vOTU recovery across sources
-write.table(summary_table, './06.CLEAN_DATA/03.RESULTS_to_plot/HQ_vOTU_recovery_stat.txt', sep='\t', quote=F, row.names=F)
+
 
