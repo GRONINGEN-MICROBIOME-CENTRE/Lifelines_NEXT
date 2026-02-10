@@ -27,6 +27,19 @@ vangogh1 <- met.brewer("VanGogh2")
 # 2. Load Input Data
 #############################################################
 ETOF <- read.table('06.CLEAN_DATA/02.FINAL/Working_ETOF_120997vOTUr_ab3kbp_in_2200_VLP_MGS.txt', sep='\t', header=T)
+
+votu_clustering <- read.table('06.CLEAN_DATA/NEXT_viral_clusters_MGS_VLP_long_format.txt', sep='\t', header=T)
+votu_clustering <- votu_clustering %>%
+  filter(Representative %in% ETOF$New_CID)
+
+ETOF_all <- read.table('06.CLEAN_DATA/VLP_MGS_ETOF_full_rep.txt', sep='\t', header = T)
+ETOF_only <- ETOF_all %>%
+  filter(grepl('NEXT_', ETOF_all$New_CID)) %>%
+  filter(New_CID %in% votu_clustering$Cluster_member) %>%
+  left_join(votu_clustering, by = c("New_CID" = "Cluster_member")) %>%
+  left_join(ETOF %>% select(New_CID, genome), by = c("Representative" = "New_CID")) %>%
+  mutate( method = ifelse(grepl('NEXT_V', New_CID), 'VLP', 'MGS') )
+
 esmeta <- read.delim('06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v05_suppl_w_virmetrics.txt', sep='\t', header=T)
 
 #############################################################
@@ -174,9 +187,9 @@ ggsave('05.PLOTS/03.GENERAL_STATS/ETOF_vOTU_stat.png',
 # 3.3 Analysis: Supplementary figure 1c
 #############################################################
 dat_text <- data.frame(
-  label = c("Cohen's d = 1.1\np-value = 1.5e-120", 
-            "Cohen's d = 1.7\np-value = 2.4e-282", 
-            "Cohen's d = 0.1\np-value = 4.3e-3"),
+  label = c("Cohen's d = 1.1\np-value = 6.9e-122", 
+            "Cohen's d = 1.7\np-value = 4.5e-292", 
+            "Cohen's d = 0.1\np-value = 5.8e-3"),
   Type_reads   = c("Raw reads", "Human reads", "Clean reads"),
   x     = c(7.3e+07, 4e+07, 6e+07),
   y     = c(2.5, 2.5, 2.5)
@@ -211,8 +224,8 @@ reads1c <- esmeta %>%
 
 
 contigs1c_text <- data.frame(
-  label = c("Cohen's d = 0.5\np-value = 1.5e-41", 
-            "Cohen's d = 0.7\np-value = 6.1e-76"),
+  label = c("Cohen's d = 0.5\np-value = 1.1e-46", 
+            "Cohen's d = 0.7\np-value = 6.6e-86"),
   Type_contigs   = c("All contigs", "Contigs > 1kbp"),
   x     = c(4e+05, 5.0e+04),
   y     = c(3, 3)
@@ -249,7 +262,7 @@ contigs1c <- esmeta %>%
 
 
 sc_en_text <- data.frame(
-  label = c("Cohen's d = 2.68\np-value = 0"),
+  label = c("Cohen's d = 2.7\np-value = 0"),
   calc_type   = c("Virus enrichment"),
   x     = 60,
   y     = 2.5
@@ -286,5 +299,20 @@ ggsave('05.PLOTS/03.GENERAL_STATS/Esmeta_VLP_MGS_stat.png',
        FSUP1c,  "png", width=16, height=13, units="cm", dpi = 300)
 
 
-
-
+#############################################################
+# 3.4 Analysis: Supplementary figure 1d (abandoned atm)
+#############################################################
+# 
+# busya <- ETOF_only %>%
+#   filter(miuvig_quality == "High-quality" & method %in% c('MGS', 'VLP')) %>%
+#   group_by(method) %>%
+#   summarise(n())
+# 
+# 
+# ### also make a ridgeline? otherwise does not look good? split by genome? does it actually make sense to make it?? does it add much?
+# ETOF_only %>%
+#   filter(miuvig_quality == "High-quality" & method %in% c('MGS', 'VLP')) %>%
+#   ggplot(aes(x=POST_CHV_length, fill = method)) +
+#   geom_histogram()
+# 
+# boxplot(log10(ETOF_only$POST_CHV_length) ~ ETOF_only$method)
