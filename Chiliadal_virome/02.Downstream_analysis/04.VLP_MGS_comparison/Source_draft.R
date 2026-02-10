@@ -567,20 +567,70 @@ by_genome_recovery <- hq_recovery_source %>%
 #############################################################
 rich_abs <- map_dfr(c("VLP", "MGS"), function(method){
   
-  rich_cf <- smeta %>%
-    filter(seq_type == method) %>%
-    pull(vir_richness_cf) 
-  
-  rich_cf %>%
-    summary(na.rm =T) %>%
-    tidy() %>% 
-    mutate(method = method,
-           sd = sd(rich_cf, na.rm = T))
+ map_dfr(c("vir_richness_cf", "temperate_richness"), function(Richness_type){
+   
+   rich_cf <- smeta %>%
+     filter(seq_type == method) %>%
+     pull(Richness_type) 
+   
+   rich_cf %>%
+     summary(na.rm =T) %>%
+     tidy() %>% 
+     mutate(method = method,
+            richness_type = Richness_type,
+            sd = sd(rich_cf, na.rm = T))
+   
+ })
   
 })
 
 rich_abs <- rich_abs %>%
   mutate(across(where(is.numeric), ~ round(., 0)))
+
+
+rich_abs_diff <- map_dfr(c("vir_richness_cf", "temperate_richness"), function(Richness_type){
+  
+  rich_diff <- smeta %>%
+  select(Universal_ID, Richness_type, seq_type) %>%
+    pivot_wider(names_from = seq_type,
+                values_from = Richness_type) %>%
+    mutate(difference = MGS - VLP) %>%
+    pull(difference) 
+  
+  rich_diff %>%
+    summary(difference, na.rm = T) %>%
+    tidy() %>% 
+    mutate(richness_type = Richness_type,
+           sd = sd(rich_diff, na.rm = T))
+  
+})
+
+diffs_assoc <- smeta %>%
+  select(Universal_ID, vir_richness_cf, temperate_richness, seq_type, NEXT_ID, Timepoint_new) %>%
+  pivot_wider(names_from = seq_type,
+              values_from = c(vir_richness_cf, temperate_richness)) %>%
+  mutate(difference_total = vir_richness_cf_MGS - vir_richness_cf_VLP,
+         difference_temperate = temperate_richness_MGS - temperate_richness_VLP)
+
+
+models <- c(
+  "VLP ~ MGS" = "vir_richness_cf_VLP ~ vir_richness_cf_MGS + Timepoint_new + (1|NEXT_ID)",
+  "difference_total ~ difference_temperate" = "difference_total ~ difference_temperate + Timepoint_new + (1|NEXT_ID)"
+)
+
+model_sums <- imap_dfr(models, function(form, name) {
+  lmer(as.formula(form), data = diffs_assoc, REML = FALSE) %>%
+    summary() %>%
+    .$coefficients %>%
+    as.data.frame() %>%
+    rownames_to_column("rowname") %>%
+    filter(rowname != "(Intercept)", !grepl('Timepoint', rowname)) %>%
+    mutate(model = name) %>%
+    relocate(model)
+})
+
+model_sums <- model_sums %>%
+  mutate(across(where(is.numeric), ~ smart_round(.)))
 
 rich_abs_compare <- map_dfr(c('vir_richness_cf', 'temperate_richness'), function(rich_type) {
   
@@ -611,6 +661,7 @@ rich_abs_compare <- rich_abs_compare %>%
   mutate(across(where(is.numeric), ~ smart_round(.)))
 
 writexl::write_xlsx(rich_abs_compare, '07.RESULTS/Compare_sample_richness_by_seq_type.xlsx')
+writexl::write_xlsx(model_sums, '07.RESULTS/Compare_assoc_richness_temperate_richness.xlsx')
 
 vOTU_rich <- smeta %>%
   mutate(Richness_type = "vOTU richness") %>%
@@ -630,7 +681,7 @@ vOTU_rich <- smeta %>%
   labs(y = "N vOTUs", x = "Metavirome type") +
   scale_fill_manual(values = c(MetBrewer::met.brewer("Kandinsky")[1], 
                                MetBrewer::met.brewer("Kandinsky")[2])) +
-  scale_color_manual(values = c("#043915", "#492828")) +
+  scale_color_manual(values = c("#F4991A", "#492828")) +
   ylim(c(0,4700))
 
 temp_rich <- smeta %>%
@@ -651,7 +702,7 @@ temp_rich <- smeta %>%
   labs(y = "N vOTUs", x = "Metavirome type") +
   scale_fill_manual(values = c(MetBrewer::met.brewer("Kandinsky")[1], 
                                MetBrewer::met.brewer("Kandinsky")[2])) +
-  scale_color_manual(values = c("#043915", "#492828")) +
+  scale_color_manual(values = c("#F4991A", "#492828")) +
   ylim(c(0,860))
   
 
@@ -831,6 +882,65 @@ prop_richness <- VLP_by_vOTU_type %>%
 ggsave('05.PLOTS/05.VLP_MGS/Proportion_richness_by_source.png',
        prop_richness,  "png", width=16, height=12, units="cm", dpi = 300)
 
+#############################################################
+# 3.9 Analysis: HQ richness in MGS vs VLP
+#############################################################
+
+# For HQs:
+hq_votus <- ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$New_CID
+smeta$vir_richness_hq <- colSums(clean_RPKM[row.names(clean_RPKM) %in% hq_votus,] > 0)[match(smeta$Sequencing_ID, colnames(clean_RPKM))]
+
+p_VLP_MGS_richnessHQ <- smeta %>%
+  mutate(Richness_type = "(Near-)complete vOTUs richness") %>%
+  ggplot(aes(seq_type, vir_richness_hq)) +
+  geom_violinhalf(aes(seq_type, vir_richness_hq, fill = seq_type, color=seq_type), flip=1) +
+  geom_boxplot(aes(seq_type, vir_richness_hq, fill = seq_type, color=seq_type),width = 0.1, outlier.shape = NA) +
+  geom_rect(xmin=1, xmax=1.1, ymin=10, ymax=50, fill="white") +
+  geom_rect(xmin=1.9, xmax=2, ymin=10, ymax=100, fill="white") +
+  geom_line(aes(group = Universal_ID),alpha=0.1, color="darkgrey") +
+  geom_point(aes(seq_type, vir_richness_hq, color=seq_type), size=1.5, alpha=0.3) + 
+  labs(y="vir_richness_hq of HQ vOTUs") +
+  scale_x_discrete(labels = c("MGS", "VLP")) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  facet_wrap(~Richness_type, scales = "free") +
+  ggsignif::geom_signif(comparisons = list(c("MGS", "VLP")),
+                        map_signif_level = TRUE, textsize = 5) +
+  theme_bw() +
+  theme(legend.position = "none",
+        strip.background = element_rect(NA)) +
+  labs(y = "N vOTUs", x = "Metavirome type") +
+  scale_fill_manual(values = c(MetBrewer::met.brewer("Kandinsky")[1], 
+                               MetBrewer::met.brewer("Kandinsky")[2])) +
+  scale_color_manual(values = c("#F4991A", "#492828")) +
+  ylim(c(0,150))
+
+ggsave('05.PLOTS/05.VLP_MGS/HQ_richness_comparison.png',
+       p_VLP_MGS_richnessHQ,  "png", width=10, height=10, units="cm", dpi = 300)
+
+modelhq <- lmer(vir_richness_hq ~ seq_type + Timepoint_new + (1|NEXT_ID),
+  REML = FALSE,
+  data = smeta
+)
+
+summary(modelhq)$coefficients # beta = 8.1, p-value = 5.6e-47
+
+# explanation why HQs are higher in VLP vs MGS:
+hq_votus_ssDNA <- ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality" &
+                               ETOF_vOTUr$genome=="ssDNA",]$New_CID
+smeta$clean_richness_HQss <- colSums(clean_RPKM[row.names(clean_RPKM) %in% hq_votus_ssDNA,] > 0)[match(smeta$Sequencing_ID, colnames(clean_RPKM))]
+
+modelhqss <- lmer(clean_richness_HQss ~ seq_type + Timepoint_new + (1|NEXT_ID),
+                REML = FALSE,
+                data = smeta
+)
+
+summary(modelhqss)$coefficients # beta = 9.1, p-value = 5.8e-153
+
+table(ETOF_vOTUr[ETOF_vOTUr$vOTU_cluster_type=="NEXT_VLP" &
+                   ETOF_vOTUr$miuvig_quality=="High-quality" &
+                   ETOF_vOTUr$genome %in% c('ssDNA', 'RNA'), "genome"]) #122 RNA, 2773 ssDNA
+
   
 
 ### not verified math:
@@ -853,10 +963,6 @@ ggsave('05.PLOTS/05.VLP_MGS/Proportion_richness_by_source.png',
 
 # also solves problem with saturation curve -> use this method to recalculate the saturation curve p method
 # but not sure what to do about the stacked bar plot
-
-
-
-
 
 #############################################################
 # 3.3 Analysis: N novel discovered vOTUs saturation curves
@@ -893,55 +999,7 @@ ggsave('05.PLOTS/05.VLP_MGS/Proportion_richness_by_source.png',
 
 
 
-#############################################################
-# 2. Analysis: sample-based method assessment
-#############################################################
 
-# For HQs:
-
-hq_votus <- ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$New_CID
-smeta$clean_richness_VLPHQ <- colSums(cleanest[row.names(cleanest) %in% hq_votus,] > 0)[match(smeta$Sequencing_ID_VLP, colnames(cleanest))]
-smeta$clean_richness_MGSHQ <- colSums(cleanest[row.names(cleanest) %in% hq_votus,] > 0)[match(smeta$NG_ID, colnames(cleanest))]
-
-p_VLP_MGS_richnessHQ <- smeta %>%
-  filter(Universal_ID %in% full_overlap$Universal_ID) %>%
-  select(Universal_ID, clean_richness_MGSHQ, clean_richness_VLPHQ) %>%
-  pivot_longer(!Universal_ID, 
-               names_to = "Source",
-               values_to = "Richness") %>%
-  ggplot(aes(Source, Richness)) +
-  geom_violinhalf(aes(Source, Richness, fill = Source, color=Source), flip=1) +
-  scale_color_manual(values=c("darkred", "#234C6A")) +
-  ggnewscale::new_scale_color() +
-  geom_boxplot(aes(Source, Richness, fill = Source, color=Source),width = 0.1, outlier.shape = NA) +
-  scale_color_manual(values=c("darkred", "#234C6A")) +
-  geom_rect(xmin=1, xmax=1.1, ymin=10, ymax=50, fill="white") +
-  geom_rect(xmin=1.9, xmax=2, ymin=10, ymax=100, fill="white") +
-  geom_line(aes(group = Universal_ID),alpha=0.1, color="darkgrey") +
-  geom_point(aes(Source, Richness, color=Source), size=1.5, alpha=0.3) + 
-  labs(y="Richness of HQ vOTUs") +
-  scale_x_discrete(labels = c("MGS", "VLP")) +
-  theme_bw() +
-  theme(legend.position = "none")
-
-ggsave('05.PLOTS/05.VLP_MGS/HQ_richness_comparison.png',
-       p_VLP_MGS_richnessHQ,  "png", width=10, height=10, units="cm", dpi = 300)
-
-Richness_MGS_VLP <- cor.test(smeta$clean_richness_MGS, smeta$clean_richness_VLP, method = "spearman")
-Richness_MGS_VLP$p.value
-
-# explanation why HQs are higher in VLP vs MGS:
-hq_votus_ssDNA <- ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality" &
-                               ETOF_vOTUr$genome_simple=="ssDNA",]$New_CID
-smeta$clean_richness_VLPHQss <- colSums(cleanest[row.names(cleanest) %in% hq_votus_ssDNA,] > 0)[match(smeta$Sequencing_ID_VLP, colnames(cleanest))]
-smeta$clean_richness_MGSHQss <- colSums(cleanest[row.names(cleanest) %in% hq_votus_ssDNA,] > 0)[match(smeta$NG_ID, colnames(cleanest))]
-
-HQ_VLP_VLPssDNA <- cor.test(smeta$clean_richness_VLPHQ, smeta$clean_richness_VLPHQss, method = "spearman")
-HQ_VLP_VLPssDNA$p.value
-
-table(ETOF_vOTUr[ETOF_vOTUr$vOTU_cluster_type=="NEXT_VLP" &
-                   ETOF_vOTUr$miuvig_quality=="High-quality" &
-                   ETOF_vOTUr$genome_simple %in% c('ssDNA', 'RNA'), genome_simple]) #123 RNA, 2825 ssDNA
 
 
 #############################################################
