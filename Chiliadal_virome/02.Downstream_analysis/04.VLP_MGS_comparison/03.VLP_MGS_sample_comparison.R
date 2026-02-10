@@ -342,7 +342,7 @@ dist_list <- data.frame(
   # 19. Same fecal samples, diff methods (same_feces_inf + same_feces_mom)
   mutate(same_feces_inter = ifelse(Universal_ID_1 == Universal_ID_2, T, F)) 
 
-# preapring data for plotting (elongating & categorizing)
+# preparing data for plotting (elongating & categorizing)
 plot_data <- dist_list %>%
   select(similarity, same_feces_inf:same_feces_inter) %>%
   pivot_longer(cols = !similarity, 
@@ -377,47 +377,44 @@ dev.off()
 
 # visualize sensible:
 
-my_comparisons <- list( c("unrelated_VLP", "same_dyad_inter"), 
-                        c("same_dyad_VLP", "same_dyad_inter"), 
-                        c("unrelated_MGS", "same_dyad_MGS"),
-                        c("same_infant_MGS", "same_feces_inf"),
-                        c("same_feces_mom", "same_infant_MGS")
+my_comparisons <- list( c("unrelated_VLP", "unrelated_MGS"), 
+                        c("unrelated_VLP", "unrelated_inter"), 
+                        c("unrelated_MGS", "unrelated_inter"),
+                        c("same_feces_inter", "unrelated_VLP"),
+                        c("same_feces_inter", "unrelated_MGS"),
+                        c("same_feces_inter", "unrelated_inter")
                         )
 
 
 p_select <- plot_data %>%
-  filter(Category %in% c('same_feces_inf', 
-                         'same_feces_mom', 
-                         'same_feces_inter',
-                         'same_infant_MGS', 
-                         'same_infant_VLP', 
+  filter(Category %in% c('same_feces_inter',
                          'unrelated_MGS', 
                          'unrelated_VLP',
-                         'same_dyad_MGS',
-                         'same_dyad_VLP',
-                         'same_dyad_inter')) %>%
+                         'unrelated_inter'
+                         )) %>%
   ggplot(aes(x = Category, y = similarity, fill = method)) +
-  geom_violin(alpha = 0.7, linewidth = 0.4) + 
+  geom_violin(alpha = 0.7, linewidth = 0.4, scale = "width") + 
   geom_boxplot(width = 0.1, color = "black", outlier.shape = NA, linewidth = 0.4) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "bottom",
-        title = element_text(size=10),
-        axis.title = element_text(size=7)) +
-  labs(title = "Similarity by method and kinship",
-       x = "",
-       y = "Jaccard similarity") +
+  theme_bw() +
+  scale_x_discrete(labels = c("Paired\nMGS and VLP", "Unrelated\nMGS and VLP", "Unrelated\nMGS", "Unrelated\nVLP")) +
+  scale_fill_manual(labels = c("INTER", "MGS", "VLP"), values = c(MetBrewer::met.brewer("VanGogh2")[1], 
+                                                                  MetBrewer::met.brewer("Kandinsky")[1], 
+                                                                  MetBrewer::met.brewer("Kandinsky")[2])) +
+  theme(legend.position = "right") +
+  labs(x = "",
+       y = "Jaccard binary similarity",
+       fill = "Method") +
   stat_summary(
-    fun.data = stat_box_data, 
-    geom = "text", 
+    fun.data = stat_box_data,
+    geom = "text",
     hjust = 0.5,
-    vjust = 0.9, size = 2.5
+    vjust = 0.8, size = 2.5
   ) +
   ggpubr::stat_compare_means(comparisons = my_comparisons, label = "p.signif", method = "wilcox.test", size=3, p.adjust.method = "BH")
 
-png('05.PLOTS/08.SAMPLE_SWAP_EXPLORE/VLP_MGS_select_jaccard.png', width=21, height=15, units="cm", res = 300)
-p_select
-dev.off()
+ggsave('05.PLOTS/05.VLP_MGS/VLP_MGS_select_jaccard.png', 
+       p_select,  "png", width=17, height=12, units="cm", dpi = 300)
+
 
 #############################################################
 # 3.4 Permutation analysis for jaccard similarity
@@ -668,4 +665,6 @@ write.table(flagged_cases_saver, "06.CLEAN_DATA/Intermediate/Jaccard_simmilarity
 
 # save results of permutations:
 write.table(combos, "07.RESULTS/Jaccard_similarity_perm_test_combinations.txt", sep='\t', quote = F, row.names = F)
+
+writexl::write_xlsx(combos, '07.RESULTS/Jaccard_similarity_perm_test_combinations.xlsx')
 
