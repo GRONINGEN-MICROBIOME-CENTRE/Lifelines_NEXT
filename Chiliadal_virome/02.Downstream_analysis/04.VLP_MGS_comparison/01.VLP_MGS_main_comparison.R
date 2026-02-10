@@ -1,6 +1,16 @@
 setwd('~/Desktop/Projects_2021/NEXT_virome/09.DATA_ANALYSIS/')
 
 #############################################################
+# Comparison of MGS and VLP metaviromes:
+# - at the level of vOTU recovery
+# - at the population level
+#############################################################
+
+#############################################################
+# 0. Used files source
+#############################################################
+
+#############################################################
 # 1. Functions
 #############################################################
 # saturation_stat_fast is a function for creating "plot_data" 
@@ -156,6 +166,9 @@ get_member_origin <- function(df, member_col, dbs, class_col="DB_member"){
   df
 }
 
+#############################################################
+# 1. Loading libraries
+#############################################################
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -166,7 +179,7 @@ library(lmerTest)
 library(purrr)
 library(broom)
 library(patchwork)
-#library(drc) # for fitting curves
+#library(drc) # for fitting curves, but it masks "select" from dplyr!
 #############################################################
 # 2. Load Input Data
 #############################################################
@@ -942,66 +955,6 @@ table(ETOF_vOTUr[ETOF_vOTUr$vOTU_cluster_type=="NEXT_VLP" &
                    ETOF_vOTUr$genome %in% c('ssDNA', 'RNA'), "genome"]) #122 RNA, 2773 ssDNA
 
   
-
-### not verified math:
-# total VLP HQ:
-3374 + 4045 + 3399 # hq but derep w MGS & DB + unique + hq but derep w MGS
-
-# prop novel then:
-(4045 + 3399)/(3374 + 4045 + 3399) #68.8
-
-
-# 86.8% of all novels would have been recovered by VLPs alone 
-
-# total MGS HQ:
-2766 + 439 + 1846 # hq but derep w VLP & DB + unique + hq but derep w VLP
-(439 + 1846)/(2766 + 439 + 1846) # 45.2
-
-# 26.4% of novels would have been recovered by MGS alone
-
-# does every VLP sample just carries more HQs to start with? (judge based on ETOF)
-
-# also solves problem with saturation curve -> use this method to recalculate the saturation curve p method
-# but not sure what to do about the stacked bar plot
-
-#############################################################
-# 3.3 Analysis: N novel discovered vOTUs saturation curves
-#############################################################
-# vOTUs_uniq_to_vlp <- ETOF_vOTUr %>%
-#   filter(vOTU_cluster_type %in% c("NEXT_VLP", "NEXT_VLP+NEXT_MGS", "")) %>%
-#   pull(New_CID)
-# 
-# vOTUs_uniq_to_mgs <- ETOF_vOTUr %>%
-#   filter(vOTU_cluster_type %in% c("NEXT_MGS", "NEXT_VLP+NEXT_MGS")) %>%
-#   pull(New_CID)
-# 
-# VLP_uniq <- clean_RPKM[, colnames(clean_RPKM) %in% smeta$Sequencing_ID[smeta$seq_type == "VLP"]]
-# VLP_uniq <- VLP_uniq [rowSums(VLP_uniq) >0,]
-# MGS_uniq <- clean_RPKM[row.names(clean_RPKM) %in% vOTUs_uniq_to_mgs, colnames(clean_RPKM) %in% smeta$Sequencing_ID[smeta$seq_type == "MGS"]]
-# MGS_uniq <- MGS_uniq [rowSums(MGS_uniq) >0,]
-# 
-# VLP_vOTU_HQ_new_cumulative <- saturation_stat_fast(VLP_uniq, 100)
-# MGS_vOTU_HQ_new_cumulative <- saturation_stat_fast(MGS_uniq, 100)
-# 
-# novel_satu <- ggplot(TMP, aes(x = Samples, y = Mean_Detected_vOTUs, color=Method)) +
-#   geom_line() +
-#   geom_point() +
-#   geom_errorbar(aes(ymin = Mean_Detected_vOTUs - SD, ymax = Mean_Detected_vOTUs + SD), width = 0.1) +
-#   labs(title = "N vOTUs detected with increasing number of samples",
-#        x = "Number of fecal samples", y = "N vOTUs") +
-#   theme_minimal()
-# 
-# ggsave('05.PLOTS/05.VLP_MGS/vOTUs_detected_MGS_VLP.png',
-#        novel_satu,  "png", width=16, height=12, units="cm", dpi = 300)
-
-
-
-
-
-
-
-
-
 #############################################################
 # 4. OUTPUT
 #############################################################
