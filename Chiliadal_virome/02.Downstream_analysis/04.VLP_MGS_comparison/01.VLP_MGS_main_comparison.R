@@ -199,6 +199,7 @@ ETOF_only <- ETOF %>%
 ETOF_vOTUr <- read.table('06.CLEAN_DATA/02.FINAL/Working_ETOF_120997vOTUr_ab3kbp_in_2200_VLP_MGS.txt', sep='\t', header=T)
 
 vOTU_clustering <- read.table('06.CLEAN_DATA/NEXT_viral_clusters_MGS_VLP_long_format.txt', sep='\t', header=T)
+keeper_clustering <- vOTU_clustering
 vOTU_clustering <- vOTU_clustering[vOTU_clustering$Representative %in% ETOF_vOTUr$New_CID,]
 
 vOTU_cluster_size <- read.table('06.CLEAN_DATA/NEXT_viral_clusters_MGS_VLP_size.txt', sep='\t', header=T)
@@ -312,9 +313,9 @@ fam_holo <- holo %>%
   summarise(across(where(is.numeric), sum)) %>% # 7,596 families detected
   column_to_rownames("Family_OTUr")
 
-all_vOTU_cumulative <- saturation_stat_fast(holo, 1000)
-all_gOTU_cumulative <- saturation_stat_fast(gen_holo, 1000)
-all_fOTU_cumulative <- saturation_stat_fast(fam_holo, 1000)
+all_vOTU_cumulative <- saturation_stat_fast(holo, 100)
+all_gOTU_cumulative <- saturation_stat_fast(gen_holo, 100)
+all_fOTU_cumulative <- saturation_stat_fast(fam_holo, 100)
 
 all_cumulative <- all_vOTU_cumulative[["permuted"]] %>%
   mutate(Rank = "Species") %>%
@@ -334,6 +335,9 @@ all_satu <- ggplot(all_cumulative, aes(x = Samples, y = Mean_Detected_vOTUs, col
 
 ggsave('05.PLOTS/05.VLP_MGS/all_OTUs_detected_holovirome.png',
        all_satu,  "png", width=10, height=8, units="cm", dpi = 300)
+
+ggsave('05.PLOTS/05.VLP_MGS/all_OTUs_detected_holovirome.pdf',
+       all_satu,  "pdf", width=10, height=8, units="cm", dpi = 300)
 
 # looking for approximation:
 # Species looks like something * sqrt()
@@ -357,14 +361,171 @@ fm_stat <- podgonian(all_cumulative[all_cumulative$Rank == "Family",],
                      "Samples",
                      "Mean_Detected_vOTUs") # best is root square, but gain is only 2 or (0.5) ps -> def plateau
 
+# stat for NEXT vs external DB-clustered seqs
+holo_next <- holo %>%
+  filter(row.names(.) %in% ETOF_vOTUr$New_CID[ETOF_vOTUr$vOTU_novelty == "novel"])
+
+holo_db <- holo %>%
+  filter(row.names(.) %in% ETOF_vOTUr$New_CID[ETOF_vOTUr$vOTU_novelty == "described"])
+
+NEXT_vOTU_cumulative <- saturation_stat_fast(holo_next, 100)
+
+DB_vOTU_cumulative <- saturation_stat_fast(holo_db, 100)
+
+cumulative_by_source <- NEXT_vOTU_cumulative[["permuted"]] %>%
+  mutate(Source = "Study-derived") %>%
+  bind_rows(DB_vOTU_cumulative[["permuted"]] %>% mutate(Source = "DB-matched"))
+
+satu_by_source <- ggplot(cumulative_by_source, aes(x = Samples, y = Mean_Detected_vOTUs, color=Source)) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin = Mean_Detected_vOTUs - SD, ymax = Mean_Detected_vOTUs + SD), width = 0.1) +
+  labs(x = "Number of fecal samples", y = "Number of vOTUs") +
+  scale_color_manual(values = c(MetBrewer::met.brewer("Derain")[3],
+                                MetBrewer::met.brewer("Derain")[7])) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+ggsave('05.PLOTS/05.VLP_MGS/all_vOTUs_detected_holovirome_by_source.png',
+       satu_by_source,  "png", width=10, height=8, units="cm", dpi = 300)
+
+ggsave('05.PLOTS/05.VLP_MGS/all_vOTUs_detected_holovirome_by_source.png',
+       satu_by_source,  "png", width=10, height=8, units="cm", dpi = 300)
+
+# stat:
+next_stat <- podgonian(cumulative_by_source[cumulative_by_source$Source == "Study-derived",],
+                     "Samples",
+                     "Mean_Detected_vOTUs") # best is root square
+
+db_stat <- podgonian(cumulative_by_source[cumulative_by_source$Source == "DB-matched",],
+                     "Samples",
+                     "Mean_Detected_vOTUs") # best is root square, but gain is only 8 or 2 genera ps -> plateau
 #############################################################
-# 3.3 Analysis: descriptive stat NEXT virome catalog
+# 3.3 Analysis: novels' descriptive
+#############################################################
+# define novel genera and families:
+ETOF_vOTUr <- ETOF_vOTUr %>%
+  group_by(Genus_OTUr) %>%
+  mutate(Genus_OTU_novelty = if_else(all(vOTU_novelty == "novel"), "novel", "described")) %>%
+  ungroup() %>%
+  group_by(Family_OTUr) %>%
+  mutate(Family_OTU_novelty = if_else(all(vOTU_novelty == "novel"), "novel", "described")) %>%
+  ungroup()
+
+# count novel genera and families:
+novel_votus <- ETOF_vOTUr %>% 
+  filter(miuvig_quality == "High-quality", vOTU_novelty == "novel")
+
+novel_by_genome <- novel_votus %>%
+  group_by(genome) %>%
+  summarise(sum = n(), .groups = "drop") %>%
+  mutate(perc = round(sum/nrow(novel_votus) * 100, 2))
+
+novel_by_Class <- novel_votus %>%
+  separate(
+    col    = tax_ictv_aai,
+    into = c('Life', 'Realm', 'Kingdom', 'Phylum',  'Class', 'Order', 'Family',  'Genus',  'Species', 'Strain'),
+    sep    = ";",
+    fill   = "right",               
+    remove = FALSE                  
+  ) %>%
+  group_by(Class, genome) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(perc = round(sum / nrow(novel_votus) * 100, 2))
+
+novel_by_Order <- novel_votus %>%
+  separate(
+    col    = tax_ictv_aai,
+    into = c('Life', 'Realm', 'Kingdom', 'Phylum',  'Class', 'Order', 'Family',  'Genus',  'Species', 'Strain'),
+    sep    = ";",
+    fill   = "right",               
+    remove = FALSE                  
+  ) %>%
+  group_by(Order, genome) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(perc = round(sum / nrow(novel_votus) * 100, 2))
+
+novel_virhost_simple <- novel_votus  %>%
+  group_by(Host_simple) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(perc = round(sum / nrow(novel_votus) * 100, 1))
+
+novel_virhost <- novel_votus  %>%
+  filter(Host_simple!="Eukaryote") %>%
+  select(Host_taxonomy) %>%
+  separate(
+    col    = Host_taxonomy,
+    into = c('Domain', 'Phylum', 'Class', 'Order', 'Family',  'Genus'),
+    sep    = ";",
+    fill   = "right",               
+    remove = FALSE                  
+  ) %>%
+  group_by(Family) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(perc = round(sum / nrow(novel_votus) * 100, 1))
+
+nyasha <- holo %>%
+  filter(row.names(holo) %in% novel_votus$New_CID)
+
+byasha <- as.data.frame(rowSums(nyasha > 0) ) %>%
+  rename(prev_in_holo = `rowSums(nyasha > 0)`)
+
+sum(byasha$prev_in_holo == 1)/nrow(novel_votus)
+sum(byasha$prev_in_holo >= 56)/nrow(novel_votus)*100
+
+stats_nov_higher <- list(
+  n_vOTUs_in_novel_genera = novel_votus %>% filter(Genus_OTU_novelty == "novel") %>% nrow(),
+  n_novel_genera         = novel_votus %>% filter(Genus_OTU_novelty == "novel") %>% pull(Genus_OTUr) %>% n_distinct(),
+  n_novel_families       = novel_votus %>% filter(Family_OTU_novelty == "novel") %>% pull(Family_OTUr) %>% n_distinct(),
+  n_genera_in_novel_fams = novel_votus %>% filter(Family_OTU_novelty == "novel") %>% pull(Genus_OTUr) %>% n_distinct()
+)
+
+# external DB ssDNA & RNA content:
+ETOF_DB <- ETOF %>%
+  filter(!grepl('NEXT_V|NEXT_M', New_CID) & miuvig_quality == "High-quality" & New_CID %in% keeper_clustering$Representative) %>% # 60k vOTUs
+  separate(
+    col    = taxonomy,
+    into = c('Life', 'Realm', 'Kingdom', 'Phylum',  'Class', 'Order', 'Family'), # nothing below Family is available
+    sep    = ";",
+    fill   = "right",               
+    remove = FALSE                  
+  ) # only 138 is total Unclassified from 60k genomes -> looks OK for assessing the representation of higher tax ranks
+
+tmp <- ETOF_DB %>%
+  group_by(Realm) %>% # using Realm here as a proxy for genome; RERUN W ICTV AS RUSHECHKA
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(perc = sum/nrow(ETOF_DB) * 100)
+
+syam <- data.frame(n = c(48887, 6214, 4101, 4717, 3484, 136),
+                   genome = rep(c('dsDNA', 'ssDNA', 'RNA'), 2),
+                   source = c(rep('DB', 3), rep('NEXT', 3))) %>%
+  mutate(genome = factor(genome, levels = c('dsDNA', 'ssDNA', 'RNA'), ordered = T),
+         source = factor(source, levels = c('NEXT', 'DB'), ordered = T))
+
+contrib_to_db <- ggplot(syam, aes(x = genome, y = n, fill = source)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), size = 3, color = "black") +
+  scale_fill_manual(values = c("DB" = "gray70", "NEXT" = "#E64B35FF"), labels = c("DB-deposited", "Novel")) + 
+  theme_bw() +
+  labs(y = "N of (near-)complete vOTUs", x = "Genome Type", fill = "Data Source") +
+  facet_wrap(~genome, scales = "free") +
+  theme(strip.background = element_rect(NA))
+
+ggsave('05.PLOTS/04.VIRAL_DB/Novel_contribution_to_extDB.png',
+       contrib_to_db,  "png", width=12, height=12, units="cm", dpi = 300)
+#############################################################
+# 3.4 Analysis: descriptive stat NEXT virome catalog
 #############################################################
 
 table(ETOF_vOTUr$miuvig_quality) # 15,969 complete or nearly complete (>90%)
 min(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length) #3,000
 max(ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$POST_CHV_length) #396,781 
 # % genomes, % temperate etc was derived from summary stat of ETOF
+
+virnov <- ETOF_vOTUr  %>%
+  group_by(vOTU_novelty) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(perc = round(sum/nrow(ETOF_vOTUr) * 100, 1))
 
 virclass <- ETOF_vOTUr  %>%
   separate(
@@ -378,8 +539,27 @@ virclass <- ETOF_vOTUr  %>%
   summarise(sum=n()) %>%
   mutate(perc = round(sum / nrow(ETOF_vOTUr) * 100, 1))
 
+virhost_simple <- ETOF_vOTUr  %>%
+  group_by(Host_simple) %>%
+  summarise(sum = n(), .groups = "drop") %>%
+  mutate(perc = round(sum/nrow(ETOF_vOTUr) * 100, 1))
+
+virhost <- ETOF_vOTUr  %>%
+  filter(Host_simple!="Eukaryote") %>%
+  select(Host_taxonomy) %>%
+  separate(
+    col    = Host_taxonomy,
+    into = c('Domain', 'Phylum', 'Class', 'Order', 'Family',  'Genus'),
+    sep    = ";",
+    fill   = "right",               
+    remove = FALSE                  
+  ) %>%
+  group_by(Genus) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(perc = round(sum / nrow(ETOF_vOTUr) * 100, 1))
+
 #############################################################
-# 3.4 Analysis: staton on MGS vs VLP genomics
+# 3.5 Analysis: staton on MGS vs VLP genomics
 #############################################################
 genomics_compare <- c('raw_reads', 'human_reads', 'clean_reads',
                       'contigs_0_bp', 'contigs_1000_bp', 'sc_enrichment')
@@ -421,7 +601,7 @@ results_genomics <- results_genomics %>%
 write.table(results_genomics, '07.RESULTS/Compare_genomic_metrics_MGS_VLP.txt', sep='\t', quote=F, row.names=F)
 rm(genomics_compare)
 #############################################################
-# 3.5 Analysis: VLP and MGS contribution to the NEXT virome
+# 3.6 Analysis: VLP and MGS contribution to the NEXT virome
 #############################################################
 
 # all DBs used for the dereplication:
@@ -466,7 +646,7 @@ catcont <- ETOF_vOTUr %>%
 
 rm(dbs)
 #############################################################
-# 3.6 Analysis: VLP vs MGS genome recovery taking into
+# 3.7 Analysis: VLP vs MGS genome recovery taking into
 # account QoL
 #############################################################
 
@@ -576,7 +756,7 @@ by_genome_recovery <- hq_recovery_source %>%
   mutate(within_rec_perc = sum/sum(sum)*100) %>%
   ungroup()
 #############################################################
-# 3.7 Analysis: VLP vs MGS vOTU richness
+# 3.8 Analysis: VLP vs MGS vOTU richness
 #############################################################
 rich_abs <- map_dfr(c("VLP", "MGS"), function(method){
   
@@ -724,7 +904,7 @@ both_rich <- (vOTU_rich | temp_rich ) + plot_layout(axis_titles = "collect")
 ggsave('05.PLOTS/05.VLP_MGS/Richness_compare.png',
        both_rich,  "png", width=16, height=12, units="cm", dpi = 300)
 #############################################################
-# 3.8 Analysis: VLP vs MGS vOTU contribution to sample 
+# 3.9 Analysis: VLP vs MGS vOTU contribution to sample 
 # composition
 #############################################################
 VLP_by_vOTU_type <- VLP %>%
@@ -896,7 +1076,7 @@ ggsave('05.PLOTS/05.VLP_MGS/Proportion_richness_by_source.png',
        prop_richness,  "png", width=16, height=12, units="cm", dpi = 300)
 
 #############################################################
-# 3.9 Analysis: HQ richness in MGS vs VLP
+# 3.10 Analysis: HQ richness in MGS vs VLP
 #############################################################
 
 # For HQs:

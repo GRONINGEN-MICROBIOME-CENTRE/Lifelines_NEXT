@@ -163,3 +163,6 @@ by_all <- ggplot() +
 
 ggsave('05.PLOTS/05.VLP_MGS/Novel_recovery_genome_ls.png',
        by_all,  "png", width=20, height=12, units="cm", dpi = 300)
+
+ggsave('05.PLOTS/05.VLP_MGS/Novel_recovery_genome_ls.pdf',
+       by_all,  "pdf", width=20, height=12, units="cm", dpi = 300)
