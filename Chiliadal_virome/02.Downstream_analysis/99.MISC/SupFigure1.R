@@ -51,39 +51,140 @@ length_by_genome <- ggplot(ETOF, aes(POST_CHV_length, fill = genome)) +
   facet_wrap(~ genome,nrow = 4, scales = "free_y" ) + 
   theme_bw() +
   labs(y = "N vOTU representatives", x = "Sequence length", fill = "Genome type") +
-  theme(strip.background = element_rect(NA)) +
+  theme(strip.background = element_rect(NA),
+        legend.position = "none") +
   scale_x_log10(breaks = c(3000, 30000, 300000), labels = c("3000", "30000", "300000")) +
   scale_fill_manual(values = c(vangogh1[1],
                                vangogh1[3],
                                vangogh1[5],
-                               vangogh1[8]))
+                               "darkgrey"))
 
 ggsave('05.PLOTS/03.GENERAL_STATS/Length_by_genome_vOTUrs.png',
-       length_by_genome,  "png", width=10, height=10, units="cm", dpi = 300)
+       length_by_genome,  "png", width=10, height=13, units="cm", dpi = 300)
+
+ggsave('05.PLOTS/03.GENERAL_STATS/Length_by_genome_vOTUrs.pdf',
+       length_by_genome,  "pdf", width=10, height=13, units="cm", dpi = 300)
 
 #############################################################
 # 3.2 Analysis: Supplementary figure 1b
 #############################################################
-
-gen1b <- ETOF %>%
-  group_by(genome) %>%
-  summarise(sum=n()) %>%
-  ggplot(aes(x = "by genome", y = sum, fill = genome)) +
+####### miuvig quality
+mvg1b <- ETOF %>%
+  group_by(miuvig_quality) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(miuvig_quality = factor(miuvig_quality, 
+                                 levels = c('High-quality', 'Genome-fragment'), 
+                                 ordered = T)) %>%
+  ggplot(aes(x = "MIUViG\nquality", y = sum, fill = miuvig_quality)) +
   geom_bar(position = "stack",
            stat = "identity") +
-  labs(y = "N vOTUs", fill = "Genome type") +
+  labs(fill = "MIUViG cateogory", y = "N vOTUs", x = "vOTUs by") +
   theme_minimal() +
-  theme(axis.title.x = element_blank(),
+  theme(legend.position = "bottom",
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=7),
+        legend.key.size=unit(0.7, "line"),
+        legend.key.spacing.y = unit(1, 'pt'))+
+  guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
+  scale_fill_manual(values = c(met.brewer("Archambault")[1], 
+                               met.brewer("Archambault")[2])) +
+  ylim(c(0, 125000))
+
+####### checkv quality
+ckv1b <- ETOF %>%
+  group_by(checkv_quality) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(checkv_quality = factor(checkv_quality, 
+                                 levels = c('Complete', 'High-quality', 'Medium-quality', 'Low-quality', 'Not-determined'), 
+                                 ordered = T)) %>%
+  ggplot(aes(x = "CheckV\nquality", y = sum, fill = checkv_quality)) +
+  geom_bar(position = "stack",
+           stat = "identity") +
+  labs(fill = "CheckV cateogory", y = "N vOTUs", x = "vOTUs by") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=7),
+        legend.key.size=unit(0.7, "line"),
+        legend.key.spacing.y = unit(1, 'pt'))+
+  guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
+  scale_fill_manual(values = c(met.brewer("Archambault")[3], 
+                                        met.brewer("Archambault")[4],
+                                        met.brewer("Archambault")[5], 
+                                        met.brewer("Archambault")[6],
+                               "darkgrey")) +
+  ylim(c(0, 125000))
+
+####### novelty
+nov1b <- ETOF %>%
+  group_by(vOTU_novelty) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  ggplot(aes(x = "Source", y = sum, fill = vOTU_novelty)) +
+  geom_bar(position = "stack",
+           stat = "identity") +
+  labs(y = "N vOTUs", fill = "vOTU cluster", x = "vOTUs by") +
+  theme_minimal() +
+  theme(axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(),
         legend.position = "bottom",
         legend.title = element_text(size=7),
         legend.text = element_text(size=7),
         legend.key.size=unit(0.7, "line"),
         legend.key.spacing.y = unit(1, 'pt')) +
   guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
-  scale_fill_manual(values = met.brewer("Archambault"))
-  
-  
+  scale_fill_manual(values = c(met.brewer("Derain")[3],
+                               met.brewer("Derain")[7]), labels = c("Study-derived", "DB-matched")) +
+  ylim(c(0, 125000))
 
+####### genome
+gen1b <- ETOF %>%
+  group_by(genome) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  ggplot(aes(x = "Genome", y = sum, fill = genome)) +
+  geom_bar(position = "stack",
+           stat = "identity") +
+  labs(y = "N vOTUs", fill = "Genome type", x = "vOTUs by") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=7),
+        legend.key.size=unit(0.7, "line"),
+        legend.key.spacing.y = unit(1, 'pt')) +
+  guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
+  scale_fill_manual(values = c("dsDNA"=MetBrewer::met.brewer("VanGogh2")[4],
+                                        "RNA"=MetBrewer::met.brewer("VanGogh2")[1], 
+                                        "ssDNA"=MetBrewer::met.brewer("VanGogh2")[2],
+                                        "Unclassified"="darkgrey")) +
+  ylim(c(0, 125000))
+
+####### genome
+simphost1b <- ETOF %>%
+  group_by(Host_simple) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  ggplot(aes(x = "Host", y = sum, fill = Host_simple)) +
+  geom_bar(position = "stack",
+           stat = "identity") +
+  labs(y = "N vOTUs", fill = "Host", x = "vOTUs by") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=7),
+        legend.key.size=unit(0.7, "line"),
+        legend.key.spacing.y = unit(1, 'pt')) +
+  guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
+  scale_fill_manual(values = c(met.brewer("Egypt")[1],
+                               met.brewer("Egypt")[2],
+                               "darkgrey")) +
+  ylim(c(0, 125000))
+
+
+####### virus taxonomy
 tax1b <- ETOF %>%
   separate(
     col    = tax_ictv_aai,
@@ -94,14 +195,13 @@ tax1b <- ETOF %>%
   ) %>%
   mutate(Class_aggr = ifelse( Class %in% c('Caudoviricetes', 'Malgrandaviricetes', 'Unclassified'), Class, "Other")) %>%
   group_by(Class_aggr) %>%
-  summarise(sum=n()) %>%
-  ggplot(aes(x = "by Class", y = sum, fill = Class_aggr)) +
+  summarise(sum=n(), .groups = "drop") %>%
+  ggplot(aes(x = "Class", y = sum, fill = Class_aggr)) +
   geom_bar(position = "stack",
            stat = "identity") +
-  labs(fill = "Taxonomy (Class)") +
+  labs(fill = "Taxonomy (Class)", y = "N vOTUs", x = "vOTUs by") +
   theme_minimal() +
-  theme(axis.title = element_blank(),
-        legend.position = "bottom",
+  theme(legend.position = "bottom",
         axis.ticks.y = element_blank(),
         axis.text.y = element_blank(),
         legend.title = element_text(size=7),
@@ -109,22 +209,62 @@ tax1b <- ETOF %>%
         legend.key.size=unit(0.7, "line"),
         legend.key.spacing.y = unit(1, 'pt'))+
   guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
-  scale_fill_manual(values = met.brewer("Austria"))
-  
+  scale_fill_manual(values = c(met.brewer("Austria")[1],
+                               met.brewer("Austria")[2],
+                               met.brewer("Austria")[3],
+                               "darkgrey")) + 
+  ylim(c(0, 125000))
 
+####### bacterial host taxonomy
+bachost1b <- ETOF %>%
+  filter(Host_simple!="Eukaryote") %>%
+  separate(
+    col    = Host_taxonomy,
+    into = c('Domain', 'Phylum', 'Class', 'Order', 'Family',  'Genus'),
+    sep    = ";",
+    fill   = "right",               
+    remove = FALSE                  
+  ) %>%
+  mutate(Genus = gsub('g__', '', Genus)) %>%
+  mutate(Genus_aggr = ifelse( Genus %in% c('Bacteroides', 'Faecalibacterium', 'Phocaeicola', 'Veillonella', 'Unclassified'), Genus, "Other"),
+         Genus_aggr = factor(Genus_aggr, levels = c('Bacteroides', 'Faecalibacterium', 'Phocaeicola', 'Veillonella', 'Other', 'Unclassified'), ordered = T)) %>%
+  group_by(Genus_aggr) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  ggplot(aes(x = "Host\ngenus", y = sum, fill = Genus_aggr)) +
+  geom_bar(position = "stack",
+           stat = "identity") +
+  labs(fill = "Host taxonomy (Genus)", y = "N vOTUs", x = "vOTUs by") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size=7),
+        legend.text = element_text(size=7),
+        legend.key.size=unit(0.7, "line"),
+        legend.key.spacing.y = unit(1, 'pt'))+
+  guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
+  scale_fill_manual(values = c(met.brewer("Hokusai3")[1],
+                               met.brewer("Hokusai3")[2],
+                               met.brewer("Hokusai3")[3],
+                               met.brewer("Hokusai3")[4],
+                               met.brewer("Hokusai3")[5],
+                               "darkgrey")) + 
+  ylim(c(0, 125000))
+
+####### lifestyle
 lfs1b <- ETOF %>%
+  filter(Host_simple!="Eukaryote") %>%
   group_by(lifestyle) %>%
-  summarise(sum=n()) %>%
+  summarise(sum=n(), .groups = "drop") %>%
   mutate(lifestyle = factor(lifestyle, 
                             levels = c('Temperate', 'Virulent', 'Unknown'), 
                             ordered = T)) %>%
-  ggplot(aes(x = "by lifestyle", y = sum, fill = lifestyle)) +
+  ggplot(aes(x = "Lifestyle", y = sum, fill = lifestyle)) +
   geom_bar(position = "stack",
            stat = "identity") +
-  labs(fill = "Lifestyle") +
+  labs(fill = "Lifestyle", y = "N vOTUs", x = "vOTUs by") +
   theme_minimal() +
-  theme(axis.title = element_blank(),
-        legend.position = "bottom",
+  theme(legend.position = "bottom",
         axis.ticks.y = element_blank(),
         axis.text.y = element_blank(),
         legend.title = element_text(size=7),
@@ -132,57 +272,24 @@ lfs1b <- ETOF %>%
         legend.key.size=unit(0.7, "line"),
         legend.key.spacing.y = unit(1, 'pt'))+
   guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
-  scale_fill_manual(values = met.brewer("Cross"))
+  scale_fill_manual(values = c("Temperate"=MetBrewer::met.brewer("Thomas")[6],
+                               "Virulent"=MetBrewer::met.brewer("Thomas")[4],
+                               "Unknown"="darkgrey")) +
+  ylim(c(0, 125000))
   
-mvg1b <- ETOF %>%
-  group_by(miuvig_quality) %>%
-  summarise(sum=n()) %>%
-  mutate(miuvig_quality = factor(miuvig_quality, 
-                                 levels = c('High-quality', 'Genome-fragment'), 
-                                 ordered = T)) %>%
-  ggplot(aes(x = "by MIUViG\nquality", y = sum, fill = miuvig_quality)) +
-  geom_bar(position = "stack",
-           stat = "identity") +
-  labs(fill = "MIUViG cateogory") +
-  theme_minimal() +
-  theme(axis.title = element_blank(),
-        legend.position = "bottom",
-        axis.ticks.y = element_blank(),
-        axis.text.y = element_blank(),
-        legend.title = element_text(size=7),
-        legend.text = element_text(size=7),
-        legend.key.size=unit(0.7, "line"),
-        legend.key.spacing.y = unit(1, 'pt'))+
-  guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
-  scale_fill_manual(values = met.brewer("Kandinsky"))
 
-ckv1b <- ETOF %>%
-  group_by(checkv_quality) %>%
-  summarise(sum=n()) %>%
-  mutate(checkv_quality = factor(checkv_quality, 
-                                 levels = c('Complete', 'High-quality', 'Medium-quality', 'Low-quality', 'Not-determined'), 
-                                 ordered = T)) %>%
-  ggplot(aes(x = "by CheckV\nquality", y = sum, fill = checkv_quality)) +
-  geom_bar(position = "stack",
-           stat = "identity") +
-  labs(fill = "CheckV cateogory") +
-  theme_minimal() +
-  theme(axis.title = element_blank(),
-        legend.position = "bottom",
-        axis.ticks.y = element_blank(),
-        axis.text.y = element_blank(),
-        legend.title = element_text(size=7),
-        legend.text = element_text(size=7),
-        legend.key.size=unit(0.7, "line"),
-        legend.key.spacing.y = unit(1, 'pt'))+
-  guides(fill=guide_legend(ncol=1,byrow=TRUE, title.position = 'top', title.hjust = 0.5)) +
-  scale_fill_manual(values = met.brewer("Johnson"))
 
-FSUP1b <- (gen1b | tax1b | lfs1b | mvg1b | ckv1b) + plot_layout(guides = 'collect')
+FSUP1b <- ( mvg1b | ckv1b | nov1b | gen1b  | simphost1b| tax1b | bachost1b | lfs1b) + plot_layout(guides = 'collect', axis_titles = 'collect') & theme(legend.position = "bottom")
 
 ggsave('05.PLOTS/03.GENERAL_STATS/ETOF_vOTU_stat.png',
-       FSUP1b,  "png", width=14, height=13, units="cm", dpi = 300)
+       FSUP1b,  "png", width=26, height=13, units="cm", dpi = 300)
 
+ggsave('05.PLOTS/03.GENERAL_STATS/ETOF_vOTU_stat.pdf',
+       FSUP1b,  "pdf", width=26, height=13, units="cm", dpi = 300)
+
+FSUP1b <- ( mvg1b | ckv1b | nov1b | gen1b  | simphost1b| tax1b | bachost1b | lfs1b) + plot_layout(guides = 'collect', axis_titles = 'collect')
+ggsave('05.PLOTS/03.GENERAL_STATS/ETOF_vOTU_stat.png',
+       FSUP1b,  "png", width=16, height=22, units="cm", dpi = 300)
 #############################################################
 # 3.3 Analysis: Supplementary figure 1c
 #############################################################
@@ -298,7 +405,8 @@ FSUP1c <- (reads1c | csc) + plot_layout(guides = 'collect') & theme(legend.posit
 ggsave('05.PLOTS/03.GENERAL_STATS/Esmeta_VLP_MGS_stat.png',
        FSUP1c,  "png", width=16, height=13, units="cm", dpi = 300)
 
-
+ggsave('05.PLOTS/03.GENERAL_STATS/Esmeta_VLP_MGS_stat.pdf',
+       FSUP1c,  "pdf", width=16, height=13, units="cm", dpi = 300)
 #############################################################
 # 3.4 Analysis: Supplementary figure 1d (abandoned atm)
 #############################################################
