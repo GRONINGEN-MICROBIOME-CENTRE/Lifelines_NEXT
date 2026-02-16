@@ -44,22 +44,20 @@ get_member_origin <- function(df, member_col, dbs, class_col="DB_member"){
 #############################################################
 # 1. Loading libraries
 #############################################################
-library(tidyverse)
-library(ggplot2)
 library(dplyr)
-library(see)
-library(UpSetR)
+library(purrr)
 library(lme4)
 library(lmerTest)
-library(purrr)
+library(tidyverse)
+library(UpSetR)
 library(broom)
+library(ggplot2)
 library(patchwork)
+library(see) # just violinhalf
+
 #############################################################
 # 2. Load Input Data
 #############################################################
-
-clean_RPKM <- read.table('06.CLEAN_DATA/02.FINAL/RPKM_table_VLP_MGS_dec99ANI_ALL_CS_ab3kbp_2220_samples.txt', sep='\t', header=T)
-
 smeta <- read.delim('06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_MGS_matched_v05_suppl_w_virmetrics.txt', sep='\t', header=T)
 smeta$Timepoint_new <- factor(smeta$Timepoint_new, levels=c("M1", "M3", "M6", "M12", "Mother"), ordered = T)
 
@@ -68,7 +66,6 @@ ETOF <- read.table('06.CLEAN_DATA/VLP_MGS_ETOF_full_rep.txt', sep='\t', header =
 ETOF_vOTUr <- read.table('06.CLEAN_DATA/02.FINAL/Working_ETOF_120997vOTUr_ab3kbp_in_2200_VLP_MGS.txt', sep='\t', header=T)
 
 vOTU_clustering <- read.table('06.CLEAN_DATA/NEXT_viral_clusters_MGS_VLP_long_format.txt', sep='\t', header=T)
-keeper_clustering <- vOTU_clustering
 vOTU_clustering <- vOTU_clustering[vOTU_clustering$Representative %in% ETOF_vOTUr$New_CID,]
 
 vOTU_cluster_size <- read.table('06.CLEAN_DATA/NEXT_viral_clusters_MGS_VLP_size.txt', sep='\t', header=T)
@@ -77,6 +74,9 @@ vOTU_cluster_size <- vOTU_cluster_size[vOTU_cluster_size$Representative %in% ETO
 VLP <- read.table('06.CLEAN_DATA/02.FINAL/VLP_only_RPKM_table_VLP_MGS_dec99ANI_ALL_CS_ab3kbp_1110_samples.txt', sep='\t', header=T)
 
 MGS <- read.table('06.CLEAN_DATA/02.FINAL/MGS_only_RPKM_table_VLP_MGS_dec99ANI_ALL_CS_ab3kbp_1110_samples.txt', sep='\t', header=T)
+
+clean_RPKM <- read.table('06.CLEAN_DATA/02.FINAL/RPKM_table_VLP_MGS_dec99ANI_ALL_CS_ab3kbp_2220_samples.txt', sep='\t', header=T)
+
 #############################################################
 # 3.1 Analysis: staton on MGS vs VLP genomics
 #############################################################
@@ -122,16 +122,15 @@ rm(genomics_compare)
 #############################################################
 # 3.2 Analysis: VLP and MGS contribution to the NEXT virome
 #############################################################
-
 # all DBs used for the dereplication:
 dbs <- c('NEXT_V', 'NEXT_M', 'Guerin', 
          'Yutin', 'NCBI_CrAss', 'NL_crAss',
          'Benler', 'COPSAC', 'GVD', 
          'IMGVR', 'MGV-', 'GPD', 'VREF')
 
-vOTU_clustering <- get_member_origin(vOTU_clustering, "Cluster_member", dbs)
+vOTU_clustering <- get_member_origin(vOTU_clustering, "Cluster_member", dbs) # get origin for every genome
 
-# calculating db contributions:
+# calculating db contributions to vOTU:
 vOTU_by_source <- vOTU_clustering %>%
   mutate(DB_member = factor(DB_member)) %>%
   count(Representative, DB_member) %>%
@@ -144,6 +143,7 @@ vOTU_by_source <- vOTU_clustering %>%
 # cumulative external db input:
 vOTU_by_source$DB_sum <- vOTU_by_source$N_genomes - vOTU_by_source$NEXT_MGS - vOTU_by_source$NEXT_VLP
 
+# vOTU by distribution by vOTU composition:
 listInput <- list(DB=vOTU_by_source[vOTU_by_source$DB_sum>0,]$vOTU_representative,
                   MGS=vOTU_by_source[vOTU_by_source$NEXT_MGS>0,]$vOTU_representative,
                   VLP=vOTU_by_source[vOTU_by_source$NEXT_VLP>0,]$vOTU_representative)
@@ -181,20 +181,20 @@ cluster_summary <- vOTU_clustering %>%
   group_by(Representative) %>%
   summarise(
     N_high = sum(miuvig_quality == "High-quality"),
-    N_low  = sum(miuvig_quality == "Genome-fragment")
+    N_low  = sum(miuvig_quality == "Genome-fragment") # wasn't really necessary
   ) %>%
   left_join(ETOF_vOTUr %>% select(New_CID, miuvig_quality, POST_CHV_length), by=c("Representative" = "New_CID"))
 
-dim(cluster_summary[cluster_summary$N_high > 0 & cluster_summary$miuvig_quality=="Genome-fragment",])
+dim(cluster_summary[cluster_summary$N_high > 0 & cluster_summary$miuvig_quality=="Genome-fragment",]) # how many vOTUs have HQ member but low-quality representative
 #there are only 229 cases like that, some of them are caused by CheckV erroneously
 ##considering some short genomes HQ (as w vOTU==NEXT_V0156_N33_L31446_K2.8_E0_P0_F0)
 #######DECISION: IGNORE IT
 
-### hq only:
+### hq df only:
 HQ_vOTU_by_source <- vOTU_by_source %>%
   filter(miuvig_quality == 'High-quality')
 
-# UpSet plot (HQ vOTUs)
+# upset plot for HQ vOTUs composition
 listInputHQ <- list(DB=HQ_vOTU_by_source[HQ_vOTU_by_source$DB_sum > 0,]$vOTU_representative,
                     MGS=HQ_vOTU_by_source[HQ_vOTU_by_source$NEXT_MGS > 0,]$vOTU_representative,
                     VLP=HQ_vOTU_by_source[HQ_vOTU_by_source$NEXT_VLP > 0,]$vOTU_representative)
@@ -213,12 +213,11 @@ pdf('05.PLOTS/05.VLP_MGS/UpSet_plot_HQ_vOTUs.pdf', width=4, height=3.5)
 upset_allhq
 dev.off()
 
+# contribution of VLP, MGS and DBs to HQs
 clustering_hq_sum <- HQ_vOTU_by_source %>%
   group_by(vOTU_cluster_type) %>%
   summarise(sum = n(), .groups = "drop") %>%
   mutate(perc = sum/nrow(HQ_vOTU_by_source) * 100)
-
-sum(clustering_hq_sum$sum[!grepl('DB', clustering_hq_sum$vOTU_cluster_type)])
 
 ### CALCUATING TRUE NOVELS taking into account the QoL:
 # derive the Quality of the Longest (QoL) contig per contributing source per vOTUr,
@@ -226,10 +225,10 @@ sum(clustering_hq_sum$sum[!grepl('DB', clustering_hq_sum$vOTU_cluster_type)])
 sources <- c("DB_QoL", "MGS_QoL", "VLP_QoL")
 
 hq_recovery_source <- vOTU_clustering %>%
-  filter(Representative %in% HQ_vOTU_by_source$vOTU_representative) %>%
+  filter(Representative %in% HQ_vOTU_by_source$vOTU_representative) %>% # select only genomes making up HQ vOTUs
   mutate(DB_member = if_else(DB_member %in% c("NEXT_MGS", "NEXT_VLP"), DB_member, "DB")) %>%
-  arrange(desc(POST_CHV_length), desc(miuvig_quality)) %>%
-  group_by(Representative, DB_member) %>%
+  arrange(desc(POST_CHV_length), desc(miuvig_quality)) %>% 
+  group_by(Representative, DB_member) %>% # select the longest and of high-quality representative for every vOTU by source
   slice_head(n = 1) %>%    
   ungroup() %>%
   select(Representative, DB_member, miuvig_quality) %>%
@@ -237,22 +236,22 @@ hq_recovery_source <- vOTU_clustering %>%
     names_from = DB_member,
     values_from = miuvig_quality,
     names_prefix = ""
-  ) %>%
+  ) %>% # per-HQ vOTU table, for every source there is a contig of which quality
   rename(DB_QoL = DB, MGS_QoL=NEXT_MGS, VLP_QoL=NEXT_VLP) %>%
   replace_na(list(
     DB_QoL = "Absent",
     MGS_QoL = "Absent",
     VLP_QoL = "Absent"
-  )) %>% # at this point: per-vOTU (HQ) whether the longest sequence coming from 3 sources is also of High-quality
+  )) %>% 
   mutate(recoverable_by = apply(across(all_of(sources)), 1, function(r) {
     matches <- sources[r == "High-quality"]
     if(length(matches) > 0) paste(matches, collapse = "+") else NA
-  })) %>%
+  })) %>% # creates types of HQ vOTU recovery by concatenating sources where this vOTU has a high-quality representative
   left_join(ETOF_vOTUr %>% select(New_CID, vOTU_cluster_type, genome), by = c("Representative" = "New_CID")) 
 
 saver_hq_recovery <- hq_recovery_source 
 
-# UpSet plot (HQ vOTUs recoverability)
+# upset plot for vOTU recoverability as HQ per source
 listInputHQrecover <- list(DB=hq_recovery_source[hq_recovery_source$DB_QoL=="High-quality",]$Representative,
                     MGS=hq_recovery_source[hq_recovery_source$MGS_QoL=="High-quality",]$Representative,
                     VLP=hq_recovery_source[hq_recovery_source$VLP_QoL=="High-quality",]$Representative)
@@ -267,14 +266,14 @@ png('05.PLOTS/05.VLP_MGS/UpSet_plot_HQ_vOTUs_recovery.png', width=8, height=7, u
 upset_allhq_rec
 dev.off()
 
-
-summary_hq_recovery <- hq_recovery_source %>%
+# summary stat per HQ vOTU source for novels
+summary_hq_recovery <- hq_recovery_source %>% 
   filter(!grepl('DB', vOTU_cluster_type)) %>%
   group_by(recoverable_by) %>%
   summarise(sum = n()) %>%
   mutate(perc = sum/sum(sum)*100)
 
-#### genome composition of these:
+#### genome composition of novels by resource:
 
 by_genome_recovery <- hq_recovery_source %>%
   filter(!grepl('DB', vOTU_cluster_type)) %>%
@@ -285,6 +284,7 @@ by_genome_recovery <- hq_recovery_source %>%
 #############################################################
 # 3.4 Analysis: VLP vs MGS vOTU richness
 #############################################################
+# vOTU and temperate vOTU richness stat in MGS vs VLP
 rich_abs <- map_dfr(c("VLP", "MGS"), function(method){
   
  map_dfr(c("vir_richness_cf", "temperate_richness"), function(Richness_type){
@@ -307,51 +307,7 @@ rich_abs <- map_dfr(c("VLP", "MGS"), function(method){
 rich_abs <- rich_abs %>%
   mutate(across(where(is.numeric), ~ round(., 0)))
 
-
-rich_abs_diff <- map_dfr(c("vir_richness_cf", "temperate_richness"), function(Richness_type){
-  
-  rich_diff <- smeta %>%
-  select(Universal_ID, Richness_type, seq_type) %>%
-    pivot_wider(names_from = seq_type,
-                values_from = Richness_type) %>%
-    mutate(difference = MGS - VLP) %>%
-    pull(difference) 
-  
-  rich_diff %>%
-    summary(difference, na.rm = T) %>%
-    tidy() %>% 
-    mutate(richness_type = Richness_type,
-           sd = sd(rich_diff, na.rm = T))
-  
-})
-
-diffs_assoc <- smeta %>%
-  select(Universal_ID, vir_richness_cf, temperate_richness, seq_type, NEXT_ID, Timepoint_new) %>%
-  pivot_wider(names_from = seq_type,
-              values_from = c(vir_richness_cf, temperate_richness)) %>%
-  mutate(difference_total = vir_richness_cf_MGS - vir_richness_cf_VLP,
-         difference_temperate = temperate_richness_MGS - temperate_richness_VLP)
-
-
-models <- c(
-  "VLP ~ MGS" = "vir_richness_cf_VLP ~ vir_richness_cf_MGS + Timepoint_new + (1|NEXT_ID)",
-  "difference_total ~ difference_temperate" = "difference_total ~ difference_temperate + Timepoint_new + (1|NEXT_ID)"
-)
-
-model_sums <- imap_dfr(models, function(form, name) {
-  lmer(as.formula(form), data = diffs_assoc, REML = FALSE) %>%
-    summary() %>%
-    .$coefficients %>%
-    as.data.frame() %>%
-    rownames_to_column("rowname") %>%
-    filter(rowname != "(Intercept)", !grepl('Timepoint', rowname)) %>%
-    mutate(model = name) %>%
-    relocate(model)
-})
-
-model_sums <- model_sums %>%
-  mutate(across(where(is.numeric), ~ smart_round(.)))
-
+# stat test for the difference in richness:
 rich_abs_compare <- map_dfr(c('vir_richness_cf', 'temperate_richness'), function(rich_type) {
   
   f1 <- paste0(rich_type, "~ seq_type")
@@ -380,13 +336,60 @@ rich_abs_compare <- rich_abs_compare %>%
   mutate(p_adj = p.adjust(`Pr(>|t|)`, "BH")) %>%
   mutate(across(where(is.numeric), ~ smart_round(.)))
 
+# difference in vOTU and temperate vOTU richness between paired MGS vs VLP
+rich_abs_diff <- map_dfr(c("vir_richness_cf", "temperate_richness"), function(Richness_type){
+  
+  rich_diff <- smeta %>%
+  select(Universal_ID, Richness_type, seq_type) %>%
+    pivot_wider(names_from = seq_type,
+                values_from = Richness_type) %>%
+    mutate(difference = MGS - VLP) %>%
+    pull(difference) 
+  
+  rich_diff %>%
+    summary(difference, na.rm = T) %>%
+    tidy() %>% 
+    mutate(richness_type = Richness_type,
+           sd = sd(rich_diff, na.rm = T))
+  
+})
+
+# preparing a df for associating differneces in vOTU richness vs differnece in temperate vOTU richness
+diffs_assoc <- smeta %>%
+  select(Universal_ID, vir_richness_cf, temperate_richness, seq_type, NEXT_ID, Timepoint_new) %>%
+  pivot_wider(names_from = seq_type,
+              values_from = c(vir_richness_cf, temperate_richness)) %>%
+  mutate(difference_total = vir_richness_cf_MGS - vir_richness_cf_VLP,
+         difference_temperate = temperate_richness_MGS - temperate_richness_VLP)
+
+models <- c(
+  "VLP ~ MGS" = "vir_richness_cf_VLP ~ vir_richness_cf_MGS + Timepoint_new + (1|NEXT_ID)", # whether richness in paired VLP and MGS samples is correlated
+  "difference_total ~ difference_temperate" = "difference_total ~ difference_temperate + Timepoint_new + (1|NEXT_ID)" # whether the difference in vOTU richness correlates to the dif in temperates
+)
+
+# running lmer and summarizing its results:
+model_sums <- imap_dfr(models, function(form, name) {
+  lmer(as.formula(form), data = diffs_assoc, REML = FALSE) %>%
+    summary() %>%
+    .$coefficients %>%
+    as.data.frame() %>%
+    rownames_to_column("rowname") %>%
+    filter(rowname != "(Intercept)", !grepl('Timepoint', rowname)) %>%
+    mutate(model = name) %>%
+    relocate(model)
+})
+
+model_sums <- model_sums %>%
+  mutate(across(where(is.numeric), ~ smart_round(.)))
+
 writexl::write_xlsx(rich_abs_compare, '07.RESULTS/Compare_sample_richness_by_seq_type.xlsx')
 writexl::write_xlsx(model_sums, '07.RESULTS/Compare_assoc_richness_temperate_richness.xlsx')
 
+# visualization of the differences:
 vOTU_rich <- smeta %>%
   mutate(Richness_type = "vOTU richness") %>%
   ggplot(aes(seq_type, vir_richness_cf)) +
-  geom_violinhalf(aes(seq_type, vir_richness_cf, fill = seq_type, color=seq_type), scale = "width", flip=1, lwd = 0.4) +
+  geom_violinhalf(aes(seq_type, vir_richness_cf, fill = seq_type, color=seq_type), scale = "width", flip=1, lwd = 0.4, alpha = 0.7) +
   geom_boxplot(aes(seq_type, vir_richness_cf, fill = seq_type, color=seq_type),width = 0.2, outlier.shape = NA, lwd = 0.4) +
   geom_rect(xmin=1.002, xmax=1.5, ymin = -0.001, ymax=4000, fill="white") +
   geom_rect(xmin=1.5, xmax=1.998, ymin= -0.001, ymax=4000, fill="white") +
@@ -412,7 +415,7 @@ vOTU_rich <- smeta %>%
 temp_rich <- smeta %>%
   mutate(Richness_type = "Temperate\nvOTU richness") %>%
   ggplot(aes(seq_type, temperate_richness)) +
-  geom_violinhalf(aes(seq_type, temperate_richness, fill = seq_type, color=seq_type), scale = "width", flip=1, lwd = 0.4) +
+  geom_violinhalf(aes(seq_type, temperate_richness, fill = seq_type, color=seq_type), scale = "width", flip=1, lwd = 0.4, alpha = 0.7) +
   geom_boxplot(aes(seq_type, temperate_richness, fill = seq_type, color=seq_type),width = 0.2, outlier.shape = NA, lwd = 0.4) +
   geom_rect(xmin=1.002, xmax=1.5, ymin = -0.001, ymax=800, fill="white") +
   geom_rect(xmin=1.5, xmax=1.998, ymin= -0.001, ymax=800, fill="white") +
@@ -445,8 +448,10 @@ ggsave('05.PLOTS/05.VLP_MGS/Richness_compare.pdf',
        both_rich,  "pdf", width=8, height=7, units="cm", dpi = 300)
 #############################################################
 # 3.5 Analysis: VLP vs MGS vOTU contribution to sample 
-# composition
+# composition/richness
 #############################################################
+# find a moment to change sample to universal id
+# VLP samples by vOTU type
 VLP_by_vOTU_type <- VLP %>%
   rownames_to_column("New_CID") %>%
   left_join(ETOF_vOTUr %>% select(New_CID, vOTU_cluster_type)) %>% 
@@ -457,8 +462,10 @@ VLP_by_vOTU_type <- VLP %>%
   pivot_longer(!"vOTU_cluster_type",
                names_to = "Sample",
                values_to = "Perc_by_type") %>%
-  mutate(`Metavirome type` = "VLP")
+  mutate(`Metavirome type` = "VLP") %>%
+  left_join(smeta %>% select(Sequencing_ID, Universal_ID), by = c("Sample" = "Sequencing_ID"))
 
+# MGS samples by vOTU type
 MGS_by_vOTU_type <- MGS %>%
   rownames_to_column("New_CID") %>%
   left_join(ETOF_vOTUr %>% select(New_CID, vOTU_cluster_type)) %>% 
@@ -469,9 +476,10 @@ MGS_by_vOTU_type <- MGS %>%
   pivot_longer(!"vOTU_cluster_type",
                names_to = "Sample",
                values_to = "Perc_by_type") %>%
-  mutate(`Metavirome type` = "MGS")
+  mutate(`Metavirome type` = "MGS") %>%
+  left_join(smeta %>% select(Sequencing_ID, Universal_ID), by = c("Sample" = "Sequencing_ID"))
 
-
+# sample-wise summary stat for contribution of study-specific vOTUs
 wo_db_stat <- map_dfr(list(VLP_by_vOTU_type, MGS_by_vOTU_type), function(dataset){
   
   wo_db <- dataset %>%
@@ -489,6 +497,7 @@ wo_db_stat <- map_dfr(list(VLP_by_vOTU_type, MGS_by_vOTU_type), function(dataset
   
 })
 
+# sample-wise summary stat for contribution of every vOTU type including combined ones
 sum_by_type <- map_dfr(list(VLP_by_vOTU_type, MGS_by_vOTU_type), function(dataset){
   
   map_dfr(unique(VLP_by_vOTU_type$vOTU_cluster_type), function(vOTU_type){
@@ -514,15 +523,18 @@ sum_by_type <- sum_by_type %>%
   bind_rows(wo_db_stat) %>%
   mutate(across(where(is.numeric), ~ smart_round(. * 100)) )
 
-# testing all vs all
+# testing all vs all (which sources contribute more compared to others):
+
+# preparing the df
 rich_compare <- VLP_by_vOTU_type %>%
   bind_rows(MGS_by_vOTU_type) %>%
-  mutate(sid = paste0(`Metavirome type`, '_',Sample)) %>%
+  mutate(sid = paste0(`Metavirome type`, '_', Universal_ID)) %>%
   left_join(smeta %>% 
               mutate(sid = paste0(seq_type, '_', Universal_ID)) 
             %>% select(sid, Timepoint_new, NEXT_ID), by = c('sid' = "sid")) %>%
   select(-sid)
 
+# all combos: (includes comparison of VLP contribution to VLP samples vs VLP contribution to MGS samples etc)
 combos <- as.data.frame(t(combn(c(paste0('VLP_', unique(VLP_by_vOTU_type$vOTU_cluster_type)),
                                   paste0('MGS_', unique(VLP_by_vOTU_type$vOTU_cluster_type))), 2))) %>%
   mutate(method1 = gsub("_.*", "", V1),
@@ -536,9 +548,10 @@ combos <- as.data.frame(t(combn(c(paste0('VLP_', unique(VLP_by_vOTU_type$vOTU_cl
          `Pr(>|t|)` = NA,
          Cohens_D = NA)
 
+# testing w lmer again..
 for (combo in 1:nrow(combos)) {
   
-  feature1 <-combos[combo, "V1"]
+  feature1 <- combos[combo, "V1"]
   method1 <- combos[combo, "method1"]
   feature2 <- combos[combo, "V2"]
   method2 <- combos[combo, "method2"]
@@ -584,6 +597,7 @@ combos_round <- combos %>%
 
 writexl::write_xlsx(combos_round, '07.RESULTS/Compare_contrib_sample_richness_by_vOTU_source.xlsx')
 
+# adding significance to the plot
 dat_text <- data.frame(
   "Metavirome type" = c("MGS", "MGS", "VLP", "VLP"),
   start = c("VLP+MGS", "MGS", "VLP+MGS", "VLP"),
@@ -622,24 +636,17 @@ ggsave('05.PLOTS/05.VLP_MGS/Proportion_richness_by_source.pdf',
        prop_richness,  "pdf", width=12, height=10, units="cm", dpi = 300)
 
 #############################################################
-# 3.6 Analysis: HQ richness in MGS vs VLP
+# 3.6 Analysis: HQ richness in MGS vs VLP (not included atm)
 #############################################################
 
 # For HQs:
 hq_votus <- ETOF_vOTUr[ETOF_vOTUr$miuvig_quality=="High-quality",]$New_CID
 smeta$vir_richness_hq <- colSums(clean_RPKM[row.names(clean_RPKM) %in% hq_votus,] > 0)[match(smeta$Sequencing_ID, colnames(clean_RPKM))]
 
-amq_votus <- ETOF_vOTUr$New_CID[ETOF_vOTUr$checkv_quality %in% c("Complete", "High-quality", "Medium-quality")]
-smeta$vir_richness_amq <- colSums(clean_RPKM[row.names(clean_RPKM) %in% amq_votus,] > 0)[match(smeta$Sequencing_ID, colnames(clean_RPKM))]
-
-
-ggplot(smeta[smeta$seq_type == "MGS",], aes(Timepoint_new, vir_richness_amq)) + 
-  geom_boxplot()
-
 p_VLP_MGS_richnessHQ <- smeta %>%
   mutate(Richness_type = "(Near-)complete vOTUs richness") %>%
   ggplot(aes(seq_type, vir_richness_hq)) +
-  geom_violinhalf(aes(seq_type, vir_richness_hq, fill = seq_type, color=seq_type), flip=1) +
+  geom_violinhalf(aes(seq_type, vir_richness_hq, fill = seq_type, color=seq_type), flip=1, alpha = 0.7) +
   geom_boxplot(aes(seq_type, vir_richness_hq, fill = seq_type, color=seq_type),width = 0.1, outlier.shape = NA) +
   geom_rect(xmin=1, xmax=1.1, ymin=10, ymax=50, fill="white") +
   geom_rect(xmin=1.9, xmax=2, ymin=10, ymax=100, fill="white") +
@@ -664,11 +671,11 @@ p_VLP_MGS_richnessHQ <- smeta %>%
 ggsave('05.PLOTS/05.VLP_MGS/HQ_richness_comparison.png',
        p_VLP_MGS_richnessHQ,  "png", width=10, height=10, units="cm", dpi = 300)
 
+# is diff significant?
 modelhq <- lmer(vir_richness_hq ~ seq_type + Timepoint_new + (1|NEXT_ID),
   REML = FALSE,
   data = smeta
 )
-
 summary(modelhq)$coefficients # beta = 8.1, p-value = 5.6e-47
 
 # explanation why HQs are higher in VLP vs MGS:
@@ -687,12 +694,11 @@ table(ETOF_vOTUr[ETOF_vOTUr$vOTU_cluster_type=="NEXT_VLP" &
                    ETOF_vOTUr$miuvig_quality=="High-quality" &
                    ETOF_vOTUr$genome %in% c('ssDNA', 'RNA'), "genome"]) #122 RNA, 2773 ssDNA
 
-  
 #############################################################
 # 4. OUTPUT
 #############################################################
 # table with per-contig HQ vOTU recovery info by source
-write.table(hq_recovery_source, './06.CLEAN_DATA/03.RESULTS_to_plot/HQ_vOTU_recoverable_by_source.txt', sep='\t', quote=F, row.names=F)
+write.table(saver_hq_recovery, './06.CLEAN_DATA/03.RESULTS_to_plot/HQ_vOTU_recoverable_by_source.txt', sep='\t', quote=F, row.names=F)
 
 
 
