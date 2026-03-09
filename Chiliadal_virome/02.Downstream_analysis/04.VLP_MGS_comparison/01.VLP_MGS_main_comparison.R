@@ -276,8 +276,9 @@ summary_hq_recovery <- hq_recovery_source %>%
 #### genome composition of novels by resource:
 
 by_genome_recovery <- hq_recovery_source %>%
+  left_join(ETOF_vOTUr %>% select(New_CID, lifestyle), by = c("Representative" = "New_CID")) %>% 
   filter(!grepl('DB', vOTU_cluster_type)) %>%
-  group_by(recoverable_by, genome) %>%
+  group_by(recoverable_by, genome, lifestyle) %>%
   summarise(sum = n(), .groups = "drop_last") %>%
   mutate(within_rec_perc = sum/sum(sum)*100) %>%
   ungroup()
