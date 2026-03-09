@@ -400,7 +400,11 @@ p_select <- plot_data %>%
   scale_fill_manual(labels = c("INTER", "MGS", "VLP"), values = c(MetBrewer::met.brewer("VanGogh2")[1], 
                                                                   MetBrewer::met.brewer("Kandinsky")[1], 
                                                                   MetBrewer::met.brewer("Kandinsky")[2])) +
-  theme(legend.position = "right") +
+  theme(legend.position = "bottom",
+        legend.text = element_text(size=7),
+        legend.title = element_text(size = 8),
+        axis.title = element_text(size=8),
+        axis.text = element_text(size=7)) +
   labs(x = "",
        y = "Jaccard binary similarity",
        fill = "Method") +
@@ -415,6 +419,8 @@ p_select <- plot_data %>%
 ggsave('05.PLOTS/05.VLP_MGS/VLP_MGS_select_jaccard.png', 
        p_select,  "png", width=17, height=12, units="cm", dpi = 300)
 
+ggsave('05.PLOTS/05.VLP_MGS/VLP_MGS_select_jaccard.pdf', 
+       p_select, "pdf", width=8, height=10, units="cm", dpi = 300)
 
 #############################################################
 # 3.4 Permutation analysis for jaccard similarity
