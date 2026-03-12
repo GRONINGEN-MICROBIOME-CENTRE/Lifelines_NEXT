@@ -88,6 +88,7 @@ library(tidyverse)
 library(vegan)
 library(lme4)
 library(lmerTest)
+library(ggplot2)
 #############################################################
 # 2. Load Input Data
 #############################################################
@@ -212,9 +213,7 @@ ggsave('05.PLOTS/05.VLP_MGS/VLP_in_MGS_detection_drivers.pdf',
 #############################################################
 # 3.2 Analysis: virome independence from bacteriome
 #############################################################
-# mantel test
-# ordering:
-
+# ordering 
 colnames(metaphlan) <- esmeta$Universal_ID[match(colnames(metaphlan), esmeta$Sequencing_ID)]
 metaphlan <- t(metaphlan)
 
@@ -225,6 +224,7 @@ row.names(MGS_all_RA) <- esmeta$Universal_ID[match(row.names(MGS_all_RA), esmeta
 VLP_all_RA <- VLP_all_RA[row.names(metaphlan),]
 MGS_all_RA <- MGS_all_RA[row.names(metaphlan),]
 
+# dist (decided to go w Bray)
 dist_bac <- vegdist(metaphlan, method="bray")
 dist_vlp <- vegdist(VLP_all_RA, method="bray")
 dist_mgs <- vegdist(MGS_all_RA, method="bray", na.rm = T)
@@ -232,39 +232,40 @@ dist_mgs <- vegdist(MGS_all_RA, method="bray", na.rm = T)
 mantel_vlp <- mantel(dist_bac, dist_vlp, method="spearman", permutations=999, na.rm = T)
 mantel_mgs <- mantel(dist_bac, dist_mgs, method="spearman", permutations=999, na.rm = T)
 
-
-
-#### visualization:
-library(ggplot2)
+dist_bac_m <- as.matrix(dist_bac)
+dist_vlp_m <- as.matrix(dist_vlp)
+dist_mgs_m <- as.matrix(dist_mgs)
 
 df_summary <- tibble(
-  Bact = dist_bac[upper.tri(dist_bac)],
-  MGS  = dist_mgs[upper.tri(dist_mgs)],
-  VLP = dist_vlp[upper.tri(dist_vlp)]
+  Bact = dist_bac_m[upper.tri(dist_bac_m)],
+  MGS  = dist_mgs_m[upper.tri(dist_mgs_m)],
+  VLP = dist_vlp_m[upper.tri(dist_vlp_m)]
 )
 
-# Calculate SD instead of SE for a more visible spread
+df_summary <- df_summary[!is.na(df_summary$MGS),]
+
+# decided to bin it manually because GAMs gave sort of similar results and binning was much more intuitive
+bin_size <- 0.03
+
 plot_data <- df_summary %>%
-  mutate(Bin = cut(Bact, breaks = seq(0, 1, by = 0.02), include.lowest = TRUE)) %>%
+  mutate(Bin = cut(Bact, breaks = seq(0, 1, by = bin_size), include.lowest = TRUE)) %>%
   pivot_longer(cols = c(MGS, VLP), names_to = "Fraction", values_to = "Viral_Dist") %>%
   group_by(Bin, Fraction) %>%
   summarise(
     Mean_Viral = mean(Viral_Dist, na.rm = TRUE),
-    SD_Viral   = sd(Viral_Dist, na.rm = TRUE), # Standard Deviation shows the "cloud"
+    SD_Viral   = sd(Viral_Dist, na.rm = TRUE),
     .groups = 'drop'
   ) %>%
-  filter(!is.na(Bin)) %>%
-  mutate(Bact_Midpoint = as.numeric(sub(".*,([0-9.]*)\\]", "\\1", Bin)) - 0.01)
+  mutate(Bact_Midpoint = as.numeric(sub(".*,([0-9.]*)\\]", "\\1", Bin)) - bin_size/2) %>%
+  mutate(Bact_Midpoint = ifelse(is.na(Bin), 1, Bact_Midpoint)) # otherwise it will never reach it, even though we do have dist = 1
 
-# Plot with SD ribbon
+# change color?
 plotik <- ggplot(plot_data, aes(x = Bact_Midpoint, y = Mean_Viral, color = Fraction, fill = Fraction)) +
-  # Use SD for the ribbon to see the actual range of the data
   geom_ribbon(aes(ymin = Mean_Viral - SD_Viral, ymax = Mean_Viral + SD_Viral), 
               alpha = 0.15, color = NA) + 
   geom_line(size = 1.2) +
   scale_color_manual(values = c("MGS" = "#E64B35FF", "VLP" = "#4DBBD5FF")) +
   scale_fill_manual(values = c("MGS" = "#E64B35FF", "VLP" = "#4DBBD5FF")) +
-  #coord_cartesian(xlim = c(0.8, 1.0), ylim = c(0.8, 1.01)) + # Expanded Y-axis to see the ribbon
   labs(x = "Bacteriome dissimilarity", y = "Virome dissimilarity", color = "Metavirome type", fill = "Metavirome type") +
   theme_minimal() +
   theme(legend.position = "bottom",
@@ -274,14 +275,15 @@ plotik <- ggplot(plot_data, aes(x = Bact_Midpoint, y = Mean_Viral, color = Fract
         legend.text = element_text(size=7),
         legend.key.size=unit(0.7, "line"),
         legend.key.spacing.y = unit(1, 'pt')) +
-  annotate("rect", xmin = 0.75, xmax = 0.95, ymin = 0.45, ymax = 0.6, 
+  annotate("rect", xmin = 0.7, xmax = 0.99, ymin = 0.45, ymax = 0.6, 
            alpha = 0.2, fill = "#4DBBD5FF") +
   annotate(geom="text", x = 0.85, y=0.53, label = "r = 0.24\np-value < 0.001", size = 2.5) +
-  annotate("rect", xmin = 0.75, xmax = 0.95, ymin = 0.3, ymax = 0.45, 
+  annotate("rect", xmin = 0.7, xmax = 0.99, ymin = 0.3, ymax = 0.45, 
            alpha = 0.2, fill = "#E64B35FF") +
   annotate(geom="text", x = 0.85, y=0.38, label = "r = 0.88\np-value < 0.001", size = 2.5)
   
-  
-
 ggsave('05.PLOTS/05.VLP_MGS/mantel_results.pdf',
-       plotik,  "pdf", width=13, height=10, units="cm", dpi = 300)
+       plotik,  "pdf", width=8, height=9, units="cm", dpi = 300)
+
+
+
