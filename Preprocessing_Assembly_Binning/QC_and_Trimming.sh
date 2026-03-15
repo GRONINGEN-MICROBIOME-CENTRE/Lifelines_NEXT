@@ -46,8 +46,8 @@ echo "N bases FQ2: ${N_bases_2}" >> QC_RESULTS/INITIAL/OUTPUT_files/${SAMPLE_ID}
 echo -e '\n---- Copying files to tmpdir ----'
 
 mkdir -p ${TMPDIR}/${SAMPLE_ID}/filtering_data/
-cp ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_1.fq.gz ${TMPDIR}/${SAMPLE_ID}/filtering_data/
-cp ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_2.fq.gz ${TMPDIR}/${SAMPLE_ID}/filtering_data/
+rsync -av ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_1.fq.gz ${TMPDIR}/${SAMPLE_ID}/filtering_data/
+rsync -av ${sample_dir}/${SAMPLE_ID}/${SAMPLE_ID}_2.fq.gz ${TMPDIR}/${SAMPLE_ID}/filtering_data/
 
 echo -e '\n---- RUNNING BBDuK ----'
 
