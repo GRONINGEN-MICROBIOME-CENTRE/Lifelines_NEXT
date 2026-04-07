@@ -206,8 +206,6 @@ PCOA_maker(pcoa_res[["BC"]], "Sequencing_ID", smeta, "VLP, Bray-Curtis")
 #############################################################
 # 3.1 Analysis: individual specificity
 #############################################################
-# recalculate stat
-
 similarity <- 1 - as.matrix(VLP_dist$BC)
 
 upper_tri_idx <- which(upper.tri(similarity, diag = FALSE), arr.ind = TRUE)
