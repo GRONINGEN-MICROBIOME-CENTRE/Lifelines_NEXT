@@ -20,8 +20,8 @@ library(tidyverse)
 library(ggplot2)
 library(lme4)
 library(lmerTest)
-library(Matrix)
-library(mediation)
+#library(Matrix)
+#library(mediation) # messes dplyr
 #############################################################
 # 2. Load Input Data
 #############################################################
@@ -171,7 +171,7 @@ ggsave('05.PLOTS/06.DYNAMICS/vOTU_sharing_to_mom_over_time_VLP.pdf',
 votu_sparse <- Matrix(as.matrix(VLP > 0), sparse = TRUE)  # logical sparse
 
 # maternal lookup
-mom_votu <- lapply(unique(smeta$FAMILYupd), function(dyad) {
+mom_votu_sets <- lapply(unique(smeta$FAMILYupd), function(dyad) {
   mom_cols <- smeta$Sequencing_ID[smeta$Type == "M"]
   
   which(rowSums(votu_sparse[, mom_cols, drop = FALSE]) > 0) #indices, not names
@@ -212,6 +212,9 @@ seq_orphans <- smeta %>%
 
 shared_df <- shared_df[,colnames(shared_df) %in% (smeta %>% filter(!FAMILYupd %in% seq_orphans) %>% pull(Sequencing_ID))]
 shared_df <- shared_df[rowSums(shared_df) >0,]
+
+# saving shared_df (15,659 obs., 749 variables) for PPV-related analysis
+write.table(shared_df, "06.CLEAN_DATA/Intermediate/Mom-shared_vOTUs_table.txt", sep='\t', quote=F)
 
 faster <- ETOF_vOTUr %>%
   separate(
@@ -358,7 +361,7 @@ med_fit <-lme4::lmer(Bac_ab ~ exact_age_months_at_collection + (1 | NEXT_ID), da
 out_fit <- lme4::lmer(N_bac_ph ~ exact_age_months_at_collection + Bac_ab + (1 | NEXT_ID),
                 data = host_bacteroides)
 
-med_out <- mediate(
+med_out <- mediation::mediate( # calling mediation this way because it messes dplyr
   med_fit,
   out_fit,
   treat = "exact_age_months_at_collection",
@@ -367,5 +370,7 @@ med_out <- mediate(
   treat.value = 12,
   sims = 1000
 ) # explains 12% only?
+
+summary(med_out)
 
 summary(lmer(Bac_ab ~ Timepoint_new + (1 | NEXT_ID), data = host_bacteroides))
