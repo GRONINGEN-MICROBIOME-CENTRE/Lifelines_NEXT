@@ -3,8 +3,8 @@
 setwd("~/Desktop/Projects_2021/NEXT_virome/09.DATA_ANALYSIS/")
 
 #############################################################
-# the plan is to move all PPV holovirome shit here
-# please make a MVP, not whole-blown analysis, I am begging you
+# Here we explore persistence of the temperate vOTUs 
+# detected in VLP that did not become a PPV, in holovirome
 #############################################################
 
 #############################################################
