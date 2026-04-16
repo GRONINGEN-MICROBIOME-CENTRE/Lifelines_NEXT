@@ -32,40 +32,6 @@ create_summary <- function(data) {
                 values_from = value)
 }
 
-# longitudinal vOTU sharing
-bagira <- function(df, diag_incl, meta, merging_ID){
-  
-  binary_matrix <- as.matrix(df > 0) + 0 
-  
-  shared_species_matrix <- t(binary_matrix) %*% binary_matrix
-  
-  upper_tri_idx <- which(upper.tri(shared_species_matrix, diag = diag_incl), arr.ind = T)
-  
-  sharing <- data.frame(
-    sample_1 = rownames(shared_species_matrix)[upper_tri_idx[, 1]],
-    sample_2 = colnames(shared_species_matrix)[upper_tri_idx[, 2]],
-    N_shared = shared_species_matrix[upper_tri_idx]) %>%
-    left_join(meta %>% select(Sequencing_ID,
-                              Universal_ID,
-                              Modified_NEXT_ID_without_preg_number,
-                              FAMILY, 
-                              FAMILYupd,
-                              Type, 
-                              seq_type,
-                              Timepoint_new), by = c("sample_1" = merging_ID )) %>%
-    left_join(meta %>% select(Sequencing_ID,
-                              Universal_ID,
-                              Modified_NEXT_ID_without_preg_number,
-                              FAMILY,
-                              FAMILYupd,
-                              Type, seq_type,
-                              Timepoint_new), by = c("sample_2" = merging_ID), suffix = c("_1", "_2")) %>%
-    select(sample_1, sample_2, N_shared, sort(colnames(.))) %>%
-    mutate(longitudinal = ifelse(FAMILYupd_1 == FAMILYupd_2 &
-                                   Modified_NEXT_ID_without_preg_number_1 == Modified_NEXT_ID_without_preg_number_2, T, F))
-  
-  return(sharing)
-}
 #############################################################
 # 1. Loading libraries
 #############################################################
