@@ -53,6 +53,8 @@ phenos_select <- data.frame(phenotype = selected_cross,
                               .default = phenotype)) %>%
   mutate(cat_vs_num = ifelse(phenotype %in% c("mother_birthcardself_gestational_age_weeks", "infant_growth_standardized_weight_slope_kg",
                                               "infant_scorad_measurement", "infant_sleep_day_hours"), "numeric", "categorical"))
+
+write.table(phenos_select, "06.CLEAN_DATA/Intermediate/Phenotype_selection.txt", sep='\t', row.names = F, quote=F)
 #############################################################
 # 1. Functions
 #############################################################
@@ -90,8 +92,6 @@ virome_shaper <- function(pheno, df, dist){
 #############################################################
 library(dplyr)
 library(tidyverse)
-library(lme4)
-library(lmerTest)
 library(MetBrewer)
 library(vegan)
 library(skimr)
@@ -133,6 +133,8 @@ VLP <- VLP[rowSums(VLP) > 0,]
 
 # ordering smeta same way as VLP:
 smeta_w_phenos <- smeta_w_phenos[match(colnames(VLP), smeta_w_phenos$Sequencing_ID), ]
+# saving it for further analyses:
+write.table(smeta_w_phenos, "06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_matched_v05_suppl_w_phenotypes.txt", sep='\t', quote = F, row.names = F)
 
 # BC dist:
 VLP_RAB <- as.data.frame(t(VLP)/colSums(VLP))
