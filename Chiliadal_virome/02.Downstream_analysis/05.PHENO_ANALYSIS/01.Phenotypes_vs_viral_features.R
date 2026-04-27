@@ -209,6 +209,14 @@ feeding_vulcano <- ggplot(feeding_vOTU_df, aes(x = Estimate, y = neg_log10_p, co
 ggsave("05.PLOTS/07.Health_outcomes/VLP_feeding_vOTU_vulcano.pdf",
        feeding_vulcano, "pdf", width=10, height=8, units="cm", dpi = 300)
 
+
+# stat for text:
+feeding_vOTU_genus <- vOTU_vs_pehnos %>%
+  filter(rowname == "infant_ffq_feeding_mode_simpleexcl_FF" & FDR < 0.05) %>%
+  left_join(ETOF_vOTUr %>% 
+              select(New_CID, Genus), by = c("feature" = "New_CID")) %>%
+  group_by(Genus) %>%
+  summarise(n = n())
 #############################################################
 # 3.1.2 Analysis: visualization: delivery mode vOTU
 #############################################################
@@ -258,6 +266,14 @@ delivery_vulcano <- ggplot(delivery_vOTU_df, aes(x = Estimate, y = neg_log10_p, 
 ggsave("05.PLOTS/07.Health_outcomes/VLP_delivery_vOTU_vulcano.pdf",
        delivery_vulcano, "pdf", width=10, height=8, units="cm", dpi = 300)
 
+# stat for text:
+delivery_vOTU_host_genus <- vOTU_vs_pehnos %>%
+  filter(rowname == "birth_deliverybirthcard_mode_binaryVG" & FDR < 0.05) %>%
+  left_join(ETOF_vOTUr %>% 
+              select(New_CID, Host_Genus), by = c("feature" = "New_CID")) %>%
+  group_by(Host_Genus) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
 #############################################################
 # 3.2 Analysis: defining viral taxa level to analyze
 #############################################################
@@ -462,6 +478,19 @@ virvars_vs_phenos <- virvars_vs_phenos %>%
 
 writexl::write_xlsx(virvars_vs_phenos, '07.RESULTS/LMM_virVars_shaping_phenos.xlsx')  
 
+# sub-analysis: correcting for skunaviruses in richness of virulent phages:
+virulent_no_skuna <- ETOF_vOTUr %>% 
+  filter(Host_Genus != "g__Lactococcus" & lifestyle == "Virulent") %>% 
+  pull(New_CID)
+
+smeta_w_phenos$virulent_richness_no_skuna <- colSums(VLP[row.names(VLP) %in% virulent_no_skuna,] > 0)[match(smeta_w_phenos$Sequencing_ID, colnames(VLP))]
+smeta_w_phenos$virulent_RAB <- colSums(VLP_RAB[row.names(VLP_RAB) %in% virulent_no_skuna,])[match(smeta_w_phenos$Sequencing_ID, colnames(VLP))]*100
+
+sum(!is.na(smeta_w_phenos$infant_ffq_feeding_mode_simple))
+summary(lmer(log(virulent_richness_no_skuna + 1/2) ~ infant_ffq_feeding_mode_simple + Timepoint_new + perc_aligned_cf + reads_lost_QC + sequencing_batch + (1|NEXT_ID), data = smeta_w_phenos, REML = F))
+
+sum(smeta_w_phenos$virulent_RAB!=0 & !is.na(smeta_w_phenos$infant_ffq_feeding_mode_simple))
+summary(lmer(log(virulent_RAB + 1/2) ~ infant_ffq_feeding_mode_simple + Timepoint_new + perc_aligned_cf + reads_lost_QC + sequencing_batch + (1|NEXT_ID), data = smeta_w_phenos, REML = F))
 #############################################################
 # 3.6.1 Analysis: visualization: temperate to lytic ratio & feeding
 #############################################################
@@ -724,4 +753,8 @@ delivery_holo_temp_rich <- smeta_w_phenos %>%
 ggsave("05.PLOTS/07.Health_outcomes/Holovirome_delivery_temperate_richness.pdf",
        delivery_holo_temp_rich, "pdf", width=6, height=8, units="cm", dpi = 300)
 
-
+#############################################################
+# 3.8 Analysis: bacterial diversity between feeding modes
+#############################################################
+sum(!is.na(smeta_w_phenos$infant_ffq_feeding_mode_simple) & smeta_w_phenos$bacShannon > 0)
+summary(lmer(bacShannon ~ infant_ffq_feeding_mode_simple + Timepoint_new + (1|NEXT_ID), data = smeta_w_phenos, REML = F))
