@@ -29,7 +29,6 @@ selected_long <- c("infant_health_cough", # check distribution
                       "infant_health_wheeze", # check distribution
                       "infant_ffq_feeding_mode_simple",
                       "infant_BITSS",
-                      "infant_med_antibiotics_J01", # induction
                       "infant_scorad_measurement", # for eczema
                       "infant_sleep_day_hours"
 )
@@ -46,8 +45,7 @@ phenos_select <- data.frame(phenotype = selected_cross,
                                             "mother_birthcardhealth_gravidity", 
                                             "mother_birthcardself_gestational_age_weeks",
                                             "infant_misc_sex",
-                                            "infant_scorad_family_history_allergic_disease",
-                                            "infant_med_antibiotics_J01"), "shaping", "health_outcomes")) %>%
+                                            "infant_scorad_family_history_allergic_disease"), "shaping", "health_outcomes")) %>%
   mutate(new_name = case_when(phenotype %in% c("infant_health_fever", "infant_health_wheeze", "infant_health_cough") & type == "cross-sectional" ~ paste0(phenotype, "_cross"),
                               phenotype %in% c("infant_health_fever", "infant_health_wheeze", "infant_health_cough") & type == "longitudinal" ~ paste0(phenotype, "_long"),
                               .default = phenotype)) %>%
@@ -58,6 +56,121 @@ write.table(phenos_select, "06.CLEAN_DATA/Intermediate/Phenotype_selection.txt",
 #############################################################
 # 1. Functions
 #############################################################
+# very rigid function for everything; I made it to clean up this Rscript
+running_adonis <- function(phenotypes, # character vector of phenotypes
+                           metadata_w_phenos, # df, metadata containing NEXT_ID, phenotype columns, etc
+                           distance_matrix, # df, distance matrix (if Sequencing_ID and matrix names are disorderd, returns NULL)
+                           run_type, # character, arguments: "cross" or anything else; cross-sectional or longitudinal type of phenotypes
+                           run_by, # arguments: "terms", "margin"
+                           perms = 999, # number of permutations, 999 by default
+                           correct_for = NULL # vector of factors to correct for, NULL by default
+) {
+  map_dfr(phenotypes, 
+          function(pheno){
+            
+            if (is.null(correct_for)) {
+              
+              pheno_df <- metadata_w_phenos %>%
+                filter(!is.na(!!sym(pheno)))
+              
+            } else {
+              
+              pheno_df <- metadata_w_phenos %>%
+                filter(!is.na(!!sym(pheno))) %>%
+                filter(if_all(all_of(correct_for), ~ !is.na(.x)))
+              
+            }
+            
+            dister <- distance_matrix[colnames(distance_matrix) %in% pheno_df$Sequencing_ID,
+                                      row.names(distance_matrix) %in% pheno_df$Sequencing_ID]
+            
+            right_side <- c("Timepoint_new", correct_for, pheno)
+            
+            F1 <- as.formula(paste0("dister ~ ", paste(right_side, collapse = " + ")))
+            
+            if (!identical(pheno_df$Sequencing_ID, colnames(dister))) return(NULL)
+            
+            res <-  if (run_type == "cross") {
+              adonis2(F1,
+                      data=pheno_df,
+                      by = run_by,
+                      permutations = how(plots  = Plots(strata = pheno_df$NEXT_ID, type = "free"),
+                                         within = Within(type = "none"),
+                                         nperm  = perms),
+                      #permutations = how(blocks = pheno_df$NEXT_ID, nperm = perms),
+                      parallel = 4) 
+            } else {
+              adonis2(F1,
+                      data=pheno_df,
+                      by = run_by,
+                      strata = pheno_df$NEXT_ID,
+                      permutations = perms,
+                      parallel = 4) 
+            }
+            
+            res %>%
+              as.data.frame() %>%
+              rownames_to_column(var = "rowname") %>%
+              filter(rowname == pheno) %>%
+              mutate(N_permutations = perms) %>%
+              mutate(N_samples = nrow(pheno_df)) %>%
+              mutate(corrected_for = ifelse(is.null(correct_for), "none", paste(correct_for, collapse = ", "))  )
+            
+          })
+  
+}
+
+# very rigid function for everything; I made it to clean up this Rscript; runs per timepoint
+running_adonis_timepoint <- function(phenotypes, # character vector of phenotypes
+                                     metadata_w_phenos, # df, metadata containing NEXT_ID, phenotype columns, etc, restricted to timepoint
+                                     distance_matrix, # df, distance matrix (if Sequencing_ID and matrix names are disorderd, returns NULL)
+                                     run_by, # arguments: "terms", "margin"
+                                     perms = 999, # number of permutations, 999 by default
+                                     correct_for = NULL # vector of factors to correct for, NULL by default
+) {
+  map_dfr(phenotypes, 
+          function(pheno){
+            
+            if (is.null(correct_for)) {
+              
+              pheno_df <- metadata_w_phenos %>%
+                filter(!is.na(!!sym(pheno)))
+              
+            } else {
+              
+              pheno_df <- metadata_w_phenos %>%
+                filter(!is.na(!!sym(pheno))) %>%
+                filter(if_all(all_of(correct_for), ~ !is.na(.x)))
+              
+            }
+            
+            dister <- distance_matrix[colnames(distance_matrix) %in% pheno_df$Sequencing_ID,
+                                      row.names(distance_matrix) %in% pheno_df$Sequencing_ID]
+            
+            right_side <- c(correct_for, pheno)
+            
+            F1 <- as.formula(paste0("dister ~ ", paste(right_side, collapse = " + ")))
+            
+            if (!identical(pheno_df$Sequencing_ID, colnames(dister))) return(NULL)
+            
+            res <- adonis2(F1,
+                           data=pheno_df,
+                           by = run_by,
+                           permutations = perms,
+                           parallel = 4) 
+            
+            res %>%
+              as.data.frame() %>%
+              rownames_to_column(var = "rowname") %>%
+              filter(rowname == pheno) %>%
+              mutate(N_permutations = perms) %>%
+              mutate(N_samples = nrow(pheno_df)) %>%
+              mutate(corrected_for = ifelse(is.null(correct_for), "none", paste(correct_for, collapse = ", "))  )
+            
+          })
+  
+}
+
 virome_shaper <- function(pheno, df, dist){
   
   pheno_df <- df %>%
@@ -134,7 +247,7 @@ VLP <- VLP[rowSums(VLP) > 0,]
 # ordering smeta same way as VLP:
 smeta_w_phenos <- smeta_w_phenos[match(colnames(VLP), smeta_w_phenos$Sequencing_ID), ]
 # saving it for further analyses:
-write.table(smeta_w_phenos, "06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_matched_v05_suppl_w_phenotypes.txt", sep='\t', quote = F, row.names = F)
+#write.table(smeta_w_phenos, "06.CLEAN_DATA/02.FINAL/Chiliadal_meta_VLP_matched_v05_suppl_w_phenotypes.txt", sep='\t', quote = F, row.names = F)
 
 # BC dist:
 VLP_RAB <- as.data.frame(t(VLP)/colSums(VLP))
@@ -167,82 +280,62 @@ long_summary <- L_phenos %>%
 
 # what about tech features? they explain it by less than 1% -> skip correcting for (I guess it is also because vlp data is super sparse)
 
-# virome composition vs phenotypes
-adonis_results_cross <- map_dfr(phenos_select %>%
-                                  filter(type == "cross-sectional") %>%
-                                  pull(new_name), 
-                                function(pheno){
-  
-  pheno_df <- smeta_w_phenos %>%
-    filter(!is.na(!!sym(pheno)))
-  
-  dister <- dist_matrix[colnames(dist_matrix) %in% pheno_df$Sequencing_ID,
-                     row.names(dist_matrix) %in% pheno_df$Sequencing_ID]
-  
-  F1 <- as.formula(paste0("dister ~ Timepoint_new + ", pheno))
-  perm <- 999
-  
-  if ( identical(pheno_df$Sequencing_ID, colnames(dister)) ) {
-    res <- adonis2(F1, 
-            data=pheno_df,
-            by = "terms",
-            #strata = pheno_df$NEXT_ID,
-            #permutations = perm,
-            permutations = how(blocks = pheno_df$NEXT_ID, nperm = 999),
-            parallel = 4) 
-    
-  } else {
-    return(NULL)
-  }
+# cross-sectional phenotype modelling needs balanced data, so keeping only infants with all 4 timepoints
+smeta_all4 <- smeta_w_phenos %>%
+  group_by(NEXT_ID, seq_type) %>%
+  mutate(n_tp = n()) %>%
+  ungroup() %>%
+  filter(n_tp == 4)
+
+# cross-sectional
+adonis_results_cross <- running_adonis(phenos_select %>%
+                                              filter(type == "cross-sectional" & analysis == "shaping") %>%
+                                              pull(new_name), 
+                                            smeta_all4, 
+                                            dist_matrix, 
+                                            "cross", 
+                                            "terms", 
+                                            perms = 999, 
+                                            correct_for = NULL 
+)
+
+# cross-sectional per timepoint adonis as well:
+adonis_results_cross_timepoint <- map_dfr(unique(smeta_w_phenos$Timepoint_new), function(timepoint) {
+  res <- running_adonis_timepoint(phenos_select %>%
+                             filter(type == "cross-sectional" & analysis == "shaping") %>%
+                             pull(new_name), 
+                           smeta_w_phenos[smeta_w_phenos$Timepoint_new == timepoint,], 
+                           dist_matrix, 
+                           "terms", 
+                           perms = 999, 
+                           correct_for = NULL 
+                           
+  )
   
   res %>%
-    as.data.frame() %>%
-    rownames_to_column(var = "rowname") %>%
-    filter(rowname == pheno) %>%
-    mutate(N_permutations = perm) %>%
-    mutate(N_samples = nrow(pheno_df))
-  
+    mutate(timepoint = timepoint)
 })
 
-adonis_results_long <- map_dfr(phenos_select %>%
-                                 filter(type == "longitudinal") %>%
-                                 pull(new_name), 
-                               function(pheno){
-  
-  pheno_df <- smeta_w_phenos %>%
-    filter(!is.na(!!sym(pheno)))
-  
-  dister <- dist_matrix[colnames(dist_matrix) %in% pheno_df$Sequencing_ID,
-                        row.names(dist_matrix) %in% pheno_df$Sequencing_ID]
-  
-  F1 <- as.formula(paste0("dister ~ Timepoint_new + ", pheno))
-  perm <- 999
-  
-  if ( identical(pheno_df$Sequencing_ID, colnames(dister)) ) {
-    res <- adonis2(F1, 
-                   data=pheno_df,
-                   by = "margin",
-                   strata = pheno_df$NEXT_ID,
-                   permutations = perm,
-                   parallel = 4) 
-    
-  } else {
-    return(NULL)
-  }
-  
-  res %>%
-    as.data.frame() %>%
-    rownames_to_column(var = "rowname") %>%
-    filter(rowname == pheno) %>%
-    mutate(N_permutations = perm) %>%
-    mutate(N_samples = nrow(pheno_df))
-  
-})
+adonis_results_cross_timepoint <- adonis_results_cross_timepoint %>%
+  group_by(timepoint) %>%
+  mutate(FDR = p.adjust(`Pr(>F)`, "BH"))
+
+# longitudinal
+adonis_results_long <- running_adonis(phenos_select %>%
+                                        filter(type == "longitudinal" & analysis == "shaping") %>%
+                                        pull(new_name), 
+                                      smeta_w_phenos, 
+                                      dist_matrix, 
+                                      "long", 
+                                      "terms", 
+                                      perms = 999, 
+                                      correct_for = NULL 
+)
 
 adonis_results <- adonis_results_cross %>%
   bind_rows(adonis_results_long) %>%
-  mutate(analysis = phenos_select$analysis[match(rowname, phenos_select$new_name)]) %>%
-  group_by(analysis) %>%
+  left_join(phenos_select %>% select(new_name, type), by = c("rowname" = "new_name")) %>%
+  group_by(type) %>%
   mutate(FDR = p.adjust(`Pr(>F)`, "BH")) %>%
   ungroup()
 
@@ -280,7 +373,7 @@ results_summary <- phenos_select %>%
                           mutate(type = "longitudinal") ) %>%
               select(-skim_type), by = c("phenotype" = "skim_variable", "type" = "type")) %>%
   left_join(adonis_results %>%
-              select(-SumOfSqs, -analysis) %>%
+              select(-SumOfSqs) %>%
               rename(p_value_adonis=`Pr(>F)`), by = c("new_name" = "rowname")) %>%
   left_join(betadisper %>%
               select(`F`, `Pr(>F)`, pheno) %>%
@@ -317,7 +410,7 @@ R2viz <- results_summary %>%
   theme_bw() +
   theme(axis.text = element_text(size=8),
         axis.title = element_text(size=9)) + 
-  labs(y = "Technical feature", x="Adonis R-sqaured") +
+  labs(y = "Adonis R-sqaured", x="Technical feature") +
   ylim(0,0.54)
 
 ggsave("05.PLOTS/07.Health_outcomes/VLP_shaping_factors_adonis.pdf",
@@ -360,7 +453,7 @@ FM <- ggplot(FM_list[["pcoa_plot_data"]], aes(x = V1, y = V2, color = !!sym(phen
   theme_bw() +
   labs(
     x = paste0("PC1: ", FM_list[["pvar"]][1], "%"),
-    y = paste0("PC1: ", FM_list[["pvar"]][2], "%")) + 
+    y = paste0("PC2: ", FM_list[["pvar"]][2], "%")) + 
   theme(axis.title = element_text(size=9),
         axis.text = element_text(size=8),
         legend.text = element_text(size=8),
