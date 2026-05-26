@@ -249,7 +249,6 @@ euk_perc_stat <- smeta %>%
   ) %>%
   as.data.frame()
 
-
 smeta <- smeta %>%
   mutate(euk_to_prok = log((Eukaryote_richness +1)/Prokaryote_richness))
 
@@ -269,14 +268,14 @@ diff_richness <- c("Eukaryote_richness", "Prokaryote_richness", "archaea_richnes
 
 diff_host_richness_dynamics <- map_dfr(diff_richness, function(richness){
             
-            formula <- paste(richness, " ~ exact_age_months_at_collection + (1|NEXT_ID)")
+            formula <- paste(richness, " ~ Timepoint_new + (1|NEXT_ID)")
             
             model <- lmer(formula, data = smeta %>% filter(Type == "K"))
             
             summary(model)$coefficients %>%
               as.data.frame() %>%
               rownames_to_column(var = "rowname") %>%
-              filter(rowname != "(Intercept)") %>%
+              filter(rowname == "Timepoint_new.L") %>%
               mutate(richness = richness)
               
             
@@ -340,10 +339,10 @@ prok_euks_lines <- smeta %>%
   mutate(Host_type = ifelse(name %in% c("bacteria_richness", "archaea_richness"), "Prokaryote", "Eukaryote")) %>%
   mutate(name = gsub("_richness", "", name)) %>%
   ggplot(aes(Timepoint_new, log10(value + 1), group = name, color = name, fill = name)) +
-  #stat_summary(fun.data = "mean_se", geom = "ribbon", alpha = 0.2, color = NA) +
-  #stat_summary(fun = mean, geom = "line", lwd = 1) +
-  stat_summary(fun.data = "median_hilow", geom = "ribbon", alpha = 0.2, color = NA) +
-  stat_summary(fun = median, geom = "line", lwd = 1) +
+  stat_summary(fun.data = "mean_se", geom = "ribbon", alpha = 0.2, color = NA) +
+  stat_summary(fun = mean, geom = "line", lwd = 1) +
+  #stat_summary(fun.data = "median_hilow", geom = "ribbon", alpha = 0.2, color = NA) +
+  #stat_summary(fun = median, geom = "line", lwd = 1) +
   facet_wrap(~Host_type, nrow = 1, scales = "free") +
   labs(x = "Timepoint", y = "Virus richness, log10", color = "Virus host", fill = "Virus host") +
   theme_bw() +
@@ -422,19 +421,34 @@ lifestyle_abundnce_box <- smeta %>%
 
 ggsave("05.PLOTS/06.DYNAMICS/Boxplot_Lifestyle_abundnce_by_time.pdf", lifestyle_abundnce_box, "pdf", width = 10, height=10, dpi = 300, units = "cm")
 
-lifestyle_dynamics <- map_dfr(c("temperate_richness", "lytic_richness", "temperate_RAb", "lytic_RAb"), function(metric){
+
+
+lifestyle_dynamics <- bind_rows(map_dfr(c("temperate_richness", "lytic_richness"), function(metric){
   
-  formula <- paste(metric, "~ exact_age_months_at_collection + (1|NEXT_ID)")
+  formula <- paste("log(",metric,"+1)" , "~ Timepoint_new + (1|NEXT_ID)")
   
   model <- lmer(formula, 
                 data = smeta[smeta$Type == "K",])
   
   as.data.frame(summary(model)$coefficients) %>%
     rownames_to_column(var = "rowname") %>%
-    filter(rowname != "(Intercept)") %>%
+    filter(rowname == "Timepoint_new.L") %>%
     mutate(metric = metric)
   
-})
+}),
+map_dfr(c("temperate_RAb", "lytic_RAb"), function(metric){
+  
+  formula <- paste("log(",metric,"+0.0009)" , "~ Timepoint_new + (1|NEXT_ID)")
+  
+  model <- lmer(formula, 
+                data = smeta[smeta$Type == "K",])
+  
+  as.data.frame(summary(model)$coefficients) %>%
+    rownames_to_column(var = "rowname") %>%
+    filter(rowname == "Timepoint_new.L") %>%
+    mutate(metric = metric)
+  
+}))
 
 lifestyle_dynamics <- lifestyle_dynamics %>%
   mutate(p_adj = p.adjust(`Pr(>|t|)`, "BH"))
@@ -443,15 +457,19 @@ writexl::write_xlsx(lifestyle_dynamics, '07.RESULTS/Phage_lifestyle_dynamics.xls
 
 # does the infant gut resembles maternal gut in lifestyle?
 
+# recalculate it! why ratio does not fall????
+
 smeta <- smeta %>%
-  mutate(temp_to_lytic_rich_log = log((lytic_richness +1)/(temperate_richness + 1)),
-         temp_to_lytic_ab_log = log((lytic_RAb+1)/(temperate_RAb + 1)))
+  mutate(temp_to_lytic_rich_log = log10( (lytic_richness +1)/(temperate_richness + 1) + 0.02/2),
+         temp_to_lytic_ab_log = log10((lytic_RAb+1)/(temperate_RAb + 1) + 0.01/2))
 
 temp_to_lytic_rich_log <- mixed_model_tukey(smeta, 
-                                            "temp_to_lytic_rich_log ~ Timepoint_new + (1|NEXT_ID)",
-                                            "Timepoint_new") 
+                                            "temp_to_lytic_rich_log ~ Type + (1|NEXT_ID)",
+                                            "Type") 
 
 temp_to_lytic_ab_log <- mixed_model_tukey(smeta, 
                                             "temp_to_lytic_ab_log ~ Timepoint_new + (1|NEXT_ID)",
                                             "Timepoint_new") 
+
+temp_to_lytic_ab_log$FDR <- p.adjust(temp_to_lytic_ab_log$p.value, "BH")
 
