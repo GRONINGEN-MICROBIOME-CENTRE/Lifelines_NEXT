@@ -25,6 +25,15 @@ mixed_model_tukey <- function(df, formula, variable){
     mutate(tested_var = gsub(" ~.*", "", formula))
   
 }
+
+# get iqrs:
+get_iqr <- function(vec) {
+  
+  SMR <- summary(vec)
+  
+  print(paste0(round(SMR[3], 2), ' (', round(SMR[2], 2), ' - ', round(SMR[5], 2), ')')) 
+  
+}
 #############################################################
 # 1. Loading libraries
 #############################################################
@@ -64,35 +73,49 @@ richness_by_genome <- VLP %>%
   summarise(across(where(is.numeric), ~sum(. > 0, na.rm = TRUE)), .groups = "drop") %>%
   pivot_longer(!genome) %>%
   pivot_wider(names_from = genome, values_from = value) %>%
-  left_join(smeta %>% select(Sequencing_ID, Timepoint_new, NEXT_ID, vir_richness_cf, vir_diversity, bacShannon), by = c("name" = "Sequencing_ID")) %>%
-  mutate(RNAtodsDNA = log((RNA + 1)/(dsDNA + 1)),
-         ssDNAtodsDNA = log((ssDNA + 1)/(dsDNA + 1)))
+  left_join(smeta %>% select(Sequencing_ID, Timepoint_new, Type, NEXT_ID, vir_richness_cf, vir_diversity, bacShannon), by = c("name" = "Sequencing_ID")) %>%
+  mutate(RNA_perc = RNA/vir_richness_cf * 100,
+         ssDNA_perc = ssDNA/vir_richness_cf * 100,
+         dsDNA_perc = dsDNA/vir_richness_cf * 100)
+
+# summary:
+richness_by_genome %>%
+  select(Type, RNA_perc, ssDNA_perc, dsDNA_perc) %>%
+  pivot_longer(!Type, names_to = "genome") %>%
+  group_by(genome) %>%
+  summarise(mean = mean(value, na.rm = T),
+            sd = sd(value, na.rm = T),
+            IQR = get_iqr(value))
 
 genome_type_richness <- rbind(mixed_model_tukey(richness_by_genome, 
-                                                "RNAtodsDNA ~ Timepoint_new + (1|NEXT_ID)",
-                                                "Timepoint_new"),
+                                                "RNA_perc ~ Type + (1|NEXT_ID)",
+                                                "Type"),
                               mixed_model_tukey(richness_by_genome, 
-                                                "ssDNAtodsDNA ~ Timepoint_new + (1|NEXT_ID)",
-                                                "Timepoint_new"))
+                                                "ssDNA_perc ~ Type + (1|NEXT_ID)",
+                                                "Type"),
+                              mixed_model_tukey(richness_by_genome, 
+                                                "dsDNA_perc ~ Type + (1|NEXT_ID)",
+                                                "Type"))
+genome_type_richness$FDR <- p.adjust(genome_type_richness$p.value, "BH")
 
-coda_genome_richness <- map_dfr(c('ssDNAtodsDNA', 'RNAtodsDNA'), function(prop_type) {
-    
-    formula <- as.formula(paste0(prop_type, " ~ ", " Timepoint_new + (1|NEXT_ID)"))
-    
-    model <- lmer(
-      formula,
-      REML = FALSE,
-      data = richness_by_genome[richness_by_genome$Timepoint_new != "Mother",]
-    )
-    
-    summary(model)$coefficients %>%
-      as.data.frame() %>%
-      rownames_to_column() %>%
-      filter(!rowname %in% c("(Intercept)", "Timepoint_new.Q", "Timepoint_new.C")) %>%
-      mutate(genome = prop_type)
-  })
-
-coda_genome_richness$p_adjust <- p.adjust(coda_genome_richness$`Pr(>|t|)`, "BH")
+# coda_genome_richness <- map_dfr(c('ssDNAtodsDNA', 'RNAtodsDNA'), function(prop_type) {
+#     
+#     formula <- as.formula(paste0(prop_type, " ~ ", " Timepoint_new + (1|NEXT_ID)"))
+#     
+#     model <- lmer(
+#       formula,
+#       REML = FALSE,
+#       data = richness_by_genome[richness_by_genome$Timepoint_new != "Mother",]
+#     )
+#     
+#     summary(model)$coefficients %>%
+#       as.data.frame() %>%
+#       rownames_to_column() %>%
+#       filter(!rowname %in% c("(Intercept)", "Timepoint_new.Q", "Timepoint_new.C")) %>%
+#       mutate(genome = prop_type)
+#   })
+# 
+# coda_genome_richness$p_adjust <- p.adjust(coda_genome_richness$`Pr(>|t|)`, "BH")
 
 rich_plot_data <- richness_by_genome %>%
   select(name, ssDNA, RNA, dsDNA, Timepoint_new, vir_richness_cf) %>%
@@ -102,13 +125,13 @@ rich_plot_data <- richness_by_genome %>%
 mom_means <- rich_plot_data %>%
   filter(Timepoint_new == "Mother") %>%
   group_by(genome) %>%
-  summarise(mean_value = mean(prop_rich), .groups = "drop") %>%
+  summarise(mean_value = median(prop_rich), .groups = "drop") %>%
   mutate(Type = "Mother")
 
 inf_means <- rich_plot_data %>%
   filter(Timepoint_new != "Mother") %>%
   group_by(genome, Timepoint_new) %>%
-  summarise(mean_value = mean(prop_rich), .groups = "drop")
+  summarise(mean_value = median(prop_rich), .groups = "drop")
 
 
 rich_plot <- rich_plot_data %>%
@@ -116,10 +139,10 @@ rich_plot <- rich_plot_data %>%
   filter(Timepoint_new != "Mother" & genome != "Unclassified") %>%
   ggplot(aes(Timepoint_new, prop_rich, group = genome, color = genome, fill = genome, linetype = Type)) +
   geom_hline(data = mom_means, aes(yintercept = mean_value, color = genome, linetype = Type), lwd = 0.5) +
-  stat_summary(fun.data = "mean_se", geom = "ribbon", alpha = 0.2, color = NA) +
-  stat_summary(fun = mean, geom = "line", lwd = 0.5) +
-  #stat_summary(fun.data = "median_hilow", geom = "ribbon", alpha = 0.2, color = NA) +
-  #stat_summary(fun = median, geom = "line", lwd = 1) +
+  #stat_summary(fun.data = "mean_se", geom = "ribbon", alpha = 0.2, color = NA) +
+  #stat_summary(fun = mean, geom = "line", lwd = 0.5) +
+  stat_summary(fun.data = "median_hilow", geom = "ribbon", alpha = 0.2, color = NA) +
+  stat_summary(fun = median, geom = "line", lwd = 1) +
   labs(x = "Timepoint", y = "Richness proportion", color = "Genome type", fill = "Genome type") +
   theme_bw() +
   theme(legend.position = "bottom",
@@ -146,19 +169,25 @@ abundance_by_genome <- VLP %>%
   mutate(across(where(is.numeric), ~ .x / sum(.x, na.rm = TRUE))) %>%
   pivot_longer(!genome) %>%
   pivot_wider(names_from = genome, values_from = value) %>%
-  left_join(smeta %>% select(Sequencing_ID, Timepoint_new, NEXT_ID, vir_richness_cf, vir_diversity, bacShannon), by = c("name" = "Sequencing_ID")) %>%
-  mutate(RNAtodsDNA = log((RNA + 2.56e-06)/(dsDNA + 2.56e-06)), # adding pseudocount, I calculated it separately
-         ssDNAtodsDNA = log((ssDNA + 2.56e-06)/(dsDNA + 2.56e-06)))
+  left_join(smeta %>% select(Sequencing_ID, Timepoint_new, Type, NEXT_ID, vir_richness_cf, vir_diversity, bacShannon), by = c("name" = "Sequencing_ID")) %>%
+  mutate(RNA = log(RNA + 2.56e-06), # adding pseudocount, I calculated it separately
+         ssDNA = log(ssDNA + 2.56e-06),
+         dsDNA = log(dsDNA + 2.56e-06))
 
 
 genome_type_abundance <- rbind(mixed_model_tukey(abundance_by_genome, 
-                                                "RNAtodsDNA ~ Timepoint_new + (1|NEXT_ID)",
+                                                "RNA ~ Timepoint_new + (1|NEXT_ID)",
                                                 "Timepoint_new"),
                               mixed_model_tukey(abundance_by_genome, 
-                                                "ssDNAtodsDNA ~ Timepoint_new + (1|NEXT_ID)",
+                                                "ssDNA ~ Timepoint_new + (1|NEXT_ID)",
+                                                "Timepoint_new"),
+                              mixed_model_tukey(abundance_by_genome, 
+                                                "dsDNA ~ Timepoint_new + (1|NEXT_ID)",
                                                 "Timepoint_new"))
 
-coda_genome_abundance <- map_dfr(c('ssDNAtodsDNA', 'RNAtodsDNA'), function(prop_type) {
+genome_type_abundance$FDR <- p.adjust(genome_type_abundance$p.value, "BH")
+
+no_coda_genome_abundance <- map_dfr(c('ssDNA', 'RNA', 'dsDNA'), function(prop_type) {
   
   formula <- as.formula(paste0(prop_type, " ~ ", " Timepoint_new + (1|NEXT_ID)"))
   
@@ -175,7 +204,7 @@ coda_genome_abundance <- map_dfr(c('ssDNAtodsDNA', 'RNAtodsDNA'), function(prop_
     mutate(genome = prop_type)
 })
 
-coda_genome_abundance$p_adjust <- p.adjust(coda_genome_abundance$`Pr(>|t|)`, "BH")
+no_coda_genome_abundance$p_adjust <- p.adjust(coda_genome_abundance$`Pr(>|t|)`, "BH")
 
 abu_plot_data <- abundance_by_genome %>%
   select(name, ssDNA, RNA, dsDNA, Timepoint_new, vir_richness_cf) %>%
@@ -256,6 +285,6 @@ abundance_by_genome %>%
 # abu:
 abundance_by_genome %>%
   mutate(non_dsDNA = (ssDNA)) %>%
-  filter(Timepoint_new == "M12") %>%
+  filter(Timepoint_new == "Mother") %>%
   pull(non_dsDNA) %>%
-  sd()
+  get_iqr()
