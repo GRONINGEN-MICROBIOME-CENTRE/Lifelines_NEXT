@@ -19,7 +19,7 @@ names_components <- names(data2)[grepl("^median_", names(data2))]
 
 # Exclude specific columns
 exclude_columns <- c(
-  "median_group_X3_GL_galactosyllactose_mg",
+  "median_group_X3_galactosyllactose_mg",
   "median_group_casein_g"
 )
 
