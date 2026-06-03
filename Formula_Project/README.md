@@ -1,4 +1,5 @@
-# 📊 The effect of infant formula on the gut microbiome
+# 📊 The signature of formula components on the gut microbiome of exclusively formula-fed infants in the Lifelines NEXT cohort
+
 
 ## Overview
 This project includes:
@@ -32,8 +33,8 @@ This project includes:
 | Script | Description |
 |--------|-------------|
 | `01_clean_and_merge_for_modeling.R` | Prepares final dataset with phenotype and diversity data |
-| `02_run_mixed_models.R` | Runs mixed models: Shannon ~ Continuous nutrient values |
-| `03_run_mixed_models_median_group.R` | Runs mixed models: Shannon ~ Median-grouped nutrient values |
+| `02_run_mixed_models_shannon_continuous.R` | Runs mixed models: Shannon ~ Continuous nutrient values |
+| `03_run_mixed_models_shannon_median_group.R` | Runs mixed models: Shannon ~ Median-grouped nutrient values |
 | `04_run_mixed_models_richness_continuous.R` | Runs mixed models: Richness ~ Continuous nutrient values |
 | `05_run_mixed_models_richness_median_group.R` | Runs mixed models: Richness ~ Median-grouped nutrient values |
 | `06_run_mixed_models_species_continuous.R` | Runs mixed models: Species abundance ~ Continuous nutrient values |
