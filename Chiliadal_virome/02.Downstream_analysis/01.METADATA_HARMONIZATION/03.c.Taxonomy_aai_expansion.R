@@ -254,7 +254,7 @@ library(tidyverse)
 #############################################################
 taxa <- read.table('06.CLEAN_DATA/Consensus_taxonomy_121062_ICTV_curated.txt', sep='\t', header=T)
 
-ETOF_vOTUr <- read.table('06.CLEAN_DATA/02.FINAL/Basic_ETOF_121062vOTUr_ab3kbp_in_2200_VLP_MGS.txt', sep='\t', header=T)
+ETOF_vOTUr <- read.table('06.CLEAN_DATA/OLD_release_delete/Basic_ETOF_121062vOTUr_ab3kbp_in_2200_VLP_MGS.txt', sep='\t', header=T)
 
 genus_clusters <- read.table('06.CLEAN_DATA/genus_clusters_121062vOTUr_labeled_long_format.txt', sep = '\t', header=T)
 genus_size <- read.table('06.CLEAN_DATA/genus_clusters_121062vOTUr_labeled_size.txt', sep='\t', header=T)
@@ -319,8 +319,7 @@ colnames(family_size_UPD) <- colnames(family_size)
 # families are ready to be saved
 
 rm(list=c("family_size", "family_clusters", "genus_family_check",
-          "family_clusters_UPD", "family_size_UPD",
-          'genus_clusters', 'genus_size', 'major_family', "df"))
+          'major_family', "df"))
 #############################################################
 # 3.3 Analysis: checking AAI ranks vs (higher) taxa ranks conflicts
 #############################################################
@@ -396,6 +395,21 @@ View(top12_wide[top12_wide$top1_n == top12_wide$top2_n,]) # there are cases with
 # if genome length tie-breaker does not resolve it, it will be a priority resolution (or I'll think about it later)
 rm(top12_wide)
 #############################################################
+# 3.4.1 Analysis: checking common misassignments
+#############################################################
+# Poxviridae: https://doi.org/10.1101/2024.03.23.586382
+not_pox <- read.table("03.OUTPUT/not_pox.txt", sep='\t', header = F) # blasted after AAI expansion
+
+# Protists: https://doi.org/10.1136/gutjnl-2019-319067
+not_protists <- read.table("03.OUTPUT/not_protists.txt", sep='\t', header = F) # blasted after AAI expansion
+
+df_fixed <- df_fixed %>%
+  mutate(
+    consensus_lineage = if_else(New_CID %in% c(not_pox$V1, not_protists$V1), "Unclassified;;;;;;;;;", consensus_lineage),
+    across(all_of(ranks), ~ if_else(New_CID %in% c(not_pox$V1, not_protists$V1), "Unclassified", .x)
+    )
+  )
+#############################################################
 # 3.5 Analysis: expanding taxonomy assignment based on genus & family
 #############################################################
 # @ AAI genus level:
@@ -415,6 +429,16 @@ df_final <- propagate_taxonomy_patched(
 # crassvirales (I did it this way only because I first checked they are all Caudoviricetes with unclassified lower ranks OR
 # already Crassvirales):
 df_final$Order[grepl('Guerin|Yutin|NCBI_CrAss|NL_crAss', df_final$New_CID)] <- 'Crassvirales'
+
+# enforce blastn results for misassigned:
+df_final <- df_final %>%
+  mutate(
+    consensus_lineage = if_else(New_CID %in% c(not_pox$V1, not_protists$V1) & 
+                                  Phylum == "Nucleocytoviricota", "Unclassified;;;;;;;;;", consensus_lineage),
+    across(all_of(ranks), ~ if_else(New_CID %in% c(not_pox$V1, not_protists$V1) &
+                                      Phylum == "Nucleocytoviricota", "Unclassified", .x)
+    )
+  )
 
 rm(list = c("df_fixed", "ETOF_vOTUr"))
 #############################################################
