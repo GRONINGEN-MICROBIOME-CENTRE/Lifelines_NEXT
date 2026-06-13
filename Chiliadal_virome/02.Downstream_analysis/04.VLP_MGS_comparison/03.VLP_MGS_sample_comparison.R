@@ -25,16 +25,8 @@ stat_box_data <- function(y) {
 # 1. Loading libraries
 #############################################################
 library(dplyr)
-# library(purrr)
 library(tidyverse)
-# library(broom)
-# library(skimr)
 library(ggplot2)
-# library(UpSetR)
-# library(ggforce)
-# library(Matrix)
-# library(lme4)
-# library(lmerTest)
 #############################################################
 # 2. Load Input Data
 #############################################################
@@ -146,10 +138,10 @@ p_select <- ggplot(plot_data, aes(x = Category, y = similarity, fill = method)) 
                                                                   MetBrewer::met.brewer("Kandinsky")[1], 
                                                                   MetBrewer::met.brewer("Kandinsky")[2])) +
   theme(legend.position = "right",
-        legend.text = element_text(size=7),
+        legend.text = element_text(size=8),
         legend.title = element_text(size = 8),
         axis.title = element_text(size=8),
-        axis.text = element_text(size=7),
+        axis.text = element_text(size=8),
         legend.key.size = unit(0.7, 'line'),
         legend.margin=margin(0,0,0,0),
         legend.box.margin=margin(-10,0,-10,-10)) +
@@ -170,7 +162,7 @@ p_select <- ggplot(plot_data, aes(x = Category, y = similarity, fill = method)) 
                              p.adjust.method = "BH")
 
 ggsave('05.PLOTS/05.VLP_MGS/VLP_MGS_select_jaccard.pdf', 
-       p_select, "pdf", width=10, height=7, units="cm", dpi = 300)
+       p_select, "pdf", width=11, height=7, units="cm", dpi = 300)
 
 #############################################################
 # 3.2 Permutation analysis for jaccard similarity
