@@ -125,7 +125,7 @@ colnames(vqc_mgs) <- janitor::make_clean_names(colnames(vqc_mgs))
 colnames(vqc_mgs)[grep('sample', colnames(vqc_mgs))] <- 'Sequencing_ID'
 
 penta_genomics <- full_join(contig_stat_mgs[,c("Sequencing_ID", "contigs_0_bp", "contigs_1000_bp")], 
-                            vqc_mgs[,c("Sequencing_ID", "bacterial_markers_alignment_rate")], by="Sequencing_ID")
+                            vqc_mgs[,c("Sequencing_ID", "reads_hq", "bacterial_markers_alignment_rate")], by="Sequencing_ID")
 rm(contig_stat_mgs, vqc_mgs)
 #############################################################
 # 3. Combine and clean Chiliadal metadata
@@ -521,6 +521,10 @@ mgs_smeta <- bgnp_metadata_all[bgnp_metadata_all$FAMILY %in% Chiliadal_sequenced
 # adding contig and vqc data to full overlap data:
 mgs_smeta <- full_join(mgs_smeta, penta_genomics, by="Sequencing_ID")
 rm(penta_genomics)
+mgs_smeta <- mgs_smeta %>%
+  mutate(clean_reads = ifelse(!is.na(reads_hq), reads_hq, clean_reads),
+         reads_lost_QC = ifelse(!is.na(reads_hq), 1 - clean_reads/raw_reads, clean_reads)) %>%
+  select(-reads_hq)
 
 # cleaning up:
 rm(bgnp_metadata_all)
@@ -597,7 +601,7 @@ column_order <- c('NEXT_ID', 'Type', 'Timepoint_original',
                   'exact_age_days_at_collection', 'exact_age_months_at_collection', 
                   'exact_age_years_at_collection','Timepoint_categorical')
 
-long_metadata <- long_metadata[,column_order]
+long_metadata <- long_metadata[, column_order]
 long_metadata$bacShannon <- bac_diversity_shannon$diversity[match(long_metadata$Universal_ID, bac_diversity_shannon$Universal_ID)]
 
 rm(bac_diversity_shannon)
