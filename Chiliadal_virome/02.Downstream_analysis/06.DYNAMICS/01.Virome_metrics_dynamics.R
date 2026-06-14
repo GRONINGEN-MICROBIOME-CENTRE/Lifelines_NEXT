@@ -414,9 +414,10 @@ lifestyle_abundnce <- smeta %>%
         axis.text = element_text(size=8),
         legend.title = element_text(size = 9),
         legend.text = element_text(size=8),
-        legend.position = "bottom")
+        legend.position = "bottom") +
+  scale_x_discrete(expand = c(0.05, 0.05))
 
-ggsave("05.PLOTS/06.DYNAMICS/Lifestyle_abundnce_by_time.pdf", lifestyle_abundnce, "pdf", width = 8, height=8, dpi = 300, units = "cm")
+ggsave("05.PLOTS/06.DYNAMICS/Lifestyle_abundnce_by_time.pdf", lifestyle_abundnce, "pdf", width = 7, height=8, dpi = 300, units = "cm")
 
 
 # supp (boxplot): # does abundance of phages of different lifestyle changes over time?
