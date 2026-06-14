@@ -89,6 +89,8 @@ library(vegan)
 library(lme4)
 library(lmerTest)
 library(ggplot2)
+library(MetBrewer)
+library(patchwork)
 #############################################################
 # 2. Load Input Data
 #############################################################
@@ -172,7 +174,18 @@ stat_mm <- map_dfr(c("lytic_index_scaled",
       filter(rowname == lfs_metric) 
 })
 
-stat_mm$FDR <- p.adjust(stat_mm$`Pr(>|t|)`, "BH")
+stat_mm <- stat_mm %>%
+  mutate(FDR = p.adjust(`Pr(>|t|)`, "BH"),
+         Transformation = "z-score transformation",
+         rowname = gsub("_scaled", "", rowname)) %>%
+  rename(ratio_type = rowname) %>%
+  mutate(across(where(is.character), ~ recode(.x,
+                                  "lytic_index" = "Virulent_to_temperate_ratio",
+                                  "ssDNAtodsDNA" = "ssDNA_to_dsDNA_ratio",
+                                  "RNAtodsDNA" = "RNA_to_dsDNA_ratio") )) %>%
+  relocate(ratio_type, Transformation)
+
+writexl::write_xlsx(stat_mm, '07.RESULTS/Virome_recapitulation_associated_factors.xlsx')
 
 # distribution of VLP recapitulation and correlation to index
 xAxisBoxPlot_v <- ggplot(sharing_all_UPD, aes(x="", y = perc_VLP_in_MGS)) +
@@ -181,30 +194,30 @@ xAxisBoxPlot_v <- ggplot(sharing_all_UPD, aes(x="", y = perc_VLP_in_MGS)) +
   coord_flip()
 
 p_lfs_index <- ggplot(sharing_all_UPD, aes(x = perc_VLP_in_MGS, y = lytic_index)) +
-  ggrastr::rasterise(geom_point(alpha = 0.8, size = 1, color = "#132440"), dpi = 300)+
+  ggrastr::rasterise(geom_point(alpha = 0.6, size = 1, color = "#132440"), dpi = 300)+
   geom_smooth(method = "lm", se = TRUE, size = 1.2, color = "#BF092F", fill = "#BF092F") +
   theme_minimal() +
-  theme(axis.text = element_text(size=7),
+  theme(axis.text = element_text(size=8),
         axis.title = element_text(size=9)) +
   labs(x = "% VLP-detected vOTUs recapitulated in MGS", 
        y = "Virulent-to-temperate phage ratio") + 
-  annotate(geom = "text", x = 70, y = 2.5, label = "beta = -6.6\np-value = 3.9e-39", size = 2.5)
+  annotate(geom = "text", x = 70, y = 2.5, label = "beta = -6.6\np-value = 7.3e-39", size = 2.5)
 
 p_lfs_index_w <- xAxisBoxPlot_v / p_lfs_index + 
   plot_layout(heights = c(1,8))
 
 ggsave('05.PLOTS/05.VLP_MGS/VLP_in_MGS_detection_vs_lytic_index.pdf',
-       p_lfs_index_w,  "pdf", width=7.5, height=8.5 , units="cm", dpi = 300)
+       p_lfs_index_w,  "pdf", width=8, height=8, units="cm", dpi = 300)
 
 
-efsize <- ggplot(stat_mm, aes(x = reorder(rowname, Estimate), y = Estimate)) +
+efsize <- ggplot(stat_mm, aes(x = reorder(ratio_type, Estimate), y = Estimate)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "firebrick") +
   geom_pointrange(aes(ymin = Estimate - 1.96*`Std. Error`, ymax = Estimate + 1.96*`Std. Error`), size = 0.5, color = "#132440") +
   scale_x_discrete(labels = c("Virulent-to-temperate vOTU ratio", "ssDNA-to-dsDNA vOTU ratio", "RNA-to-dsDNA vOTU ratio")) +
   coord_flip() +
   labs(x = "VLP virome feature", y = "Standardized effect size") +
   theme_minimal() +
-  theme(axis.text = element_text(size=7),
+  theme(axis.text = element_text(size=8),
         axis.title = element_text(size=9))
 
 ggsave('05.PLOTS/05.VLP_MGS/VLP_in_MGS_detection_drivers.pdf',
@@ -227,10 +240,27 @@ MGS_all_RA <- MGS_all_RA[row.names(metaphlan),]
 # dist (decided to go w Bray)
 dist_bac <- vegdist(metaphlan, method="bray")
 dist_vlp <- vegdist(VLP_all_RA, method="bray")
-dist_mgs <- vegdist(MGS_all_RA, method="bray", na.rm = T)
+dist_mgs <- vegdist(MGS_all_RA, method="bray", na.rm = T) # 1 sample has 0 viruses detected after decontamination
 
+set.seed(444)
 mantel_vlp <- mantel(dist_bac, dist_vlp, method="spearman", permutations=999, na.rm = T)
-mantel_mgs <- mantel(dist_bac, dist_mgs, method="spearman", permutations=999, na.rm = T)
+mantel_mgs <- mantel(dist_bac, dist_mgs, method="spearman", permutations=999, na.rm = T) # 1 sample has 0 viruses detected after decontamination
+
+# table
+mantel_summary_table <- data.frame(test = c("VLP-virome vs bacteriome","MGS-virome vs bacteriome"),
+  matrix_1 = c("VLP virome distance matrix", "MGS virome distance matrix"),
+  matrix_2 = c("Bacteriome distance matrix (SGB-level)","Bacteriome distance matrix (SGB-level)"),
+  n_samples = c(sum(colSums(VLP>0) !=0),sum(colSums(MGS>0) !=0)),
+  distance_metric_matrix_1 = c("Bray-Curtis dissimilarity", "Bray-Curtis dissimilarity"),
+  distance_metric_matrix_2 = c("Bray-Curtis dissimilarity", "Bray-Curtis dissimilarity"),
+  mantel_method = c(mantel_vlp$method, mantel_mgs$method),
+  permutations = c(mantel_vlp$permutations, mantel_mgs$permutations),
+  seed = c(444,444),
+  mantel_r = c(unname(mantel_vlp$statistic), unname(mantel_mgs$statistic)),
+  p_value = c(mantel_vlp$signif, mantel_mgs$signif),
+  stringsAsFactors = FALSE)
+
+writexl::write_xlsx(mantel_summary_table, '07.RESULTS/Mantel_test_results.xlsx')
 
 dist_bac_m <- as.matrix(dist_bac)
 dist_vlp_m <- as.matrix(dist_vlp)
@@ -259,31 +289,32 @@ plot_data <- df_summary %>%
   mutate(Bact_Midpoint = as.numeric(sub(".*,([0-9.]*)\\]", "\\1", Bin)) - bin_size/2) %>%
   mutate(Bact_Midpoint = ifelse(is.na(Bin), 1, Bact_Midpoint)) # otherwise it will never reach it, even though we do have dist = 1
 
-# change color?
 plotik <- ggplot(plot_data, aes(x = Bact_Midpoint, y = Mean_Viral, color = Fraction, fill = Fraction)) +
   geom_ribbon(aes(ymin = Mean_Viral - SD_Viral, ymax = Mean_Viral + SD_Viral), 
               alpha = 0.15, color = NA) + 
   geom_line(size = 1.2) +
-  scale_color_manual(values = c("MGS" = "#E64B35FF", "VLP" = "#4DBBD5FF")) +
-  scale_fill_manual(values = c("MGS" = "#E64B35FF", "VLP" = "#4DBBD5FF")) +
+  scale_color_manual(values = c("MGS" = met.brewer("Kandinsky")[1], "VLP" = met.brewer("Kandinsky")[2])) +
+  scale_fill_manual(values = c("MGS" = met.brewer("Kandinsky")[1], "VLP" = met.brewer("Kandinsky")[2])) +
   labs(x = "Bacteriome dissimilarity", y = "Virome dissimilarity", color = "Metavirome type", fill = "Metavirome type") +
   theme_minimal() +
-  theme(legend.position = "bottom",
-        axis.text = element_text(size=7),
+  theme(legend.position = "right",
+        axis.text = element_text(size=8),
         axis.title = element_text(size=9),
         legend.title = element_text(size=9),
-        legend.text = element_text(size=7),
+        legend.text = element_text(size=8),
         legend.key.size=unit(0.7, "line"),
-        legend.key.spacing.y = unit(1, 'pt')) +
-  annotate("rect", xmin = 0.7, xmax = 0.99, ymin = 0.45, ymax = 0.6, 
-           alpha = 0.2, fill = "#4DBBD5FF") +
+        legend.key.spacing.y = unit(1, 'pt'),
+        legend.margin=margin(0,0,0,0),
+        legend.box.margin=margin(-10,0,-10,-10)) +
+  annotate("rect", xmin = 0.7, xmax = 1, ymin = 0.45, ymax = 0.6, 
+           alpha = 0.2, fill = met.brewer("Kandinsky")[2]) +
   annotate(geom="text", x = 0.85, y=0.53, label = "r = 0.24\np-value < 0.001", size = 2.5) +
-  annotate("rect", xmin = 0.7, xmax = 0.99, ymin = 0.3, ymax = 0.45, 
-           alpha = 0.2, fill = "#E64B35FF") +
+  annotate("rect", xmin = 0.7, xmax = 1, ymin = 0.3, ymax = 0.45, 
+           alpha = 0.2, fill = met.brewer("Kandinsky")[1]) +
   annotate(geom="text", x = 0.85, y=0.38, label = "r = 0.88\np-value < 0.001", size = 2.5)
   
 ggsave('05.PLOTS/05.VLP_MGS/mantel_results.pdf',
-       plotik,  "pdf", width=8, height=9, units="cm", dpi = 300)
+       plotik,  "pdf", width=10.5, height=8, units="cm", dpi = 300)
 
 
 
