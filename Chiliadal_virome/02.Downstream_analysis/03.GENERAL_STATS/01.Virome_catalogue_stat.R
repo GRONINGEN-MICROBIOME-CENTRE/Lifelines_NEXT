@@ -430,6 +430,20 @@ virhost <- ETOF_vOTUr  %>%
   summarise(sum=n(), .groups = "drop") %>%
   mutate(perc = round(sum / nrow(ETOF_vOTUr) * 100, 1))
 
+virlfs <- ETOF_vOTUr  %>%
+  filter(Host_simple=="Prokaryote" & lifestyle != "Unknown") %>%
+  group_by(lifestyle) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(perc = round(sum / nrow(ETOF_vOTUr  %>%
+                                   filter(Host_simple=="Prokaryote" & lifestyle != "Unknown")) * 100, 1))
+
+vir_euk <- ETOF_vOTUr  %>%
+  filter(Host_simple=="Eukaryote") %>%
+  group_by(Host) %>%
+  summarise(sum=n(), .groups = "drop") %>%
+  mutate(perc = round(sum / nrow(ETOF_vOTUr  %>%
+                                   filter(Host_simple=="Eukaryote")) * 100, 1))
+
 #############################################################
 # 3.4 Analysis: novels' descriptive
 #############################################################
