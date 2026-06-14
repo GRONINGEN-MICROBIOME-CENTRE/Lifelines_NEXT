@@ -98,6 +98,8 @@ genome_type_richness <- rbind(mixed_model_tukey(richness_by_genome,
                                                 "Type"))
 genome_type_richness$FDR <- p.adjust(genome_type_richness$p.value, "BH")
 
+writexl::write_xlsx(genome_type_richness, '07.RESULTS/Genome_type_mother_infant_difference.xlsx')
+
 # coda_genome_richness <- map_dfr(c('ssDNAtodsDNA', 'RNAtodsDNA'), function(prop_type) {
 #     
 #     formula <- as.formula(paste0(prop_type, " ~ ", " Timepoint_new + (1|NEXT_ID)"))
@@ -139,10 +141,10 @@ rich_plot <- rich_plot_data %>%
   filter(Timepoint_new != "Mother" & genome != "Unclassified") %>%
   ggplot(aes(Timepoint_new, prop_rich, group = genome, color = genome, fill = genome, linetype = Type)) +
   geom_hline(data = mom_means, aes(yintercept = mean_value, color = genome, linetype = Type), lwd = 0.5) +
-  #stat_summary(fun.data = "mean_se", geom = "ribbon", alpha = 0.2, color = NA) +
-  #stat_summary(fun = mean, geom = "line", lwd = 0.5) +
-  stat_summary(fun.data = "median_hilow", geom = "ribbon", alpha = 0.2, color = NA) +
-  stat_summary(fun = median, geom = "line", lwd = 1) +
+  stat_summary(fun.data = "mean_se", geom = "ribbon", alpha = 0.2, color = NA) +
+  stat_summary(fun = mean, geom = "line", lwd = 0.5) +
+  #stat_summary(fun.data = "median_hilow", geom = "ribbon", alpha = 0.2, color = NA) +
+  #stat_summary(fun = median, geom = "line", lwd = 1) +
   labs(x = "Timepoint", y = "Richness proportion", color = "Genome type", fill = "Genome type") +
   theme_bw() +
   theme(legend.position = "bottom",
@@ -169,10 +171,10 @@ abundance_by_genome <- VLP %>%
   mutate(across(where(is.numeric), ~ .x / sum(.x, na.rm = TRUE))) %>%
   pivot_longer(!genome) %>%
   pivot_wider(names_from = genome, values_from = value) %>%
-  left_join(smeta %>% select(Sequencing_ID, Timepoint_new, Type, NEXT_ID, vir_richness_cf, vir_diversity, bacShannon), by = c("name" = "Sequencing_ID")) %>%
-  mutate(RNA = log(RNA + 2.56e-06), # adding pseudocount, I calculated it separately
-         ssDNA = log(ssDNA + 2.56e-06),
-         dsDNA = log(dsDNA + 2.56e-06))
+  left_join(smeta %>% select(Sequencing_ID, Timepoint_new, Type, NEXT_ID, vir_richness_cf, vir_diversity, bacShannon), by = c("name" = "Sequencing_ID")) #%>%
+  # mutate(RNA = log(RNA + 2.56e-06), # adding pseudocount, I calculated it separately
+  #        ssDNA = log(ssDNA + 2.56e-06),
+  #        dsDNA = log(dsDNA + 2.56e-06))
 
 
 genome_type_abundance <- rbind(mixed_model_tukey(abundance_by_genome, 
@@ -185,7 +187,12 @@ genome_type_abundance <- rbind(mixed_model_tukey(abundance_by_genome,
                                                 "dsDNA ~ Timepoint_new + (1|NEXT_ID)",
                                                 "Timepoint_new"))
 
+genome_type_abundance <- genome_type_abundance %>%
+  filter(grepl('Mother', contrast))
+
 genome_type_abundance$FDR <- p.adjust(genome_type_abundance$p.value, "BH")
+
+writexl::write_xlsx(genome_type_abundance, '07.RESULTS/Genome_type_abundance_mother_infant_difference_p_timepoint.xlsx')
 
 no_coda_genome_abundance <- map_dfr(c('ssDNA', 'RNA', 'dsDNA'), function(prop_type) {
   
@@ -204,7 +211,9 @@ no_coda_genome_abundance <- map_dfr(c('ssDNA', 'RNA', 'dsDNA'), function(prop_ty
     mutate(genome = prop_type)
 })
 
-no_coda_genome_abundance$p_adjust <- p.adjust(coda_genome_abundance$`Pr(>|t|)`, "BH")
+no_coda_genome_abundance$p_adjust <- p.adjust(no_coda_genome_abundance$`Pr(>|t|)`, "BH")
+writexl::write_xlsx(no_coda_genome_abundance, '07.RESULTS/Genome_type_abundance_infant_dyanmics.xlsx')
+
 
 abu_plot_data <- abundance_by_genome %>%
   select(name, ssDNA, RNA, dsDNA, Timepoint_new, vir_richness_cf) %>%
@@ -242,38 +251,25 @@ abu_plot <- abu_plot_data %>%
 # saving output:
 
 ## plot
-better_together <- rich_plot + abu_plot + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+better_together <- rich_plot + abu_plot + plot_layout(guides = "collect") & theme(legend.position = "right")
 
 ggsave("05.PLOTS/06.DYNAMICS/VLP_richness_abundance_by_genome_lines.pdf",
-       better_together, "pdf", width = 8, height = 9, units = "cm")
-
-## dynamics in infants:
-coda <- coda_genome_richness %>%
-  mutate(Info_type = "Richness proportion") %>%
-  bind_rows(coda_genome_abundance %>%
-              mutate(Info_type = "Abundance"))
-
-writexl::write_xlsx(coda, '07.RESULTS/Compare_genome_type_richness_abundance.xlsx')
-
-## timepoint-wise comparison to mothers:
-genome_type_tukeys <- genome_type_richness %>%
-  mutate(Info_type = "Richness proportion") %>%
-  bind_rows(genome_type_abundance %>%
-              mutate(Info_type = "Abundance")) %>%
-  #group_by(contrast) %>%
-  mutate(p_adjusted = p.adjust(p.value, "BH")) %>%
-  ungroup()
-
-writexl::write_xlsx(genome_type_tukeys, '07.RESULTS/Compare_genome_type_richness_abundance_to_Mother.xlsx')
+       better_together, "pdf", width = 12, height = 8, units = "cm")
 
 ## numbers:
 
 # contribution to maternal virome:
 richness_by_genome %>%
   mutate(non_dsDNA = (RNA + ssDNA)/vir_richness_cf) %>%
-  filter(Timepoint_new == "Mother") %>%
+  #filter(Timepoint_new == "Mother") %>%
   pull(non_dsDNA) %>%
-  sd()
+  summary()
+
+richness_by_genome %>%
+  mutate(non_dsDNA = (ssDNA)/vir_richness_cf) %>%
+  #filter(Timepoint_new == "Mother") %>%
+  pull(non_dsDNA) %>%
+  summary()
 
 # abu:
 abundance_by_genome %>%
