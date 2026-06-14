@@ -115,9 +115,21 @@ results_genomics <- map_dfr(genomics_compare, function(genomics) {
 
 results_genomics <- results_genomics %>%
   mutate(p_adj = p.adjust(`Pr(>|t|)`, "BH")) %>%
-  mutate(across(where(is.numeric), ~ smart_round(.)) )
+  mutate(across(where(is.numeric), ~ smart_round(.)) ) %>%
+  filter(!grepl("Timepoint_new", `Metavirome type`)) %>%
+  mutate(across(
+    where(is.character), ~ recode(.x,
+                                  "raw_reads" = "N raw reads",
+                                  "human_reads" = "N human reads",
+                                  "clean_reads" = "N clean reads",
+                                  "contigs_0_bp" = "N contigs",
+                                  "contigs_1000_bp" = "N contigs > 1 kbp",
+                                  "sc_enrichment" = "Enrichment for non-bacterial sequences")
+  )) %>%
+  mutate(Transformation = "log10-scaled") %>%
+  relocate(`Genomic metric`, Transformation)
 
-write.table(results_genomics, '07.RESULTS/Compare_genomic_metrics_MGS_VLP.txt', sep='\t', quote=F, row.names=F)
+writexl::write_xlsx(results_genomics, '07.RESULTS/Compare_genomic_metrics_MGS_VLP.xlsx')
 rm(genomics_compare)
 #############################################################
 # 3.2 Analysis: VLP and MGS contribution to the NEXT virome
@@ -152,13 +164,13 @@ listInput <- list(DB=vOTU_by_source[vOTU_by_source$DB_sum>0,]$vOTU_representativ
 upset_all <- upset(fromList(listInput), order.by = "freq", sets.bar.color = c("#71C9CE", "#A6E3E9", "#CBF1F5"), 
                    number.angles = 0,
                    sets.x.label = "N vOTUs", scale.sets = "identity",
-                   text.scale = c(1, 1, 1, 0.7, 1, 1))
+                   text.scale = c(1, 1, 1, 1, 1, 1))
 
 png('05.PLOTS/05.VLP_MGS/UpSet_plot_all_vOTUs.png', width=10, height=7, units="cm", res = 300)
 upset_all
 dev.off()
 
-pdf('05.PLOTS/05.VLP_MGS/UpSet_plot_all_vOTUs.pdf', width=4, height=3.5)
+pdf('05.PLOTS/05.VLP_MGS/UpSet_plot_all_vOTUs.pdf', width=4, height=3)
 upset_all
 dev.off()
 
@@ -395,18 +407,16 @@ vOTU_rich <- smeta %>%
   geom_rect(xmin=1.002, xmax=1.5, ymin = -0.001, ymax=4000, fill="white") +
   geom_rect(xmin=1.5, xmax=1.998, ymin= -0.001, ymax=4000, fill="white") +
   geom_line(aes(group = Universal_ID),alpha=0.1, color="darkgrey", linewidth = 0.1) +
-  geom_point(aes(seq_type, vir_richness_cf, color=seq_type), size=0.3, alpha=0.2) + 
+  ggrastr::rasterise(geom_point(aes(seq_type, vir_richness_cf, color=seq_type), size=0.3, alpha=0.2), dpi = 300)+
   facet_wrap(~Richness_type, scales = "free") +
   ggsignif::geom_signif(comparisons = list(c("MGS", "VLP")),
-                        map_signif_level = TRUE, textsize = 4) +
+                        map_signif_level = TRUE, textsize = 4, tip_length = 0) +
   theme_bw() +
   theme(legend.position = "none",
         strip.background = element_rect(NA),
-        legend.text = element_text(size=7),
-        legend.title = element_text(size = 8),
-        axis.title = element_text(size=8),
-        axis.text = element_text(size=7),
-        strip.text = element_text(size = 8)) +
+        axis.title = element_text(size=9),
+        axis.text = element_text(size=8),
+        strip.text = element_text(size = 9)) +
   labs(y = "N vOTUs", x = "Metavirome type") +
   scale_fill_manual(values = c(MetBrewer::met.brewer("Kandinsky")[1], 
                                MetBrewer::met.brewer("Kandinsky")[2])) +
@@ -421,10 +431,10 @@ temp_rich <- smeta %>%
   geom_rect(xmin=1.002, xmax=1.5, ymin = -0.001, ymax=800, fill="white") +
   geom_rect(xmin=1.5, xmax=1.998, ymin= -0.001, ymax=800, fill="white") +
   geom_line(aes(group = Universal_ID),alpha=0.1, color="darkgrey", linewidth = 0.1) +
-  geom_point(aes(seq_type, temperate_richness, color=seq_type), size=0.3, alpha=0.2) + 
+  ggrastr::rasterise(geom_point(aes(seq_type, temperate_richness, color=seq_type), size=0.3, alpha=0.2), dpi = 300)+
   facet_wrap(~Richness_type, scales = "free") +
   ggsignif::geom_signif(comparisons = list(c("MGS", "VLP")),
-                        map_signif_level = TRUE, textsize = 4) +
+                        map_signif_level = TRUE, textsize = 4, tip_length = 0) +
   theme_bw() +
   theme(legend.position = "none",
         strip.background = element_rect(NA),
@@ -446,198 +456,9 @@ ggsave('05.PLOTS/05.VLP_MGS/Richness_compare.png',
        both_rich,  "png", width=12, height=12, units="cm", dpi = 300)
 
 ggsave('05.PLOTS/05.VLP_MGS/Richness_compare.pdf',
-       both_rich,  "pdf", width=8, height=7, units="cm", dpi = 300)
+       both_rich,  "pdf", width=9, height=7.5, units="cm", dpi = 300)
 #############################################################
-# 3.5 Analysis: VLP vs MGS vOTU contribution to sample 
-# composition/richness
-#############################################################
-# find a moment to change sample to universal id
-# VLP samples by vOTU type
-VLP_by_vOTU_type <- VLP %>%
-  rownames_to_column("New_CID") %>%
-  left_join(ETOF_vOTUr %>% select(New_CID, vOTU_cluster_type)) %>% 
-  group_by(vOTU_cluster_type) %>%
-  summarise(across(where(is.numeric), ~ sum(.x > 0)), .groups = "drop") %>% 
-  mutate(across(where(is.numeric), ~ .x / sum(.x))) %>%
-  mutate(vOTU_cluster_type = gsub("_sum|NEXT_", "", vOTU_cluster_type)) %>%
-  pivot_longer(!"vOTU_cluster_type",
-               names_to = "Sample",
-               values_to = "Perc_by_type") %>%
-  mutate(`Metavirome type` = "VLP") %>%
-  left_join(smeta %>% select(Sequencing_ID, Universal_ID), by = c("Sample" = "Sequencing_ID"))
-
-# MGS samples by vOTU type
-MGS_by_vOTU_type <- MGS %>%
-  rownames_to_column("New_CID") %>%
-  left_join(ETOF_vOTUr %>% select(New_CID, vOTU_cluster_type)) %>% 
-  group_by(vOTU_cluster_type) %>%
-  summarise(across(where(is.numeric), ~ sum(.x > 0)), .groups = "drop") %>% 
-  mutate(across(where(is.numeric), ~ .x / sum(.x))) %>%
-  mutate(vOTU_cluster_type = gsub("_sum|NEXT_", "", vOTU_cluster_type)) %>%
-  pivot_longer(!"vOTU_cluster_type",
-               names_to = "Sample",
-               values_to = "Perc_by_type") %>%
-  mutate(`Metavirome type` = "MGS") %>%
-  left_join(smeta %>% select(Sequencing_ID, Universal_ID), by = c("Sample" = "Sequencing_ID"))
-
-# sample-wise summary stat for contribution of study-specific vOTUs
-wo_db_stat <- map_dfr(list(VLP_by_vOTU_type, MGS_by_vOTU_type), function(dataset){
-  
-  wo_db <- dataset %>%
-    filter(!grepl('DB', vOTU_cluster_type)) %>%
-    group_by(Sample) %>%
-    summarise(wo = sum(Perc_by_type), .groups = "drop")%>%
-    pull(wo) 
-  
-  wo_db %>%
-    summary(na.rm =T) %>%
-    tidy() %>% 
-    mutate(method = unique(dataset$`Metavirome type`),
-           vOTU_cluster_type = "No_DB_at_all",
-           sd = sd(wo_db, na.rm = T))
-  
-})
-
-# sample-wise summary stat for contribution of every vOTU type including combined ones
-sum_by_type <- map_dfr(list(VLP_by_vOTU_type, MGS_by_vOTU_type), function(dataset){
-  
-  map_dfr(unique(VLP_by_vOTU_type$vOTU_cluster_type), function(vOTU_type){
-    
-    jahsd <- dataset %>%
-      filter(vOTU_cluster_type == vOTU_type) %>%
-      pull(Perc_by_type) 
-    
-    jahsd %>%
-      summary(na.rm =T) %>%
-      tidy() %>% 
-      mutate(method = unique(dataset$`Metavirome type`),
-             vOTU_cluster_type = vOTU_type,
-             sd = sd(jahsd, na.rm = T))
-    
-  }
-    
-  )
-  
-})
-
-sum_by_type <- sum_by_type %>%
-  bind_rows(wo_db_stat) %>%
-  mutate(across(where(is.numeric), ~ smart_round(. * 100)) )
-
-# testing all vs all (which sources contribute more compared to others):
-
-# preparing the df
-rich_compare <- VLP_by_vOTU_type %>%
-  bind_rows(MGS_by_vOTU_type) %>%
-  mutate(sid = paste0(`Metavirome type`, '_', Universal_ID)) %>%
-  left_join(smeta %>% 
-              mutate(sid = paste0(seq_type, '_', Universal_ID)) 
-            %>% select(sid, Timepoint_new, NEXT_ID), by = c('sid' = "sid")) %>%
-  select(-sid)
-
-# all combos: (includes comparison of VLP contribution to VLP samples vs VLP contribution to MGS samples etc)
-combos <- as.data.frame(t(combn(c(paste0('VLP_', unique(VLP_by_vOTU_type$vOTU_cluster_type)),
-                                  paste0('MGS_', unique(VLP_by_vOTU_type$vOTU_cluster_type))), 2))) %>%
-  mutate(method1 = gsub("_.*", "", V1),
-         method2 = gsub("_.*", "", V2)
-         ) %>%
-  relocate(method1, V1, method2, V2) %>%
-  mutate(Estimate = NA,
-         `Std. Error` = NA,
-         df = NA,
-         `t value` = NA,
-         `Pr(>|t|)` = NA,
-         Cohens_D = NA)
-
-# testing w lmer again..
-for (combo in 1:nrow(combos)) {
-  
-  feature1 <- combos[combo, "V1"]
-  method1 <- combos[combo, "method1"]
-  feature2 <- combos[combo, "V2"]
-  method2 <- combos[combo, "method2"]
-  
-  dat <- rich_compare %>%
-    mutate(vOTU_cluster_type = paste0(`Metavirome type`, '_', vOTU_cluster_type)) %>%
-    filter(vOTU_cluster_type == feature1 & `Metavirome type` == method1) %>%
-    bind_rows(rich_compare %>% 
-                mutate(vOTU_cluster_type = paste0(`Metavirome type`, '_', vOTU_cluster_type)) %>% 
-                filter(vOTU_cluster_type == feature2 & `Metavirome type` == method2))
-  
-  print(paste("Testing", feature1,  method1, "versus", feature2, method2))
-  
-  f1 <- paste("Perc_by_type ~ vOTU_cluster_type")
-  
-  formula <- as.formula(paste0(f1, "+ Timepoint_new + (1 | NEXT_ID)"))
-
-  model <- lmer(
-    formula,
-    REML = FALSE,
-    data = dat
-  )
-  
-  eff_res <- effsize::cohen.d(as.formula(f1), data = dat) 
-  
-  model_summary <- summary(model)$coefficients %>%
-    as.data.frame() %>%
-    rownames_to_column() %>%
-    filter(rowname != "(Intercept)") %>%
-    mutate(Cohens_D = abs(eff_res$estimate)) %>%
-    mutate(rowname = gsub('type.*', 'type', rowname)) %>%
-    filter(!grepl('Timepoint', rowname))
-  
-  combos[combo, 5:10] <- model_summary[-1]
-}
-
-combos_round <- combos %>%
-  mutate(V1 = gsub('.*_', '', V1),
-         V2 = gsub('.*_', '', V2)) %>%
-  mutate(p_adj = p.adjust(`Pr(>|t|)`, "BH")) %>%
-  mutate(across(where(is.numeric), ~ smart_round(.)) )
-  
-
-writexl::write_xlsx(combos_round, '07.RESULTS/Compare_contrib_sample_richness_by_vOTU_source.xlsx')
-
-# adding significance to the plot
-dat_text <- data.frame(
-  "Metavirome type" = c("MGS", "MGS", "VLP", "VLP"),
-  start = c("VLP+MGS", "MGS", "VLP+MGS", "VLP"),
-  end = c("MGS", "VLP",  "VLP", "MGS"),
-  y = c(0.8, 0.9, 0.8, 0.9),
-  label = c("***", "***", "n.s.", "***")
-) %>%
-  rename( "Metavirome type" = Metavirome.type)
-
-prop_richness <- VLP_by_vOTU_type %>%
-  bind_rows(MGS_by_vOTU_type) %>%
-  mutate(vOTU_cluster_type = factor(vOTU_cluster_type, levels = c("VLP+MGS", "MGS", "VLP", "VLP+MGS+DB", "MGS+DB", "DB", "VLP+DB"), ordered = T)) %>%
-  ggplot(aes(vOTU_cluster_type, Perc_by_type)) +
-  ggrastr::rasterise(geom_jitter(aes(color = vOTU_cluster_type), width = 0.4, alpha = 0.4, size = 1), dpi = 300) +
-  geom_boxplot(aes(fill = vOTU_cluster_type), outlier.shape = NA, alpha = 0.5) + 
-  facet_wrap(~`Metavirome type`) + 
-  labs(y = "Proportion of sample richness", x = "Cluster Type", fill = "Cluster Type", color = "Cluster Type") +
-  scale_color_manual(values = MetBrewer::met.brewer("Cross")) + 
-  scale_fill_manual(values = MetBrewer::met.brewer("Cross")) +
-  theme_bw() +
-  theme(legend.position = "none", 
-        strip.background = element_rect(NA),
-        axis.text.x = element_text(angle=30, hjust = 0.8, vjust = 0.9),
-        axis.text = element_text(size=7),
-        axis.title = element_text(size=8),
-        strip.text = element_text(size=8)) +
-  ggsignif::geom_signif(data = dat_text,
-                        aes(xmin = start, xmax = end, annotations = label, y_position = y),
-                        textsize = 4,
-                        manual = T)
-
-ggsave('05.PLOTS/05.VLP_MGS/Proportion_richness_by_source.png',
-       prop_richness,  "png", width=16, height=12, units="cm", dpi = 300)
-
-ggsave('05.PLOTS/05.VLP_MGS/Proportion_richness_by_source.pdf',
-       prop_richness,  "pdf", width=12, height=10, units="cm", dpi = 300)
-
-#############################################################
-# 3.6 Analysis: HQ richness in MGS vs VLP (not included atm)
+# 3.5 Analysis: HQ richness in MGS vs VLP (not included atm)
 #############################################################
 
 # For HQs:
