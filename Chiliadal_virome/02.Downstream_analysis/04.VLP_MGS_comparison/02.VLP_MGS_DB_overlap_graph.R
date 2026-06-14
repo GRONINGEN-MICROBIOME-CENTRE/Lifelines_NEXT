@@ -26,8 +26,8 @@ theme_VLP_MGS_plots <- theme_minimal() +
   theme(legend.position = "right", 
         legend.text = element_text(size=8), 
         legend.title.position = "top",
-        legend.title = element_text(size=10, hjust=0.5),
-        axis.title.x = element_text(size=8, face="bold"), 
+        legend.title = element_text(size=9, hjust=0.5),
+        axis.title.x = element_text(size=8), 
         legend.key.size = unit(0.8,"line"),
         legend.margin=margin(0,0,0,0),
         axis.text.y=element_blank(),
@@ -114,26 +114,18 @@ by_lifestyle <- hq_by_recovery %>%
   
 
 by_all <- ggplot() +
-  geom_rect(data = overall, aes(xmin = xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=Part), color="black") +
-  geom_rect(data = recovery, aes(xmin = xmin, xmax=xmax, ymin=ymin-1, ymax=ymax-1, fill=hq_recovery_source), color="black") +
-  geom_rect(data = by_genome, aes(xmin = xmin, xmax=xmax, ymin=ymin-2, ymax=ymax-2, fill=genome), color="black") + 
-  geom_rect(data = by_lifestyle, aes(xmin = xmin, xmax=xmax, ymin=ymin-3, ymax=ymax-3, fill=lifestyle), color="black") + 
-  scale_fill_manual(labels = c("MGS unique", "Overlap", "VLP unique"),
-                    values = c("NEXT_MGS"=MetBrewer::met.brewer("Kandinsky")[4],
-                               "NEXT_VLP+NEXT_MGS"=MetBrewer::met.brewer("Kandinsky")[2],
-                               "NEXT_VLP"=MetBrewer::met.brewer("Kandinsky")[1])) +
-  labs(x = "Number of genomes", y = "", fill="Source") +
-  # dependent recovery
-  ggnewscale::new_scale_fill() +
-  geom_rect(data = recovery, aes(xmin = xmin, xmax=xmax, ymin=ymin-1, ymax=ymax-1, fill=hq_recovery_source), color="black") +
+  geom_rect(data = recovery, aes(xmin = xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=hq_recovery_source), color="black") +
+  geom_rect(data = by_genome, aes(xmin = xmin, xmax=xmax, ymin=ymin-1, ymax=ymax-1, fill=genome), color="black") + 
+  geom_rect(data = by_lifestyle, aes(xmin = xmin, xmax=xmax, ymin=ymin-2, ymax=ymax-2, fill=lifestyle), color="black") + 
   scale_fill_manual(labels = c("MGS-dependent", "Dual source", "VLP-dependent"),
                     values = c("MGS_QoL"=MetBrewer::met.brewer("VanGogh1")[1],
                                "MGS_QoL+VLP_QoL"=MetBrewer::met.brewer("VanGogh1")[5],
                                "VLP_QoL"=MetBrewer::met.brewer("VanGogh1")[7])) +
-  labs(fill="Recovery") +
+  labs(x = "Number of genomes", y = "", fill="Recovery") +
+  #geom_rect(data = recovery, aes(xmin = xmin, xmax=xmax, ymin=ymin-1, ymax=ymax-1, fill=hq_recovery_source), color="black") +
   # Genome graph
   ggnewscale::new_scale_fill() +
-  geom_rect(data = by_genome, aes(xmin = xmin, xmax=xmax, ymin=ymin-2, ymax=ymax-2, fill=genome), color=NA) +
+  geom_rect(data = by_genome, aes(xmin = xmin, xmax=xmax, ymin=ymin-1, ymax=ymax-1, fill=genome), color=NA) +
   scale_fill_manual(labels = c("dsDNA",  
                                "RNA", 
                                "ssDNA", "Unclassified"),
@@ -141,28 +133,28 @@ by_all <- ggplot() +
                                "RNA"=MetBrewer::met.brewer("VanGogh2")[1], 
                                "ssDNA"=MetBrewer::met.brewer("VanGogh2")[2],
                                "Unclassified"="darkgrey")) +
-  geom_rect(data = recovery, aes(xmin = xmin, xmax=xmax, ymin=ymin-2, ymax=ymax-2), fill = "transparent", color="black") +
+  geom_rect(data = recovery, aes(xmin = xmin, xmax=xmax, ymin=ymin-1, ymax=ymax-1), fill = "transparent", color="black") +
   labs(fill="Genome") +
   # Lifestyle
   ggnewscale::new_scale_fill() +
-  geom_rect(data = by_lifestyle, aes(xmin = xmin, xmax=xmax, ymin=ymin-3, ymax=ymax-3, fill=lifestyle), color=NA) +
+  geom_rect(data = by_lifestyle, aes(xmin = xmin, xmax=xmax, ymin=ymin-2, ymax=ymax-2, fill=lifestyle), color=NA) +
   scale_fill_manual(labels = c("Temperate",  
                                "Virulent", 
                                "Unknown"),
                     values = c("Temperate"=MetBrewer::met.brewer("Thomas")[6],
                                "Virulent"=MetBrewer::met.brewer("Thomas")[5],
                                "Unknown"="darkgrey")) +
-  geom_rect(data = recovery, aes(xmin = xmin, xmax=xmax, ymin=ymin-3, ymax=ymax-3), fill = "transparent", color="black") +
+  geom_rect(data = recovery, aes(xmin = xmin, xmax=xmax, ymin=ymin-2, ymax=ymax-2), fill = "transparent", color="black") +
   labs(fill="Lifestyle   ") +
   scale_x_continuous(breaks = seq(0, 8500, by = 8500), limits = c(0, 8500), labels = abs) + 
-  scale_y_continuous(limits = c(-3.2,1.5)) +
+  scale_y_continuous(limits = c(-2,1.5)) +
   theme_VLP_MGS_plots +
-  ggpubr::geom_bracket(xmin = 0, xmax = 437, label = "Unique to MGS", y.position = 1.3, size = 0.55, label.size = 3, tip.length = 0.02) +
-  ggpubr::geom_bracket(xmin = 4499, xmax = 8348, label = "Unique to VLP", y.position = 1.3, size=0.55, label.size = 3, tip.length = 0.02) +
-  geom_text(data = overall, aes(x = (xmin + xmax)/2, y = (ymax + 0.1), label = paste(N_vOTUs)), size = 2.5, color = "black")
+  ggpubr::geom_bracket(xmin = 0, xmax = 1134, label = "MGS-dependent", y.position = 1.3, size = 0.55, label.size = 3, tip.length = 0.02) +
+  ggpubr::geom_bracket(xmin = 2277, xmax = 8348, label = "VLP-dependent", y.position = 1.3, size=0.55, label.size = 3, tip.length = 0.02) +
+  geom_text(data = recovery, aes(x = (xmin + xmax)/2, y = (ymax + 0.1), label = paste(N_vOTUs)), size = 2.5, color = "black")
 
 ggsave('05.PLOTS/05.VLP_MGS/Novel_recovery_genome_ls.png',
        by_all,  "png", width=20, height=12, units="cm", dpi = 300)
 
 ggsave('05.PLOTS/05.VLP_MGS/Novel_recovery_genome_ls.pdf',
-       by_all,  "pdf", width=20, height=12, units="cm", dpi = 300)
+       by_all,  "pdf", width=10, height=7, units="cm", dpi = 300)
