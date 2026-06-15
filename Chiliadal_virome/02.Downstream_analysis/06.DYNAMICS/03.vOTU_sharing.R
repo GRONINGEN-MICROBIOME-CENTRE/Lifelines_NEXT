@@ -20,6 +20,7 @@ library(tidyverse)
 library(ggplot2)
 library(lme4)
 library(lmerTest)
+library(emmeans)
 #library(Matrix)
 #library(mediation) # messes dplyr
 #############################################################
@@ -108,8 +109,24 @@ sharing <- data.frame(
 #############################################################
 # 3.1 Analysis: vOTU sharing to mom
 #############################################################
-caring <- sharing %>%
-  filter(same_dyad == T | unrelated_m_b == T) %>%
+sharing_rel <- sharing %>%
+  filter(same_dyad == T) %>%
+  mutate(
+    temp_s1 = sample_1,
+    sample_1 = ifelse(Timepoint_new_1 != "Mother", sample_2, sample_1),
+    sample_2 = ifelse(Timepoint_new_1 != "Mother", temp_s1, sample_2)
+  ) %>%
+  select(-temp_s1) %>%
+  rename(mother = sample_1, infant = sample_2) %>%
+  select(infant, N_shared) %>%
+  left_join(smeta, by = c("infant" = "Sequencing_ID")) %>%
+  mutate(perc_shared = N_shared / vir_richness_cf * 100) %>%
+  mutate(name = "same_dyad")
+
+# decided to take the mean, otherwise - inflated?
+
+sharing_unr <- sharing %>%
+  filter(unrelated_m_b == T) %>%
   mutate(
     temp_s1 = sample_1,
     sample_1 = ifelse(Timepoint_new_1 != "Mother", sample_2, sample_1),
@@ -118,11 +135,13 @@ caring <- sharing %>%
   select(-temp_s1) %>%
   rename(mother = sample_1, infant = sample_2) %>%
   select(mother, infant, N_shared, same_dyad, unrelated_m_b) %>%
-  pivot_longer(!c("mother", "infant", "N_shared")) %>%
-  filter(value == T) %>%
-  select(-value) %>%
+  group_by(infant) %>%
+  summarise(N_shared = round(mean(N_shared), 0)) %>%
   left_join(smeta, by = c("infant" = "Sequencing_ID")) %>%
-  mutate(perc_shared = N_shared / vir_richness_cf * 100)
+  mutate(perc_shared = N_shared / vir_richness_cf * 100) %>%
+  mutate(name = "unrelated_m_b")
+
+caring <- bind_rows(sharing_rel, sharing_unr)
 
 mom_share_stat <- map_dfr(c('same_dyad', 'unrelated_m_b'), function(mom){
   
@@ -160,10 +179,11 @@ vOTU_share_mom <- caring %>%
         axis.text = element_text(size=8),
         legend.title = element_text(size=9),
         legend.text = element_text(size=8),
-        legend.position = "bottom")
+        legend.position = "bottom",
+        legend.key.size = unit(0.7, 'line'))
   
 ggsave('05.PLOTS/06.DYNAMICS/vOTU_sharing_to_mom_over_time_VLP.pdf',
-       vOTU_share_mom,  "pdf", width=6.5, height=8, units="cm", dpi = 300)
+       vOTU_share_mom,  "pdf", width=6.5, height=7, units="cm", dpi = 300)
 
 #############################################################
 # 3.2 Analysis: vOTU drivers of convergence
@@ -247,14 +267,19 @@ by_simple_host <- check_drivers %>%
   ggplot(aes(Timepoint_new, value, fill = Host)) + 
   geom_boxplot() # this happens primarily due to sharing bacteriophages
 
-
 by_hostgen <- check_drivers %>%
   filter(Host == "bacteria") %>%
   select(all_of(colnames(shared_df)), Host_Genus) %>%
   group_by(Host_Genus) %>%
   summarise(across(colnames(shared_df), sum)) %>%
   filter(!Host_Genus %in% c("Unclassified", "Unassigned", "Unknown", "g__Unclassified")) %>%
-  column_to_rownames(var = "Host_Genus")
+  column_to_rownames(var = "Host_Genus") 
+
+prev <- rowSums(by_hostgen > 0) %>%
+  as.data.frame() %>%
+  rownames_to_column("Host") %>%
+  rename("Prevalence"=2) %>%
+  filter(Prevalence > 0.1*749)
 
 # are bacteroides enriched in vOTU sharing?
 VLP_infant <- VLP[,colnames(VLP) %in% colnames(shared_df)] # only infants that have moms
@@ -273,72 +298,76 @@ fisher_bacteroides$p.value
 table(is_shared, is_bacteroides)
 
 # are bacteroides phages the main driver?
-  
+
 dfer <- by_hostgen %>%
   rownames_to_column(var = "Host_Genus") %>%
+  filter(Host_Genus %in% c(prev$Host, "Bacteroides_Phocaeicola")) %>%
   pivot_longer(!Host_Genus, names_to = "Sequencing_ID") %>%
   left_join(smeta) %>%
   left_join(caring %>% filter(name == "same_dyad") %>% select(infant, N_shared), by = c("Sequencing_ID" = "infant"))
-  
-results <- map_dfr(unique(dfer$Host_Genus), function(Host) {
-  
-  F1 <- as.formula("N_shared ~ value + Timepoint_new + (1|NEXT_ID)")
-  
-  model <- lmer(F1, data = dfer[dfer$Host_Genus == Host,])
-  
-  summary(model)$coefficients %>%
-    as.data.frame() %>%
-    rownames_to_column(var = "rowname") %>%
-    filter(rowname == "value") %>%
-    mutate(Host = Host)
-  
-})
-results$FDR <- p.adjust(results$`Pr(>|t|)`, "BH")
 
-prev <- rowSums(by_hostgen > 0) %>%
-  as.data.frame() %>%
-  rownames_to_column("Host") %>%
-  rename("Prevalence"=2)
+model_full <- lmer(value ~ Host_Genus + Timepoint_new + (1 | NEXT_ID),
+                   data = dfer,
+                   REML = FALSE)
 
-results <- results %>%
-  left_join(prev) %>%
-  select(-rowname) %>%
-  relocate(Host, Prevalence)
+model_null <- lmer(value ~ Timepoint_new + (1 | NEXT_ID),
+                   data = dfer,
+                   REML = FALSE)
 
-writexl::write_xlsx(results, '07.RESULTS/Convergence_to_mom_Host_genus_drivers.xlsx')
+anova(model_full, model_null) # 61 339500 340027 -169689   339378 17844 55  < 2.2e-16 ***
 
-results_filtered <- results %>%
-  filter(FDR < 0.05, Prevalence >= 0.1*ncol(shared_df)) %>%
-  mutate(
-    ci_lo = Estimate - 1.96 * `Std. Error`,
-    ci_hi = Estimate + 1.96 * `Std. Error`,
-    host_clean = gsub("g__", "", Host),
-    is_bact = grepl("Bacteroides", Host)
-  ) %>%
+emm_host <- emmeans(model_full, ~ Host_Genus, type = "response")
+
+emm_host_df <- as.data.frame(emm_host) %>%
+  arrange(desc(emmean)) %>%
+  left_join(prev, by = c("Host_Genus" = "Host"))
+
+###
+emm_host <- emmeans(model_full, ~ Host_Genus)
+
+host_levels <- emm_host@grid$Host_Genus
+
+coef_bact <- ifelse(
+  host_levels == "Bacteroides_Phocaeicola",
+  1,
+  -1 / (length(host_levels) - 1)
+)
+
+bact_vs_others <- contrast(
+  emm_host,
+  method = list("Bacteroides vs mean of other hosts" = coef_bact)
+)
+
+summary(bact_vs_others, infer = TRUE)
+che <- as.data.frame(bact_vs_others)
+
+writexl::write_xlsx(emm_host_df, '07.RESULTS/Convergence_to_mom_Host_genus_drivers.xlsx')
+
+results_filtered_plot <- emm_host_df %>%
+  mutate(host_clean = gsub("g__", "", Host_Genus)) %>%
   mutate(host_clean = ifelse(grepl("Bacteroides", host_clean), "Bacteroides/Phocaeicola", host_clean)) %>%
   mutate(host_clean = paste0("*", host_clean, "*")) %>%
-  arrange(Estimate)
-
-results_filtered_plot <- ggplot(results_filtered, aes(x = Estimate, y = reorder(host_clean, Estimate))) +
-  geom_errorbarh(aes(xmin = ci_lo, xmax = ci_hi),
+  filter(Prevalence > 200) %>% # to keep top 10-most prevalent
+ggplot(aes(x = emmean, y = reorder(host_clean, emmean))) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL),
                  height = 0.2, linewidth = 0.4, alpha = 0.5,
-                 color = ifelse(results_filtered$is_bact, "firebrick", "#132440")) +
+                 color = "#132440") +
   geom_point(aes(size = Prevalence),
-             color = ifelse(results_filtered$is_bact, "firebrick", "#132440"),
+             color = "#132440",
              alpha = 0.8) +
-  scale_size_continuous(range = c(1, 8), name = "Prevalence\n(N samples)") +
-  labs(x = "Effect size (beta)", y = NULL) +
+  scale_size_continuous(range = c(1, 6), name = "N infant samples sharing\nphage-host groups") +
+  labs(x = "Adjusted mean value of shared phages", y = "Predicted host") +
   theme_bw() +
   theme(
     axis.text.y = ggtext::element_markdown(size = 8),
     axis.title = element_text(size=9),
     legend.title = element_text(size=9),
     legend.text = element_text(size = 8),
-    legend.position    = "bottom"
+    legend.position = "bottom"
   )
 
 ggsave('05.PLOTS/06.DYNAMICS/Convergence_drivers.pdf',
-       results_filtered_plot, "pdf", width=13, height=13, units="cm", dpi = 300)
+       results_filtered_plot, "pdf", height=13, width=12, units="cm", dpi = 300)
 
 #############################################################
 # 3.3 Analysis: Bacteroides bacteria expansion in the infant gut
@@ -373,4 +402,6 @@ med_out <- mediation::mediate( # calling mediation this way because it messes dp
 
 summary(med_out)
 
-summary(lmer(Bac_ab ~ Timepoint_new + (1 | NEXT_ID), data = host_bacteroides))
+summary(lmer(log(Bac_ab + 0.0001)~ Timepoint_new + (1 | NEXT_ID), data = host_bacteroides))$coefficients
+
+min(host_bacteroides$Bac_ab[host_bacteroides$Bac_ab > 0])
