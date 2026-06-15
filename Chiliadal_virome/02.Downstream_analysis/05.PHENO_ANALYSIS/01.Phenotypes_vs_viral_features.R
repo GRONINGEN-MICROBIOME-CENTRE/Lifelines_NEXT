@@ -7,7 +7,7 @@ setwd("~/Desktop/Projects_2021/NEXT_virome/09.DATA_ANALYSIS/")
 #############################################################
 # 0. Used files source
 #############################################################
-
+phenos_select <- read.table("06.CLEAN_DATA/Intermediate/Phenotype_selection.txt", sep='\t', header = T)
 #############################################################
 # 1. Functions
 #############################################################
@@ -146,15 +146,12 @@ min_rpkm <- VLP %>%
 VLP_filtered_10 <- VLP[rowSums(VLP > 0) >= round(0.1 * ncol(VLP), 0), ]
 VLP_filtered_10 <- VLP_filtered_10[,colSums(VLP_filtered_10) > 0]
 
-
 vOTU_vs_pehnos <- running_LMM(phenos_list = phenos_selected %>%
                        filter(analysis == "shaping" & FDR < 0.05 & new_name!="mother_birthcardhealth_gravidity") %>%
                        pull(new_name),
                      metadata_w_phenos = smeta_w_phenos,
                      RPKM_table = VLP_filtered_10,
                      pseudocount = min_rpkm)
-
-
 
 vOTU_vs_pehnos$FDR <- p.adjust(vOTU_vs_pehnos$`Pr(>|t|)`, 'BH')
 
@@ -193,7 +190,7 @@ feeding_vulcano <- ggplot(feeding_vOTU_df, aes(x = Estimate, y = neg_log10_p, co
   labs(x = "Effect size (log RPKM)", 
        y = expression(-log[10]*"(p-value)"),
        color = "Host genus") +
-  scale_color_manual(values = c(met.brewer("Renoir")[sample(1:12)]),
+  scale_color_manual(values = c(met.brewer("Renoir")[sample(1:12)], "black", "#4E220F"),
                      na.value = "grey90") +
   annotate(geom = "text", x = 0.8, y = 13, label = "Exclusively\nformula-fed", size = 3) + 
   annotate(geom = "text", x = -0.8, y = 13, label = "Exclusively\nbreastfed", size = 3) +
@@ -250,7 +247,7 @@ delivery_vulcano <- ggplot(delivery_vOTU_df, aes(x = Estimate, y = neg_log10_p, 
   labs(x = "Effect size (log RPKM)", 
        y = expression(-log[10]*"(p-value)"),
        color = "Host genus") +
-  scale_color_manual(values = c(met.brewer("Renoir")[sample(1:12)]),
+  scale_color_manual(values = c(met.brewer("Renoir")[sample(1:12)], "black", "#4E220F"),
                      na.value = "grey90") +
   annotate(geom = "text", x = 1.5, y = 11, label = "Vaginal delivery", size = 3) + 
   annotate(geom = "text", x = -1.5, y = 11, label = "C-section", size = 3) +
@@ -371,7 +368,7 @@ p2 <- plot_Suoliviridae_data %>%
 plot_Suoliviridae <- (p1 / p2) + plot_layout(guides = "collect", heights = c(3, 4)) & theme(legend.position = 'bottom')
 
 ggsave("05.PLOTS/07.Health_outcomes/VLP_delivery_Suoliviridae.pdf",
-       plot_Suoliviridae, "pdf", width=7, height=8, units="cm", dpi = 300)
+       plot_Suoliviridae, "pdf", width=9, height=9, units="cm", dpi = 300)
 #############################################################
 # 3.4 Analysis: genome composition
 #############################################################
@@ -386,7 +383,7 @@ by_genome_RPKM <- VLP %>%
   column_to_rownames(var = "genome")
 
 genome_vs_phenos <- running_LMM(phenos_list = phenos_selected %>%
-                                  filter(analysis == "shaping" & FDR < 0.05 & new_name!="mother_birthcardhealth_gravidity") %>%
+                                  filter(analysis == "shaping") %>%
                                   pull(new_name),
                                 metadata_w_phenos = smeta_w_phenos,
                                 RPKM_table = by_genome_RPKM,
@@ -410,7 +407,7 @@ by_host_RPKM <- VLP %>%
   column_to_rownames(var = "Host")
 
 host_vs_phenos <- running_LMM(phenos_list = phenos_selected %>%
-                                filter(analysis == "shaping" & FDR < 0.05 & new_name!="mother_birthcardhealth_gravidity") %>%
+                                filter(analysis == "shaping") %>%
                                 pull(new_name),
                               metadata_w_phenos = smeta_w_phenos,
                               RPKM_table = by_host_RPKM,
@@ -475,8 +472,6 @@ virvars_vs_phenos <- virvars_vs_phenos %>%
   group_by(cat_virvar) %>%
   mutate(FDR = p.adjust(`Pr(>|t|)`, 'BH')) %>%
   ungroup()
-
-writexl::write_xlsx(virvars_vs_phenos, '07.RESULTS/LMM_virVars_shaping_phenos.xlsx')  
 
 # sub-analysis: correcting for skunaviruses in richness of virulent phages:
 virulent_no_skuna <- ETOF_vOTUr %>% 
@@ -659,7 +654,12 @@ holovirvars_vs_phenos <- holovirvars_vs_phenos %>%
   mutate(FDR = p.adjust(`Pr(>|t|)`, 'BH')) %>%
   ungroup()
 
-writexl::write_xlsx(holovirvars_vs_phenos, '07.RESULTS/LMM_holovirVars_shaping_phenos.xlsx') 
+both_viromes_features_res <- virvars_vs_phenos %>%
+  mutate(Virome = "Active virome (VLP)") %>%
+  bind_rows(holovirvars_vs_phenos %>%
+              mutate(Virome = "Holovirome"))
+
+writexl::write_xlsx(both_viromes_features_res, '07.RESULTS/LMM_virVars_shaping_phenos.xlsx') 
 #############################################################
 # 3.7.1 Analysis: virusalization: holovirome richness vs feeding mode
 #############################################################
