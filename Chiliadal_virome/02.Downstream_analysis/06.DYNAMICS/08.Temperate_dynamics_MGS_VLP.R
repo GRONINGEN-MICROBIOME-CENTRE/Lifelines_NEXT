@@ -73,7 +73,7 @@ HLV_persistent_lookup <- HLV_long %>%
   mutate(is_persistent_HLV = TRUE) %>%
   filter(vOTU %in% ETOF_vOTUr$New_CID[ETOF_vOTUr$lifestyle == "Temperate"]) # select only temperate
 
-length(unique(HLV_persistent_lookup$vOTU)) # 694
+length(unique(HLV_persistent_lookup$vOTU)) # 710
 
 #############################################################
 # 3.1 Analysis: VLP vs MGS detection of holovirome persisters
@@ -136,7 +136,7 @@ global_labels <- votu_kid_labels %>%
     )
   )
 
-table(global_labels$global_category) # 142 vOTU are PPV and always dormant
+table(global_labels$global_category) # 144 vOTU are PPV and always dormant
 
 #############################################################
 # 3.2 Analysis: visualization of detection patterns
@@ -162,6 +162,12 @@ all_patterns <- tp_classified %>%
                               grepl("virion_then", traj_group) ~ "Lysogenization",
                               traj_group == "always_virion" ~ "Stable replication",
                               .default = "Switcher"))
+
+all_patterns %>%
+  group_by(category) %>%
+  summarise(n = sum(n))
+sum(all_patterns$n)
+
 # ordering:
 all_patterns_ord <- all_patterns %>%
   mutate(traj_group = factor(traj_group,
@@ -207,28 +213,29 @@ plot <- ggplot() +
   labs(x = "Timepoint", y = "Infant x temperate persistent vOTU", fill = "State") +
   ggnewscale::new_scale_fill() +
   geom_rect(data = group_annot,
-            aes(xmin = -0.5, xmax = 0.52, ymin = ymin, ymax = ymax, fill = category),
+            aes(xmin = -0.9, xmax = 0.52, ymin = ymin, ymax = ymax, fill = category),
+            fill = "#DFF2F1",
             inherit.aes = FALSE, show.legend = F) +
   geom_text(data = group_annot,
-            aes(x = 1, y = ymid, label = category),
-            inherit.aes = FALSE, hjust = 0.5, vjust = -7, size = 2, angle = 90) +
-  scale_fill_manual(values = met.brewer("OKeeffe1")[c(8,7,4,5,6)]) +
+            aes(x = -0.6, y = ymid, label = category),
+            inherit.aes = FALSE, hjust = 0, vjust = 0, size = 2, angle = 0) +
   geom_hline(data = group_annot %>% filter(ymin > 0),
              aes(yintercept = ymin),color = "white", linewidth = 1.5)  +
-  scale_x_discrete(expand = c(0, 0), position = "top") +
+  scale_x_discrete(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
-  coord_cartesian(xlim = c(-0.5, 5), clip = "off") +
+  coord_cartesian(xlim = c(-1, 5), clip = "off") +
   theme_minimal() +
   theme(
-    axis.text.y     = element_blank(),
+    axis.text.y = element_blank(),
     axis.text.x = element_text(size=8),
-    axis.ticks.y    = element_blank(),
-    panel.grid      = element_blank(),
-    legend.position = "bottom",
+    axis.ticks.y = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "right",
     axis.title = element_text(size = 9),
     legend.title = element_text(size=9),
-    legend.text = element_text(size=8)
+    legend.text = element_text(size=8),
+    legend.key.size = unit(0.7, 'line')
   )
 
-ggsave("05.PLOTS/06.DYNAMICS/HLV_temperate_PPV_VLP_MGS.pdf",
-       plot, "pdf", width = 5.5, height = 10, units = "cm", dpi = 300)
+ggsave("05.PLOTS/06.DYNAMICS/HLV_temperate_PPV_VLP_MGS_new.pdf",
+       plot, "pdf", width = 13, height = 8, units = "cm", dpi = 300)
