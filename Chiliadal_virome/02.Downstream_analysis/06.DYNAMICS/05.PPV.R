@@ -103,10 +103,11 @@ testik <- map_dfr(c("ivr", "PPV_size", "PPV_perc"), function(variable) {
   
   F1 <- as.formula(paste0(variable, " ~ n_tp"))
   
-  saver <- t.test(F1, data = PPV_VLP)
+  saver <- wilcox.test(F1, data = PPV_VLP)
   
   data.frame(tested = variable,
-             p_value = saver$p.value)
+             p_value = saver$p.value,
+             W = unname(saver$statistic))
   
 } ) # N of available timepoints significantly increases IVR (expected) and PPV (also kind of expected)
 
@@ -203,15 +204,26 @@ testik_rarefied <- map_dfr(c("ivr", "PPV_size", "PPV_perc"), function(variable) 
   
   F1 <- as.formula(paste0(variable, " ~ n_tp"))
   
-  saver <- t.test(F1, data = all_kids_ppv)
+  saver <- wilcox.test(F1, data = PPV_VLP)
   
   data.frame(tested = variable,
-             p_value = saver$p.value)
+             p_value = saver$p.value,
+             W = unname(saver$statistic))
   
 } ) # no more separation by N timepoints
 
-new_summary <- all_kids_ppv %>%
-  create_summary()
+results_raref <- testik %>%
+  mutate(rarefaction = "No") %>%
+  bind_rows(testik_rarefied %>% mutate(rarefaction = "Yes"))
+
+writexl::write_xlsx(results_raref, '07.RESULTS/PPV_rarefaction.xlsx')
+
+new_summary <- babah %>%
+  bind_rows(all_kids_ppv %>%
+              create_summary() %>%
+              mutate(n_infants = 154))
+
+writexl::write_xlsx(new_summary, '07.RESULTS/PPV_rarefaction_results.xlsx')  
 
 # tidy up:
 rm(list = c("babah", "combos", "ivr_rarefied", "ppv_rarefied", "PPV_VLP", "results", "testik", "testik_rarefied"))
@@ -219,11 +231,12 @@ rm(list = c("babah", "combos", "ivr_rarefied", "ppv_rarefied", "PPV_VLP", "resul
 ivr_ppv <- all_kids_ppv %>%
   select(PPV_size, ivr, NEXT_ID) %>%
   pivot_longer(!NEXT_ID) %>%
-  ggplot(aes(name, log10(value + 1), color = name, fill = name)) +
+  ggplot(aes(name, value, color = name, fill = name)) +
   ggrastr::rasterise(geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.9), size=0.01, alpha=1), dpi = 300)+
   geom_boxplot(outlier.shape = NA, alpha = 0.4, width = 0.3, color = "black") +
-  labs(x = "", y = "N vOTUs, log10") +
+  labs(x = "", y = "N vOTUs, log10-scaled") +
   scale_x_discrete(labels = c("All vOTUs\never\ndetected", "PPV")) +
+  scale_y_log10() +
   scale_fill_manual(values = met.brewer("Cassatt2")[c(2,9)]) +
   scale_color_manual(values = met.brewer("Cassatt2")[c(2,9)]) +
   theme_minimal() +
@@ -234,7 +247,7 @@ ivr_ppv <- all_kids_ppv %>%
         legend.position = "none")
   
 ggsave("05.PLOTS/06.DYNAMICS/IVR_PPV_log_scaled_absolute.pdf",
-       ivr_ppv, "pdf", width = 5, height = 7, units = "cm", dpi = 300)
+       ivr_ppv, "pdf", width = 4.5, height = 7, units = "cm", dpi = 300)
 
 #############################################################
 # 3.2 Analysis: PPV percentage & abundance per timepoint 
@@ -251,7 +264,12 @@ summary(busya$value[busya$name == "M12"], na.rm = T)
 
 bodel <- lm(value ~ name, data = busya)
 
-TUKEY <- TukeyHSD(aov(bodel))
+TUKEY <- TukeyHSD(aov(bodel))$name %>%
+  as.data.frame() %>%
+  rownames_to_column("rowname") %>%
+  filter(grepl('ivr', rowname))
+
+writexl::write_xlsx(TUKEY, '07.RESULTS/Cumulative_richness_vs_timepoint_richness.xlsx')  
 
 my_comparisons <- list( c("ivr", "M1"), 
                         c("ivr", "M3"), 
@@ -264,8 +282,8 @@ ivr_vs_richness <- busya %>%
   ggplot(aes(name, value, fill = color_factor, color = color_factor)) +
   ggrastr::rasterise(geom_jitter(position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.9), size=0.01, alpha=1), dpi = 300)+
   geom_boxplot(color = "black", outlier.shape = NA, alpha = 0.5, width = 0.3) +
-  labs(x = "", y = "N vOTUs, log10") +
-  scale_x_discrete(labels = c("All vOTUs ever\ndetected", "M1", "M3", "M6", "M12")) +
+  labs(x = "", y = "N vOTUs") +
+  scale_x_discrete(labels = c("All vOTUs\never detected", "M1", "M3", "M6", "M12")) +
   theme_minimal() +
   theme(axis.title = element_text(size=9),
         axis.text = element_text(size=8),
@@ -277,7 +295,7 @@ ivr_vs_richness <- busya %>%
   ggpubr::stat_compare_means(comparisons = my_comparisons, label = "p.signif", method = "wilcox.test", size=3, p.adjust.method = "BH")
 
 ggsave("05.PLOTS/06.DYNAMICS/IVR_vs_richness.pdf",
-       ivr_vs_richness, "pdf", width = 11, height = 7, units = "cm", dpi = 300)
+       ivr_vs_richness, "pdf", width = 8, height = 7, units = "cm", dpi = 300)
 
 # timepoint-wise detected PPVs:
 persistent_rich <- VLP_long %>%
@@ -306,7 +324,11 @@ persistent_abundance <- VLP_long %>%
 
 summary(persistent_abundance$PPV_abundance)
 
-summary(lmer(PPV_abundance ~ Timepoint_new + (1|NEXT_ID), data = persistent_abundance)) #Timepoint_new.L  -17.387      2.165 401.923  -8.030 1.08e-14 ***
+model_PPV_abundance <- summary(lmer(PPV_abundance ~ Timepoint_new + (1|NEXT_ID), data = persistent_abundance))$coefficients %>%
+  as.data.frame() %>%
+  rownames_to_column("rowname")
+writexl::write_xlsx(model_PPV_abundance, '07.RESULTS/PPV_abundance_vs_timepoint.xlsx')  
+
 
 rich_ppv <- persistent_rich %>%
   ggplot(aes(Timepoint_new, PPV_fraction)) +
@@ -336,7 +358,7 @@ abu_ppv <- persistent_abundance %>%
         legend.position = "none") 
 
 ggsave("05.PLOTS/06.DYNAMICS/RAb_PPV_VLP.pdf",
-       abu_ppv, "pdf", width = 6, height = 7, units = "cm", dpi = 300)
+       abu_ppv, "pdf", width = 5, height = 7, units = "cm", dpi = 300)
 #############################################################
 # 3.3 Analysis: PPV composition 
 #############################################################
@@ -362,11 +384,11 @@ PPV_metadata <- persistent_lookup %>%
 
 by_simple_host <- PPV_metadata %>%
   group_by(Host) %>%
-  summarise(n = n()) # bacteriophages total: 2640
+  summarise(n = n()) # bacteriophages total: 2683
   
 by_host_gen <- PPV_metadata %>%
   group_by(Host, genome) %>%
-  summarise(n = n()) # bacteriophages total: 2640
+  summarise(n = n()) # bacteriophages total: 2683
   
 PPV_RPKM <- PPV_metadata %>% 
   mutate(Order = ifelse(Order == "Unassigned", "Unclassified", Order),
@@ -393,8 +415,8 @@ ppv_met <- ggplot(PPV_RPKM, aes(x = Host, y = Order,
   theme_minimal() +
   theme(panel.grid.major = element_line(colour = "grey90", linewidth = 0.4),
         panel.grid.minor = element_blank(),
-        axis.text = element_text(size = 8),
-        axis.text.x = element_text(size = 8, angle = 30, hjust = 0, vjust = -0.1),
+        axis.text = element_text(size = 7),
+        axis.text.x = element_text(size = 7, angle = 0, hjust = 0.5, vjust = -0.1),
         axis.title = element_text(size = 9),
         legend.text = element_text(size = 8),
         legend.title = element_text(size = 9),
@@ -406,7 +428,7 @@ ppv_met <- ggplot(PPV_RPKM, aes(x = Host, y = Order,
          size = guide_legend(order = 2))
 
 ggsave("05.PLOTS/06.DYNAMICS/PPV_metadata_depicted.pdf",
-       ppv_met, "pdf", width = 8, height = 9, units = "cm", dpi = 300)
+       ppv_met, "pdf", width = 10, height = 8, units = "cm", dpi = 300)
 
 phage_PPV <- PPV_metadata %>% 
   filter(Host == "bacteria") %>%
@@ -603,7 +625,7 @@ bair_level <- VLP_long %>%
     temperate  = factor(is_temperate, levels = c(FALSE, TRUE), labels = c("Virulent", "Temperate"))
   )
 
-ft <- fisher.test(table(bair_level$PPV, bair_level$temperate)) 
+ft3 <- fisher.test(table(bair_level$PPV, bair_level$temperate)) 
 
 blot_data <- bair_level %>%
   count(PPV, temperate) %>%
@@ -639,3 +661,41 @@ lfs <- ggplot(blot_data, aes(x=PPV, y=prop, width=grp_n, fill=temperate)) +
 
 ggsave('05.PLOTS/06.DYNAMICS/Virulent_enrichment_PPV.pdf',
        lfs, "pdf", width=7, height=8, units="cm", dpi = 300)
+
+#############################################################
+# 3.7 Analysis: PPV - aux genes
+#############################################################
+amgs <- read.table("01.METADATA/for_prevalence_plots_AMGs.txt", sep='\ ', header = T)
+colnames(amgs)[-1]
+
+checker <- VLP_long %>%
+  left_join(ETOF_vOTUr, by = c("vOTU" = "New_CID")) %>%
+  filter(miuvig_quality == "High-quality") %>%
+  left_join(amgs, by = c("vOTU" = "virus")) %>%
+  group_by(NEXT_ID, vOTU) %>%
+  summarise(
+    is_PPV     = n_distinct(Timepoint_new) >= 3,
+    across(all_of(colnames(amgs)[-1]), ~ .x == 1, .names = "has_{.col}"),
+    has_ADS_DS = ifelse(ADS == 1 & DS == 1, T, F),
+    .groups = "drop") %>%
+  mutate(
+    PPV = factor(is_PPV, levels = c(TRUE, FALSE), labels = c("PPV", "TDV")),
+    across(all_of(paste0("has_", colnames(amgs)[-1])), ~ factor(.x == 1, levels = c(TRUE, FALSE), labels = c("Yes", "No"))),
+    has_ADS_DS = factor(has_ADS_DS, levels = c(TRUE, FALSE), labels = c("Yes", "No"))
+  )
+
+fi_ads <- fisher.test(table(checker$PPV, checker$has_ADS))
+fi_ds <- fisher.test(table(checker$PPV, checker$has_DS)) 
+fi_ads_ds <- fisher.test(table(checker$PPV, checker$has_ADS_DS)) 
+fi_mg <- fisher.test(table(checker$PPV, checker$has_MG)) 
+fi_vf <- fisher.test(table(checker$PPV, checker$has_VF)) 
+fi_arg <- fisher.test(table(checker$PPV, checker$has_ARG)) 
+
+features_wide_FDR <- data.frame("feature" = c("M1-detection", "Sharing_w_mom", "LFS","ADS", "DS",
+                                  "ADS_DS", "MG", "VF", "ARG"), 
+                                "OR" = c(ft$estimate, ft2$estimate, ft3$estimate,fi_ads$estimate, fi_ds$estimate,
+                                  fi_ads_ds$estimate, fi_mg$estimate, fi_vf$estimate, fi_arg$estimate), 
+                                "p-value" = c(ft$p.value, ft2$p.value, ft3$p.value,fi_ads$p.value, fi_ds$p.value,
+                                  fi_ads_ds$p.value, fi_mg$p.value, fi_vf$p.value, fi_arg$p.value))
+
+features_wide_FDR$FDR <- p.adjust(features_wide_FDR$p.value, "BH")
