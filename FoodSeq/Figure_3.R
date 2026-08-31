@@ -9,7 +9,6 @@ library(ggplot2)
 library(ggpubr)
 library(cowplot)
 library(ggbeeswarm)
-library(coin)
 
 # ─────────────────────────────────────────────
 # Import PLANT data
