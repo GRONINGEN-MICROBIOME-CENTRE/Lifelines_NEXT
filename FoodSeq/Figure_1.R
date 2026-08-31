@@ -8,9 +8,7 @@ library(ggpubr)
 library(cowplot)
 library(ggbeeswarm)
 library(grid)
-library(reshape2)
 library(rstatix)
-library(coin)
 
 # ─────────────────────────────────────────────
 # Import PLANT data
