@@ -2,15 +2,12 @@
 # Libraries
 # ────────────────────────────────────────────────
 
-library(reshape2)
 library(dplyr)
 library(ggplot2)
 library(pROC)
-library(lmerTest)
+library(lme4)
 library(foreach)
 library(patchwork)
-library(NCmisc)
-library(tidyr)
 library(scales)
 library(ggbeeswarm)
 library(grid)
