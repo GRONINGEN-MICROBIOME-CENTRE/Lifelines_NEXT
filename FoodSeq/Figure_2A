@@ -10,9 +10,9 @@ library(reshape2)
 # Load data
 # ────────────────────────────────────────────────
 
-asv.counts <- read.csv("data/ASV_table.csv", row.names = 1)
+asv.counts <- read.csv("data/ASV_table_plant.csv", row.names = 1)
 LLNEXT.metadata <- read.delim("data/LLNEXT_metadata.txt")
-tax_table <- read.csv("data/tax_regrouped_single_items.csv") # individual items condensed by logic rather than ASV variation
+tax_table <- read.csv("data/tax_regrouped_single_items_plant.csv") # individual items condensed by logic rather than ASV variation
 
 # ────────────────────────────────────────────────
 # Filtering
