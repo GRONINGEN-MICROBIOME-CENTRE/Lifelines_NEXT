@@ -1,0 +1,136 @@
+# ─────────────────────────────────────────────
+# Load libraries
+# ─────────────────────────────────────────────
+
+library(dplyr)
+
+# ─────────────────────────────────────────────
+# Import data
+# ─────────────────────────────────────────────
+
+tax.table <- read.csv("Lifelines_Tax_Table_20241218.csv")
+
+# ─────────────────────────────────────────────
+# Processing food DNA to food item
+# ─────────────────────────────────────────────
+
+tax_clean <- tax.table %>% filter(!is.na(superkingdom)) # remove NAs from the tax table
+tax_clean$assigned_group <- NA # create a new column for grouping items
+
+
+# Rice and grains
+grains <- c("Oryza", "Fagopyrum", "Avena", "Hordeum", "Chenopodium", "Sorghum")
+tax_clean$assigned_group[tax_clean$genus %in% grains] <- "Rice and grains"
+
+rice_grains_asvs <- c("ATCCCTTTTTTGAAAAAACAAGTGGTTCTCAAACTAGAACCCAAAGGAAAAG")
+tax_clean$assigned_group[tax_clean$ASV %in% rice_grains_asvs] <- "Rice and grains"
+
+# Wheat
+wheat_asvs <- c("ATCCGTGTTTTGAGAAAACAAGGGGTTCTCGAACTAGAATACAAAGGAAAAG")
+tax_clean$assigned_group[tax_clean$ASV %in% wheat_asvs] <- "Wheat"
+
+# Onions, leeks, scallions, and chives
+onion_asvs <- c(
+  "ATCTTTATTTTTTGAAAAACAAGGGTTTAAAAAAGAGAATAAAAAAG", 
+  "ATCTTTCTTTTTTGAAAAACAAGGGTTTAAAAAAGAGAATAAAAAAG"
+)
+tax_clean$assigned_group[tax_clean$ASV %in% onion_asvs] <- "Onions, leeks, scallions, and chives"
+
+# Cabbage, broccoli, cauliflower, etc.
+cabbage_asvs <- c(
+  "ATCCTGGGTTACGCGAACAAACCAGAGTTTAGAAAGCGG", 
+  "ATCTTGGGTTACGCGAACAAACCAGAGTTTAGAAAGCGG"
+)
+tax_clean$assigned_group[
+  tax_clean$species == "Brassica oleracea" | tax_clean$ASV %in% cabbage_asvs
+] <- "Cabbage, broccoli, cauliflower, etc."
+
+# Lettuce, chicory, safflower, and oil palm
+lettuce_asvs <- c("ATCACGTTTTCCGAAAACAAACAAAGGTTCAGAAAGCGAAAATCAAAAAG")
+tax_clean$assigned_group[
+  tax_clean$species == "Lactuca sativa" | tax_clean$ASV %in% lettuce_asvs
+] <- "Lettuce, chicory, safflower, and oil palm"
+
+# Nuts
+nut_genera <- c(
+  "Castanea",     # Chestnut
+  "Corylus",      # Hazelnut
+  "Anacardium",   # Cashew
+  "Juglans",      # Walnut
+  "Pistacia",     # Pistachio
+  "Pinus",        # Pine nut
+  "Bertholletia", # Brazil nut
+  "Macadamia",    # Macadamia
+  "Arachis",      # Peanut
+  "Carya"         # Pecan
+)
+
+tax_clean$assigned_group[tax_clean$genus %in% nut_genera] <- "Nuts"
+
+# Psyllium
+tax_clean$assigned_group[tax_clean$genus == "Plantago"] <- "Psyllium"
+
+# Apples and pears
+apples_pears_asvs <- c("ATCCTGTTTTATGAAAATAAACAAGGGTTTCATAAACCGAAAATAAAAAAG")
+tax_clean$assigned_group[
+  tax_clean$species == "Pyrus communis" | tax_clean$ASV %in% apples_pears_asvs
+] <- "Apples and pears"
+
+# Potatoes and sweet potatoes
+potato_asvs <- c(
+  "ATCCTGTTTTCCGAAAACAAACAAAAGTTCAGAAAAAAAG",
+  "ATCCTGTTTTCTGAAAACAAACAAAGGTTCAGAAAAAAAG"
+)
+tax_clean$assigned_group[tax_clean$ASV %in% potato_asvs] <- "Potatoes and sweet potatoes"
+
+# Beans, peas, and olives (legumes)
+beans_peas_olives_genera <- c(
+  "Pisum", "Vigna", "Cicer", "Phaseolus", "Cyamopsis", 
+  "Vicia", "Lupinus", "Lens"
+)
+beans_peas_olives_asvs <- c(
+  "ATCCTGTTTTCTGAAAACAAAGAAAAATTCAGAAAGTTATAATAAAAAAGG",
+  "ATCCTGTTTTCCCAAAACAAAGGTTCAGAAAGAAAAAAG",
+  "ATCCTTCTTTCCGAAAACAAATAAAAGTTCAGAAAGTGAAAATAAAAAAAAG",
+  "ATCCTGTTTTCCGAAAACAAAGAAAAGTTCATAAAGTGATAATAAAAAAGG"
+)
+tax_clean$assigned_group[
+  tax_clean$genus %in% beans_peas_olives_genera | tax_clean$ASV %in% beans_peas_olives_asvs
+] <- "Beans, peas, and olives"
+
+# Strawberries, raspberries, blueberries, and blackberries
+berry_genera <- c("Rubus", "Vaccinium")
+berry_asvs <- c("ATCCCGTTTTATGAAAACAAACAAGGGTTTCAGAAAGCGAGAATAAATAAAG")
+tax_clean$assigned_group[
+  tax_clean$genus %in% berry_genera | tax_clean$ASV %in% berry_asvs
+] <- "Strawberries, raspberries, black raspberries, blueberries, and blackberries"
+
+# Clover
+tax_clean$assigned_group[tax_clean$genus == "Trifolium"] <- "Red and white clover"
+
+# Oregano, thyme, rosemary, sesame, mint, etc.
+minty_genus <- "Mentha"
+lamiaceae_matches <- grep("Lamiaceae", tax_clean$assignment)
+tax_clean$assigned_group[
+  tax_clean$genus == minty_genus | seq_len(nrow(tax_clean)) %in% lamiaceae_matches
+] <- "Oregano, thyme, rosemary, sesame, mint, etc"
+
+# Citrus
+tax_clean$assigned_group[tax_clean$family == "Rutaceae"] <- "Citrus"
+
+# Ginger
+tax_clean$assigned_group[tax_clean$family == "Zingiberaceae"] <- "Ginger"
+
+# No common name / specific taxa
+tax_clean$assigned_group[
+  tax_clean$ASV == "ATCACGTTTTCTGAAAACAAACAAAGGTTCAGAAAGCGAAAATAAAAAAG"
+] <- "Eclipta prostrata; Sphagneticola calendulacea"
+
+tax_clean$assigned_group[tax_clean$genus == "Tetragonia"] <- "Tetragonia"
+tax_clean$assigned_group[tax_clean$family == "Vitaceae"] <- "Grapes"
+
+
+# All the rest should remain the same
+tax_table_regrouped_plant <- tax_clean %>%
+  mutate(assigned_group = ifelse(is.na(assigned_group), common_name, assigned_group))
+
