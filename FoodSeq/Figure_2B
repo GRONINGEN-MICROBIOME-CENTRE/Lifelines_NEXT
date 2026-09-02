@@ -22,7 +22,7 @@ tax_table <- read.csv("data/tax_table_animal.csv")
 
 
 # ────────────────────────────────────────────────
-# Load data
+# Filtering
 # ────────────────────────────────────────────────
 
 # Filter out control & blank
